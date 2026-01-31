@@ -5,7 +5,24 @@ import { auth, signup, health, assets, issues, dashboard, notifications, users, 
 
 const app = express();
 
-app.use(cors({ origin: env.frontendUrl, credentials: true }));
+// Handle CORS with multiple origins
+const allowedOrigins = [
+  env.frontendUrl,
+  env.frontendUrl?.replace(/\/$/, ''), // Remove trailing slash
+  env.frontendUrl?.replace(/\/$/, '') + '/', // Add trailing slash if missing
+  // Development origins
+  'http://localhost:3000',
+  'http://localhost:3000/',
+  'https://localhost:3000',
+  'https://localhost:3000/',
+].filter(Boolean);
+
+app.use(cors({ 
+  origin: allowedOrigins, 
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 app.use('/api/health', health);
