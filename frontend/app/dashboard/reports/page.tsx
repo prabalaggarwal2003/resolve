@@ -60,16 +60,16 @@ export default function ReportsPage() {
           cost?: number;
           createdAt?: string;
         }) => [
-          escapeCsvCell(a.assetId),
-          escapeCsvCell(a.name),
-          escapeCsvCell(a.category),
-          escapeCsvCell(a.model),
-          escapeCsvCell(a.serialNumber),
-          escapeCsvCell(a.status),
+          escapeCsvCell(a.assetId || ''),
+          escapeCsvCell(a.name || ''),
+          escapeCsvCell(a.category || ''),
+          escapeCsvCell(a.model || ''),
+          escapeCsvCell(a.serialNumber || ''),
+          escapeCsvCell(a.status || ''),
           escapeCsvCell(a.locationId?.path || a.locationId?.name || ''),
-          escapeCsvCell(a.assignedTo ? `${a.assignedTo.name} (${a.assignedTo.email})` : ''),
+          escapeCsvCell(a.assignedTo ? `${a.assignedTo.name || ''} (${a.assignedTo.email || ''})` : ''),
           escapeCsvCell(a.purchaseDate ? new Date(a.purchaseDate).toLocaleDateString() : ''),
-          escapeCsvCell(a.vendor),
+          escapeCsvCell(a.vendor || ''),
           escapeCsvCell(a.cost != null ? String(a.cost) : ''),
           escapeCsvCell(a.createdAt ? new Date(a.createdAt).toISOString() : ''),
         ]
@@ -127,12 +127,12 @@ export default function ReportsPage() {
           createdAt?: string;
           updatedAt?: string;
         }) => [
-          escapeCsvCell(i.ticketId),
-          escapeCsvCell(i.title),
-          escapeCsvCell(i.category),
-          escapeCsvCell(i.status),
-          escapeCsvCell(i.assetId?.name),
-          escapeCsvCell(i.assetId?.assetId),
+          escapeCsvCell(i.ticketId || ''),
+          escapeCsvCell(i.title || ''),
+          escapeCsvCell(i.category || ''),
+          escapeCsvCell(i.status || ''),
+          escapeCsvCell(i.assetId?.name || ''),
+          escapeCsvCell(i.assetId?.assetId || ''),
           escapeCsvCell(i.reporterName || i.reporterEmail || ''),
           escapeCsvCell((i.description || '').replace(/\s+/g, ' ')),
           escapeCsvCell(i.createdAt ? new Date(i.createdAt).toISOString() : ''),
