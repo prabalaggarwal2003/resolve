@@ -5,6 +5,10 @@ const otpSchema = new mongoose.Schema(
     email: { type: String, required: true, lowercase: true },
     code: { type: String, required: true },
     expiresAt: { type: Date, required: true },
+    tempData: {
+      name: String,
+      passwordHash: String,
+    },
   },
   { timestamps: true }
 );
