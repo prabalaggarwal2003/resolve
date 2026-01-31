@@ -40,4 +40,16 @@ router.get('/me', protect, async (req, res) => {
   res.json({ user });
 });
 
+router.post('/logout', protect, async (req, res) => {
+  try {
+    // In a real implementation, you might want to:
+    // 1. Add the token to a blacklist
+    // 2. Or use short-lived tokens with refresh tokens
+    // For now, we'll just clear the client-side token
+    res.json({ message: 'Logged out successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Logout failed' });
+  }
+});
+
 export default router;

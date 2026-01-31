@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { validateEmail, validatePassword, validateName, validateOrganizationName, validateOtp, getPasswordStrength } from '../../lib/validation';
 
 const INDUSTRIES = ['IT', 'Construction', 'Healthcare', 'Education', 'Manufacturing', 'Retail', 'Other'];
 const COMPANY_SIZES = ['1-10', '11-50', '51-200', '201-1000', '1000+'];
@@ -30,10 +31,12 @@ export default function SignupPage() {
   const [orgName, setOrgName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Step 1
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordStrength, setPasswordStrength] = useState(getPasswordStrength(''));
   // Step 2
   const [otpCode, setOtpCode] = useState('');
   // Step 3
@@ -47,12 +50,37 @@ export default function SignupPage() {
   const [inviteEmails, setInviteEmails] = useState('');
 
   const resetError = () => setError('');
+  const resetFieldErrors = () => setFieldErrors({});
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    setPasswordStrength(getPasswordStrength(value));
+  };
 
   const handleStep1 = async (e: React.FormEvent) => {
     e.preventDefault();
     resetError();
+    resetFieldErrors();
     setLoading(true);
+    
     try {
+      // Validate all fields
+      const errors: Record<string, string> = {};
+      
+      const nameError = validateName(name);
+      if (nameError) errors.name = nameError;
+      
+      const emailError = validateEmail(email);
+      if (emailError) errors.email = emailError;
+      
+      const passwordError = validatePassword(password);
+      if (passwordError) errors.password = passwordError;
+      
+      if (Object.keys(errors).length > 0) {
+        setFieldErrors(errors);
+        return;
+      }
+
       const res = await fetch(api('/api/auth/signup/account'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -186,28 +214,71 @@ export default function SignupPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className={inputClass + ' mb-4'}
+                className={`${inputClass + ' mb-4'} ${fieldErrors.name ? 'border-red-500' : ''}`}
                 placeholder="e.g. Jane Smith"
               />
+              {fieldErrors.name && (
+                <p className="mb-4 text-red-600 text-sm">{fieldErrors.name}</p>
+              )}
+              
               <label className={labelClass}>Work email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className={inputClass + ' mb-4'}
+                className={`${inputClass + ' mb-4'} ${fieldErrors.email ? 'border-red-500' : ''}`}
                 placeholder="you@company.com"
               />
+              {fieldErrors.email && (
+                <p className="mb-4 text-red-600 text-sm">{fieldErrors.email}</p>
+              )}
+              
               <label className={labelClass}>Password</label>
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => handlePasswordChange(e.target.value)}
                 required
-                minLength={6}
-                className={inputClass + ' mb-6'}
-                placeholder="At least 6 characters"
+                className={`${inputClass + ' mb-2'} ${fieldErrors.password ? 'border-red-500' : ''}`}
+                placeholder="Min 8 chars: uppercase, lowercase, numbers, symbols"
               />
+              {fieldErrors.password && (
+                <p className="mb-4 text-red-600 text-sm">{fieldErrors.password}</p>
+              )}
+              
+              {password && (
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm text-slate-600">Password strength:</span>
+                    <span className={`text-sm font-medium ${
+                      passwordStrength.color === 'green' ? 'text-green-600' :
+                      passwordStrength.color === 'yellow' ? 'text-yellow-600' :
+                      passwordStrength.color === 'orange' ? 'text-orange-600' :
+                      'text-red-600'
+                    }`}>
+                      {passwordStrength.score <= 2 ? 'Weak' :
+                       passwordStrength.score <= 4 ? 'Medium' : 'Strong'}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full transition-all ${
+                        passwordStrength.color === 'green' ? 'bg-green-600' :
+                        passwordStrength.color === 'yellow' ? 'bg-yellow-600' :
+                        passwordStrength.color === 'orange' ? 'bg-orange-600' :
+                        'bg-red-600'
+                      }`}
+                      style={{ width: `${(passwordStrength.score / 6) * 100}%` }}
+                    />
+                  </div>
+                  {passwordStrength.feedback.length > 0 && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      Add: {passwordStrength.feedback.join(', ')}
+                    </p>
+                  )}
+                </div>
+              )}
               <button
                 type="submit"
                 disabled={loading}

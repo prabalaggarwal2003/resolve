@@ -5,6 +5,7 @@ import { User, Organization, Otp } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
 import { env } from '../config/env.js';
 import { sendOtpEmail, isDevBypass } from '../services/otpService.js';
+import { validateEmail, validatePassword, validateName, validateOtp, sanitizeInput } from '../utils/validation.js';
 
 const router = express.Router();
 const generateToken = (id) => jwt.sign({ id }, env.jwtSecret, { expiresIn: env.jwtExpire });
@@ -17,30 +18,42 @@ function randomOtp() {
 router.post('/account', async (req, res) => {
   try {
     const { name, email, password } = req.body;
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'Name, email and password required' });
-    }
-    if (password.length < 6) {
-      return res.status(400).json({ message: 'Password must be at least 6 characters' });
-    }
-    const existing = await User.findOne({ email: email.toLowerCase() });
+    
+    // Validate inputs
+    const nameError = validateName(name);
+    if (nameError) return res.status(400).json({ message: nameError });
+    
+    const emailError = validateEmail(email);
+    if (emailError) return res.status(400).json({ message: emailError });
+    
+    const passwordError = validatePassword(password);
+    if (passwordError) return res.status(400).json({ message: passwordError });
+    
+    // Sanitize inputs
+    const sanitizedName = sanitizeInput(name);
+    const sanitizedEmail = email.toLowerCase().trim();
+    
+    const existing = await User.findOne({ email: sanitizedEmail });
     if (existing) {
       return res.status(400).json({ message: 'Email already registered' });
     }
-    const passwordHash = await bcrypt.hash(password, 10);
+    
+    const passwordHash = await bcrypt.hash(password, 12); // Increased rounds for security
     const user = await User.create({
-      email: email.toLowerCase(),
+      email: sanitizedEmail,
       passwordHash,
-      name,
+      name: sanitizedName,
       role: 'super_admin',
       emailVerified: false,
     });
+    
     const code = randomOtp();
     await Otp.create({
       email: user.email,
       code,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
     });
+    
     await sendOtpEmail(user.email, code);
     res.status(201).json({
       needOtp: true,
@@ -48,7 +61,8 @@ router.post('/account', async (req, res) => {
       message: 'Verification code sent to your email',
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('Signup account error:', err);
+    res.status(500).json({ message: 'Failed to create account. Please try again.' });
   }
 });
 
@@ -56,12 +70,19 @@ router.post('/account', async (req, res) => {
 router.post('/verify-otp', async (req, res) => {
   try {
     const { email, code } = req.body;
-    if (!email || !code) {
-      return res.status(400).json({ message: 'Email and code required' });
-    }
+    
+    // Validate inputs
+    const emailError = validateEmail(email);
+    if (emailError) return res.status(400).json({ message: emailError });
+    
+    const otpError = validateOtp(code);
+    if (otpError) return res.status(400).json({ message: otpError });
+    
+    const sanitizedEmail = email.toLowerCase().trim();
+    
     if (isDevBypass(code)) {
       const user = await User.findOneAndUpdate(
-        { email: email.toLowerCase() },
+        { email: sanitizedEmail },
         { emailVerified: true },
         { new: true }
       );
@@ -72,25 +93,31 @@ router.post('/verify-otp', async (req, res) => {
         user: { id: user._id, email: user.email, name: user.name, role: user.role, organizationId: user.organizationId },
       });
     }
+    
     const otp = await Otp.findOne({
-      email: email.toLowerCase(),
+      email: sanitizedEmail,
       code: String(code).trim(),
     });
+    
     if (!otp) return res.status(400).json({ message: 'Invalid or expired code' });
     if (new Date() > otp.expiresAt) {
       await Otp.deleteOne({ _id: otp._id });
       return res.status(400).json({ message: 'Code expired' });
     }
+    
     await User.updateOne({ email: otp.email }, { emailVerified: true });
     await Otp.deleteOne({ _id: otp._id });
+    
     const user = await User.findOne({ email: otp.email }).lean();
     const token = generateToken(user._id);
+    
     res.json({
       token,
       user: { id: user._id, email: user.email, name: user.name, role: user.role, organizationId: user.organizationId },
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('OTP verification error:', err);
+    res.status(500).json({ message: 'Failed to verify code. Please try again.' });
   }
 });
 
