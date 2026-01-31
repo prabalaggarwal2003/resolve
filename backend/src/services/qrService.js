@@ -24,6 +24,6 @@ export async function generateQrDataUrl(url) {
  * Set FRONTEND_URL in .env — for phone scanning use your LAN IP or ngrok, e.g. http://192.168.1.5:3000
  */
 export function getAssetPublicUrl(assetId, baseUrl) {
-  const base = (baseUrl || process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+  const base = (baseUrl || process.env.FRONTEND_URL || 'https://resolve-ten.vercel.app').replace(/\/$/, '');
   return `${base}/a/${assetId}`;
 }

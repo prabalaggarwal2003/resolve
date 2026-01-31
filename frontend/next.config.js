@@ -3,7 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   async rewrites() {
     return [
-      { source: '/api/:path*', destination: 'http://localhost:4000/api/:path*' },
+      { source: '/api/:path*', destination: 'https://resolve-backend-77vy.onrender.com/api/:path*' },
     ];
   },
 };
