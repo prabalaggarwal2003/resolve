@@ -33,31 +33,34 @@ router.post('/account', async (req, res) => {
     const sanitizedName = sanitizeInput(name);
     const sanitizedEmail = email.toLowerCase().trim();
     
-    const existing = await User.findOne({ email: sanitizedEmail });
-    if (existing) {
+    // Check if user is already fully registered (verified)
+    const existingVerifiedUser = await User.findOne({ 
+      email: sanitizedEmail, 
+      emailVerified: true 
+    });
+    if (existingVerifiedUser) {
       return res.status(400).json({ message: 'Email already registered' });
     }
     
-    const passwordHash = await bcrypt.hash(password, 12); // Increased rounds for security
-    const user = await User.create({
+    // Check for pending unverified user and clean up old OTPs
+    await Otp.deleteMany({ 
       email: sanitizedEmail,
-      passwordHash,
-      name: sanitizedName,
-      role: 'super_admin',
-      emailVerified: false,
+      expiresAt: { $lt: new Date() }
     });
     
+    // Create OTP record (don't create user yet)
     const code = randomOtp();
     await Otp.create({
-      email: user.email,
+      email: sanitizedEmail,
       code,
       expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+      tempData: { name: sanitizedName, passwordHash: await bcrypt.hash(password, 12) }
     });
     
-    await sendOtpEmail(user.email, code);
+    await sendOtpEmail(sanitizedEmail, code);
     res.status(201).json({
       needOtp: true,
-      email: user.email,
+      email: sanitizedEmail,
       message: 'Verification code sent to your email',
     });
   } catch (err) {
@@ -81,12 +84,19 @@ router.post('/verify-otp', async (req, res) => {
     const sanitizedEmail = email.toLowerCase().trim();
     
     if (isDevBypass(code)) {
-      const user = await User.findOneAndUpdate(
-        { email: sanitizedEmail },
-        { emailVerified: true },
-        { new: true }
-      );
-      if (!user) return res.status(400).json({ message: 'Account not found' });
+      // For development bypass, create user immediately
+      const tempUser = await Otp.findOne({ email: sanitizedEmail }).sort({ createdAt: -1 });
+      if (!tempUser?.tempData) return res.status(400).json({ message: 'Account not found' });
+      
+      const user = await User.create({
+        email: sanitizedEmail,
+        passwordHash: tempUser.tempData.passwordHash,
+        name: tempUser.tempData.name,
+        role: 'super_admin',
+        emailVerified: true,
+      });
+      
+      await Otp.deleteMany({ email: sanitizedEmail });
       const token = generateToken(user._id);
       return res.json({
         token,
@@ -105,19 +115,84 @@ router.post('/verify-otp', async (req, res) => {
       return res.status(400).json({ message: 'Code expired' });
     }
     
-    await User.updateOne({ email: otp.email }, { emailVerified: true });
-    await Otp.deleteOne({ _id: otp._id });
-    
-    const user = await User.findOne({ email: otp.email }).lean();
-    const token = generateToken(user._id);
-    
-    res.json({
-      token,
-      user: { id: user._id, email: user.email, name: user.name, role: user.role, organizationId: user.organizationId },
-    });
+    // Create user after successful OTP verification
+    if (otp.tempData) {
+      const user = await User.create({
+        email: sanitizedEmail,
+        passwordHash: otp.tempData.passwordHash,
+        name: otp.tempData.name,
+        role: 'super_admin',
+        emailVerified: true,
+      });
+      
+      await Otp.deleteOne({ _id: otp._id });
+      const token = generateToken(user._id);
+      
+      res.json({
+        token,
+        user: { id: user._id, email: user.email, name: user.name, role: user.role, organizationId: user.organizationId },
+      });
+    } else {
+      // Handle existing unverified users (backward compatibility)
+      const user = await User.findOneAndUpdate(
+        { email: otp.email },
+        { emailVerified: true },
+        { new: true }
+      );
+      if (!user) return res.status(400).json({ message: 'Account not found' });
+      const token = generateToken(user._id);
+      res.json({
+        token,
+        user: { id: user._id, email: user.email, name: user.name, role: user.role, organizationId: user.organizationId },
+      });
+    }
   } catch (err) {
     console.error('OTP verification error:', err);
     res.status(500).json({ message: 'Failed to verify code. Please try again.' });
+  }
+});
+
+// Resend OTP endpoint
+router.post('/resend-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    // Validate email
+    const emailError = validateEmail(email);
+    if (emailError) return res.status(400).json({ message: emailError });
+    
+    const sanitizedEmail = email.toLowerCase().trim();
+    
+    // Check if user is already fully registered
+    const existingVerifiedUser = await User.findOne({ 
+      email: sanitizedEmail, 
+      emailVerified: true 
+    });
+    if (existingVerifiedUser) {
+      return res.status(400).json({ message: 'Email already registered' });
+    }
+    
+    // Clean up old OTPs
+    await Otp.deleteMany({ 
+      email: sanitizedEmail,
+      expiresAt: { $lt: new Date() }
+    });
+    
+    // Create new OTP
+    const code = randomOtp();
+    await Otp.create({
+      email: sanitizedEmail,
+      code,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+    });
+    
+    await sendOtpEmail(sanitizedEmail, code);
+    res.json({
+      message: 'New verification code sent to your email',
+    });
+  } catch (err) {
+    console.error('Resend OTP error:', err);
+    res.status(500).json({ message: 'Failed to resend code. Please try again.' });
   }
 });
 

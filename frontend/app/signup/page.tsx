@@ -32,6 +32,8 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMessage, setResendMessage] = useState('');
 
   // Step 1
   const [name, setName] = useState('');
@@ -94,6 +96,28 @@ export default function SignupPage() {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    resetError();
+    resetFieldErrors();
+    setResendLoading(true);
+    setResendMessage('');
+    
+    try {
+      const res = await fetch(api('/api/auth/signup/resend-otp'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to resend code');
+      setResendMessage('New code sent! Check your email.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to resend code');
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -317,10 +341,21 @@ export default function SignupPage() {
               >
                 {loading ? 'Verifying…' : 'Verify & continue'}
               </button>
+              {resendMessage && (
+                <p className="mt-3 text-green-600 text-sm text-center">{resendMessage}</p>
+              )}
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={resendLoading}
+                className="w-full mt-3 py-2 text-slate-600 text-sm hover:text-primary disabled:opacity-60"
+              >
+                {resendLoading ? 'Sending…' : 'Resend code'}
+              </button>
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="w-full mt-3 py-2 text-slate-600 text-sm hover:text-slate-900"
+                className="w-full mt-2 py-2 text-slate-500 text-sm hover:text-slate-700"
               >
                 Use a different email
               </button>
