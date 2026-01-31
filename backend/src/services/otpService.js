@@ -16,14 +16,19 @@ export function isDevBypass(code) {
 
 export async function sendOtpEmail(email, code) {
   try {
+    console.log(`[OTP] Attempting to send email to ${email}`);
+    console.log(`[OTP] SMTP Config: host=${process.env.SMTP_HOST}, port=${process.env.SMTP_PORT}, user=${process.env.SMTP_USER}`);
+    
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_SECURE === 'true',
+      port: parseInt(process.env.SMTP_PORT || '465'),
+      secure: process.env.SMTP_PORT === '465' ? true : (process.env.SMTP_SECURE === 'true'),
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
+      timeout: 15000, // 15 second timeout
+      debug: true, // Enable debug logging
     });
 
     const mailOptions = {
@@ -34,10 +39,11 @@ export async function sendOtpEmail(email, code) {
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`[OTP] Email sent to ${email}`);
+    console.log(`[OTP] Email sent successfully to ${email}`);
     return true;
   } catch (err) {
     console.error(`[OTP] SMTP Error:`, err.message);
+    console.error(`[OTP] Full Error:`, err);
     console.log(`[OTP] ${email} → ${code} (valid 10 min) - FALLBACK`);
     return true;
   }
