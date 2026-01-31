@@ -37,7 +37,8 @@ export async function sendOtpEmail(email, code) {
     console.log(`[OTP] Email sent to ${email}`);
     return true;
   } catch (err) {
-    console.log(`[OTP] ${email} → ${code} (valid 10 min)`);
+    console.error(`[OTP] SMTP Error:`, err.message);
+    console.log(`[OTP] ${email} → ${code} (valid 10 min) - FALLBACK`);
     return true;
   }
 }
