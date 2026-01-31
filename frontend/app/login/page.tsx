@@ -66,7 +66,7 @@ export default function LoginPage() {
           </button>
         </form>
         <p className="mt-6 text-slate-600 text-sm">
-          <Link href="/">Back to home</Link> · <Link href="/register">Create account</Link>
+          <Link href="/">Back to home</Link> · <Link href="/signup">Create account</Link>
         </p>
       </div>
     </main>
