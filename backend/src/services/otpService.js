@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { env } from '../config/env.js';
 
 /**
  * OTP sending: if SMTP env vars are set, send email; otherwise log to console.
@@ -17,22 +18,22 @@ export function isDevBypass(code) {
 export async function sendOtpEmail(email, code) {
   try {
     console.log(`[OTP] Attempting to send email to ${email}`);
-    console.log(`[OTP] SMTP Config: host=${process.env.SMTP_HOST}, port=${process.env.SMTP_PORT}, user=${process.env.SMTP_USER}`);
+    console.log(`[OTP] SMTP Config: host=${env.smtpHost}, port=${env.smtpPort}, user=${env.smtpUser}`);
     
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '465'),
-      secure: process.env.SMTP_PORT === '465' ? true : (process.env.SMTP_SECURE === 'true'),
+      host: env.smtpHost,
+      port: parseInt(env.smtpPort || '465'),
+      secure: env.smtpPort === '465' ? true : (env.smtpSecure === 'true'),
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: env.smtpUser,
+        pass: env.smtpPass,
       },
       timeout: 15000, // 15 second timeout
       debug: true, // Enable debug logging
     });
 
     const mailOptions = {
-      from: `"Resolve" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
+      from: `"${env.smtpFromName || 'Resolve'}" <${env.smtpFromEmail || env.smtpUser}>`,
       to: email,
       subject: 'Verify your Resolve account',
       html: `<h2>Verification Code: ${code}</h2><p>This code expires in 10 minutes.</p>`,
