@@ -15,11 +15,53 @@ export function isDevBypass(code) {
   return bypass && code === bypass;
 }
 
+// SendGrid API fallback (more reliable than SMTP)
+async function sendViaSendGridAPI(email, code) {
+  try {
+    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.smtpPass}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        personalizations: [{
+          to: [{ email }],
+          subject: 'Verify your Resolve account',
+        }],
+        from: { email: env.smtpFromEmail, name: env.smtpFromName || 'Resolve' },
+        content: [{
+          type: 'text/html',
+          value: `<h2>Verification Code: ${code}</h2><p>This code expires in 10 minutes.</p>`,
+        }],
+      }),
+    });
+
+    if (response.ok) {
+      console.log(`[OTP] Email sent via SendGrid API to ${email}`);
+      return true;
+    } else {
+      throw new Error(`SendGrid API error: ${response.status}`);
+    }
+  } catch (err) {
+    console.error(`[OTP] SendGrid API Error:`, err.message);
+    return false;
+  }
+}
+
 export async function sendOtpEmail(email, code) {
   try {
     console.log(`[OTP] Attempting to send email to ${email}`);
     console.log(`[OTP] SMTP Config: host=${env.smtpHost}, port=${env.smtpPort}, user=${env.smtpUser}`);
     
+    // Try SendGrid API first (more reliable)
+    if (env.smtpHost === 'smtp.sendgrid.net' && env.smtpPass?.startsWith('SG.')) {
+      const apiSuccess = await sendViaSendGridAPI(email, code);
+      if (apiSuccess) return true;
+      console.log(`[OTP] API failed, trying SMTP fallback...`);
+    }
+    
+    // SMTP fallback
     const transporter = nodemailer.createTransport({
       host: env.smtpHost,
       port: parseInt(env.smtpPort || '465'),
