@@ -20,12 +20,6 @@ export default function HomePage() {
         >
           Sign in
         </Link>
-        <Link
-          href="/dashboard"
-          className="px-6 py-3 text-slate-600 hover:text-slate-900"
-        >
-          Dashboard
-        </Link>
       </div>
     </main>
   );
