@@ -117,12 +117,22 @@ router.post('/verify-otp', async (req, res) => {
     
     // Create user after successful OTP verification
     if (otp.tempData) {
+      console.log(`[DEBUG] Creating user for email: ${sanitizedEmail}`);
+      console.log(`[DEBUG] User will have organizationId: undefined (should be null initially)`);
+      
       const user = await User.create({
         email: sanitizedEmail,
         passwordHash: otp.tempData.passwordHash,
         name: otp.tempData.name,
         role: 'super_admin',
         emailVerified: true,
+      });
+      
+      console.log(`[DEBUG] Created user:`, {
+        id: user._id,
+        email: user.email,
+        organizationId: user.organizationId,
+        role: user.role
       });
       
       await Otp.deleteOne({ _id: otp._id });
@@ -203,9 +213,16 @@ router.post('/organization', protect, async (req, res) => {
     if (!orgName) {
       return res.status(400).json({ message: 'Organization name required' });
     }
+    
+    console.log(`[DEBUG] Creating organization for user: ${req.user._id}`);
+    console.log(`[DEBUG] User current organizationId: ${req.user.organizationId}`);
+    
     if (req.user.organizationId) {
+      console.log(`[DEBUG] User already has organization, returning error`);
       return res.status(400).json({ message: 'Organization already set' });
     }
+    
+    console.log(`[DEBUG] Creating new organization: ${orgName}`);
     const org = await Organization.create({
       name: orgName,
       industry: industry || undefined,
@@ -213,14 +230,25 @@ router.post('/organization', protect, async (req, res) => {
       country: country || undefined,
       region: region || undefined,
     });
+    
+    console.log(`[DEBUG] Created organization:`, {
+      id: org._id,
+      name: org.name
+    });
+    
+    console.log(`[DEBUG] Updating user ${req.user._id} with organizationId ${org._id}`);
     await User.updateOne(
       { _id: req.user._id },
       { organizationId: org._id }
     );
+    
+    console.log(`[DEBUG] User updated successfully`);
+    
     res.status(201).json({
       org: { id: org._id, name: org.name, industry: org.industry, companySize: org.companySize, country: org.country },
     });
   } catch (err) {
+    console.error(`[DEBUG] Organization creation error:`, err);
     res.status(500).json({ message: err.message });
   }
 });

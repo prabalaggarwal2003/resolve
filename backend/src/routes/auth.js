@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { User } from '../models/index.js';
+import { User, Organization } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
 import { env } from '../config/env.js';
 
@@ -34,9 +34,16 @@ router.post('/login', async (req, res) => {
 
 router.get('/me', protect, async (req, res) => {
   const user = await User.findById(req.user._id)
-    .populate('organizationId', 'name industry companySize country primaryGoal estimatedAssets')
     .select('-passwordHash')
     .lean();
+  
+  // Only populate organizationId if user actually has one
+  if (user.organizationId) {
+    user.organizationId = await Organization.findById(user.organizationId)
+      .select('name industry companySize country primaryGoal estimatedAssets')
+      .lean();
+  }
+  
   res.json({ user });
 });
 
