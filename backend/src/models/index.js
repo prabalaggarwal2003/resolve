@@ -8,3 +8,4 @@ export { default as Issue } from './Issue.js';
 export { default as AssetLog } from './AssetLog.js';
 export { default as AuditLog } from './AuditLog.js';
 export { default as Notification } from './Notification.js';
+export { default as RateLimit } from './RateLimit.js';

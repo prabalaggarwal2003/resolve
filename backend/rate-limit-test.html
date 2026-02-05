@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Reporting with Previous Issues</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .asset-info {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .asset-info h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        .asset-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .detail-item {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #666;
+            font-size: 12px;
+        }
+        .detail-value {
+            color: #333;
+            margin-top: 2px;
+        }
+        
+        .previous-issues {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .issues-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .issues-header h3 {
+            margin: 0;
+            color: #333;
+        }
+        .issue-count {
+            background: #007bff;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        
+        .issue {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+        .issue.in-progress {
+            border-left-color: #ffc107;
+        }
+        .issue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        .issue-title {
+            font-weight: bold;
+            color: #333;
+            margin: 0;
+            flex: 1;
+        }
+        .issue-status {
+            background: #007bff;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        .issue-status.in-progress {
+            background: #ffc107;
+        }
+        .issue-meta {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .issue-description {
+            color: #333;
+            line-height: 1.4;
+        }
+        .reports-count {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+            font-style: italic;
+        }
+        .no-issues {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .countdown {
+            font-weight: bold;
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <h1>QR Code Reporting System</h1>
+    <p>This page simulates scanning a QR code and shows previous issues for the asset.</p>
+    
+    <div id="assetInfo" class="asset-info">
+        <h2>Loading asset information...</h2>
+        <div class="asset-details"></div>
+    </div>
+    
+    <div id="previousIssues" class="previous-issues" style="display: none;">
+        <div class="issues-header">
+            <h3>Previous Issues</h3>
+            <span class="issue-count" id="issueCount">0</span>
+        </div>
+        <div id="issuesList"></div>
+    </div>
+    
+    <form id="reportForm">
+        <h3>Report New Issue</h3>
+        <div class="form-group">
+            <label for="reporterName">Your Name:</label>
+            <input type="text" id="reporterName" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="reporterEmail">Your Email:</label>
+            <input type="email" id="reporterEmail" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="issueType">Issue Type:</label>
+            <select id="issueType">
+                <option value="repair">Repair</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="damage">Damage</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="description">Description:</label>
+            <textarea id="description" rows="4" required placeholder="Please describe the issue in detail..."></textarea>
+        </div>
+        
+        <button type="submit" id="submitBtn">Submit Report</button>
+    </form>
+    
+    <div id="message"></div>
+    
+    <script>
+        let assetData = {};
+        let countdownInterval;
+        
+        // Load asset data when page loads
+        window.addEventListener('load', loadAssetData);
+        
+        async function loadAssetData() {
+            const assetId = '69845d5ebd37b6d67e6626d6'; // Test asset ID
+            const assetInfo = document.getElementById('assetInfo');
+            const previousIssues = document.getElementById('previousIssues');
+            
+            try {
+                const response = await fetch(`/api/public/assets/${assetId}`);
+                const asset = await response.json();
+                
+                assetData = asset; // Direct assignment since API returns asset object
+                displayAssetInfo();
+                displayPreviousIssues(asset.previousIssues || []);
+                
+                if (asset.previousIssues && asset.previousIssues.length > 0) {
+                    previousIssues.style.display = 'block';
+                }
+            } catch (error) {
+                    assetInfo.innerHTML = `<h2>Error loading asset information</h2><p>${error.message}</p>`;
+                }
+        }
+        
+        function displayAssetInfo() {
+            const assetInfo = document.getElementById('assetInfo');
+            const detailsDiv = assetInfo.querySelector('.asset-details');
+            
+            assetInfo.querySelector('h2').textContent = assetData.name;
+            
+            detailsDiv.innerHTML = `
+                <div class="detail-item">
+                    <div class="detail-label">Asset ID:</div>
+                    <div class="detail-value">${assetData.assetId}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Category:</div>
+                    <div class="detail-value">${assetData.category}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Status:</div>
+                    <div class="detail-value">${assetData.status}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Location:</div>
+                    <div class="detail-value">${assetData.locationId?.name || 'Not specified'}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Department:</div>
+                    <div class="detail-value">${assetData.departmentId?.name || 'Not specified'}</div>
+                </div>
+            `;
+        }
+        
+        function displayPreviousIssues(issues) {
+            const issuesList = document.getElementById('issuesList');
+            const issueCount = document.getElementById('issueCount');
+            
+            issueCount.textContent = issues.length;
+            
+            if (issues.length === 0) {
+                issuesList.innerHTML = '<div class="no-issues">No previous issues found for this asset.</div>';
+                return;
+            }
+            
+            issuesList.innerHTML = issues.map(issue => `
+                <div class="issue ${issue.status === 'in_progress' ? 'in-progress' : ''}">
+                    <div class="issue-header">
+                        <div class="issue-title">${issue.title}</div>
+                        <span class="issue-status ${issue.status === 'in_progress' ? 'in-progress' : ''}">${issue.status.replace('_', ' ')}</span>
+                    </div>
+                    <div class="issue-meta">
+                        Ticket: ${issue.ticketId} | Reported: ${new Date(issue.createdAt).toLocaleString()}
+                    </div>
+                    <div class="issue-description">${issue.description}</div>
+                    ${issue.reports.length > 1 ? `<div class="reports-count">${issue.reports.length} reports for this issue</div>` : ''}
+                </div>
+            `).join('');
+        }
+        
+        document.getElementById('reportForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const messageDiv = document.getElementById('message');
+            
+            const data = {
+                assetId: assetData._id,
+                reporterName: document.getElementById('reporterName').value,
+                reporterEmail: document.getElementById('reporterEmail').value,
+                issueType: document.getElementById('issueType').value,
+                description: document.getElementById('description').value
+            };
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+            
+            try {
+                const response = await fetch('/api/public/report', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    messageDiv.innerHTML = `
+                        <div class="success">
+                            <strong>${result.message}</strong><br>
+                            Ticket ID: ${result.ticketId}<br>
+                            Issue ID: ${result.issueId}
+                        </div>
+                    `;
+                    
+                    // Reload asset data to show updated issues
+                    setTimeout(() => {
+                        loadAssetData();
+                    }, 1000);
+                    
+                    if (result.timeRemaining) {
+                        startCountdown(result.timeRemaining, result.nextReportAt);
+                    }
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                messageDiv.innerHTML = `
+                    <div class="error">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+                }
+                
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Report';
+            });
+        
+        function startCountdown(minutes, nextReportAt) {
+            const messageDiv = document.getElementById('message');
+            let remainingMinutes = minutes;
+            
+            // Clear any existing countdown
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+            
+            countdownInterval = setInterval(() => {
+                if (remainingMinutes <= 0) {
+                    clearInterval(countdownInterval);
+                    messageDiv.innerHTML = `
+                        <div class="success">
+                            <strong>You can now submit a new report!</strong>
+                        </div>
+                    `;
+                    document.getElementById('submitBtn').disabled = false;
+                    return;
+                }
+                
+                const nextReportTime = new Date(nextReportAt);
+                messageDiv.innerHTML = `
+                    <div class="warning">
+                        <strong>Rate Limit Active</strong><br>
+                        You can report again in: <span class="countdown">${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''}</span><br>
+                        Next report available at: ${nextReportTime.toLocaleString()}
+                    </div>
+                `;
+                
+                remainingMinutes--;
+            }, 60000); // Update every minute
+        }
+    </script>
+</body>
+</html>

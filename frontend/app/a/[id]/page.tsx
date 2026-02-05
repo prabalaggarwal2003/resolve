@@ -108,6 +108,28 @@ export default function PublicAssetPage() {
           Details
         </h2>
         <dl className="space-y-2 text-sm">
+          {asset.purchaseDate && (
+            <div>
+              <dt className="text-slate-500">Purchase date</dt>
+              <dd className="font-medium">
+                {new Date(asset.purchaseDate).toLocaleDateString()}
+              </dd>
+            </div>
+          )}
+          {asset.cost && (
+            <div>
+              <dt className="text-slate-500">Cost</dt>
+              <dd className="font-medium">
+                {asset.cost.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+              </dd>
+            </div>
+          )}
+          {asset.vendor && (
+            <div>
+              <dt className="text-slate-500">Vendor</dt>
+              <dd className="font-medium">{asset.vendor}</dd>
+            </div>
+          )}
           {asset.locationId?.path && (
             <div>
               <dt className="text-slate-500">Location</dt>

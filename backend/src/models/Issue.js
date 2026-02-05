@@ -15,6 +15,7 @@ const issueSchema = new mongoose.Schema(
   {
     ticketId: { type: String, required: true, unique: true }, // e.g. ISS-2024-001
     assetId: { type: mongoose.Schema.Types.ObjectId, ref: 'Asset', required: true },
+    organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
     reportedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // optional for public reports
     reporterName: String,
     reporterEmail: String,
@@ -47,5 +48,6 @@ issueSchema.index({ assetId: 1, status: 1, category: 1 });
 issueSchema.index({ status: 1 });
 issueSchema.index({ assignedTo: 1 });
 issueSchema.index({ createdAt: -1 });
+issueSchema.index({ organizationId: 1 });
 
 export default mongoose.model('Issue', issueSchema);

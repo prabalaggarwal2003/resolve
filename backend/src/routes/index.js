@@ -9,5 +9,6 @@ import users from './users.js';
 import locations from './locations.js';
 import departments from './departments.js';
 import publicRoutes from './public.js';
+import organization from './organization.js';
 
-export { auth, signup, health, assets, issues, dashboard, notifications, users, locations, departments, publicRoutes };
+export { auth, signup, health, assets, issues, dashboard, notifications, users, locations, departments, publicRoutes, organization };

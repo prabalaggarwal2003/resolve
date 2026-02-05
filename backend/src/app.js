@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { env } from './config/env.js';
-import { auth, signup, health, assets, issues, dashboard, notifications, users, locations, departments, publicRoutes } from './routes/index.js';
+import { auth, signup, health, assets, issues, dashboard, notifications, users, locations, departments, publicRoutes, organization } from './routes/index.js';
 
 const app = express();
 
@@ -29,6 +29,7 @@ app.use('/api/health', health);
 app.use('/api/public', publicRoutes);
 app.use('/api/auth', auth);
 app.use('/api/auth/signup', signup);
+app.use('/api/organization', organization);
 app.use('/api/assets', assets);
 app.use('/api/issues', issues);
 app.use('/api/dashboard', dashboard);
