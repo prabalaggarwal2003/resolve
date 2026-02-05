@@ -16,27 +16,25 @@ router.get('/summary', async (req, res) => {
     todayStart.setHours(0, 0, 0, 0);
     const userId = req.user._id;
     const userEmail = req.user.email?.toLowerCase();
-    const assetFilter = assetFilterForUser(req.user);
-    let issueFilter = {};
-    if (canViewAll(req.user)) {
-      issueFilter = {};
-    } else if (isHod(req.user) && req.user.departmentId) {
-      const assetIds = (await Asset.find({ departmentId: req.user.departmentId }).select('_id').lean()).map((a) => a._id);
-      issueFilter = { assetId: { $in: assetIds } };
+    const assetFilter = assetFilterForUser(req.user) || { _id: { $exists: false } };
+    // Build issue filter using shared helper to ensure org scoping
+    let roleAssetIds = null;
+    if (isHod(req.user) && req.user.departmentId) {
+      const assets = await Asset.find({ departmentId: req.user.departmentId }).select('_id').lean();
+      roleAssetIds = assets.map((a) => a._id);
     } else if (isLabTechnician(req.user) && req.user.assignedLocationIds?.length) {
-      const assetIds = (await Asset.find({ locationId: { $in: req.user.assignedLocationIds } }).select('_id').lean()).map((a) => a._id);
-      issueFilter = { assetId: { $in: assetIds } };
-    } else {
-      issueFilter = { $or: [{ reportedBy: userId }, { reporterEmail: userEmail }] };
+      const assets = await Asset.find({ locationId: { $in: req.user.assignedLocationIds } }).select('_id').lean();
+      roleAssetIds = assets.map((a) => a._id);
     }
+    const baseIssueFilter = issueFilterForUser(req.user, roleAssetIds) || { _id: { $exists: false } };
     const [totalAssets, openIssues, inProgressIssues, completedToday, myAssets, myReports, pendingReports] = await Promise.all([
       Asset.countDocuments(assetFilter),
-      Issue.countDocuments({ ...issueFilter, status: 'open' }),
-      Issue.countDocuments({ ...issueFilter, status: 'in_progress' }),
-      Issue.countDocuments({ ...issueFilter, status: 'completed', resolvedAt: { $gte: todayStart } }),
-      canReportOnly(req.user) ? Asset.countDocuments({ assignedTo: userId }) : Asset.countDocuments(assetFilter),
-      Issue.countDocuments({ $or: [{ reportedBy: userId }, { reporterEmail: userEmail }] }),
-      canViewAll(req.user) ? Issue.countDocuments({ status: { $in: ['open', 'in_progress'] } }) : Issue.countDocuments({ ...issueFilter, status: { $in: ['open', 'in_progress'] } }),
+      Issue.countDocuments({ ...baseIssueFilter, status: 'open' }),
+      Issue.countDocuments({ ...baseIssueFilter, status: 'in_progress' }),
+      Issue.countDocuments({ ...baseIssueFilter, status: 'completed', resolvedAt: { $gte: todayStart } }),
+      canReportOnly(req.user) ? Asset.countDocuments({ ...assetFilter, assignedTo: userId }) : Asset.countDocuments(assetFilter),
+      Issue.countDocuments({ ...baseIssueFilter, $or: [{ reportedBy: userId }, { reporterEmail: userEmail }] }),
+      Issue.countDocuments({ ...baseIssueFilter, status: { $in: ['open', 'in_progress'] } }),
     ]);
     res.json({
       totalAssets,

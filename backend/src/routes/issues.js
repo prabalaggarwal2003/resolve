@@ -4,6 +4,7 @@ import { protect } from '../middleware/auth.js';
 import { logAudit } from '../services/auditService.js';
 import { issueFilterForUser, canEdit, canViewAll, isHod, isLabTechnician, assignIssueToUsers } from '../services/permissions.js';
 import { generateTicketId } from '../services/ticketId.js';
+import { getDeviceFingerprint, canReport, recordReportAttempt } from '../utils/rateLimiter.js';
 
 const router = express.Router();
 
@@ -37,7 +38,7 @@ function formatAssignedToList(assignedTo) {
 router.get('/', async (req, res) => {
   try {
     const { assetId, status, myReports, page = 1, limit = 50 } = req.query;
-    let filter = {};
+    let filter = { organizationId: req.user.organizationId };
     if (assetId) filter.assetId = assetId;
     if (status) filter.status = status;
     if (myReports === 'true' || myReports === true) {
@@ -46,18 +47,25 @@ router.get('/', async (req, res) => {
         { reporterEmail: req.user.email?.toLowerCase() },
       ];
     } else {
-      let roleAssetIds = null;
-      if (isHod(req.user) && req.user.departmentId) {
-        const assets = await Asset.find({ departmentId: req.user.departmentId }).select('_id').lean();
-        roleAssetIds = assets.map((a) => a._id);
-      } else if (isLabTechnician(req.user) && req.user.assignedLocationIds?.length) {
-        const assets = await Asset.find({ locationId: { $in: req.user.assignedLocationIds } }).select('_id').lean();
-        roleAssetIds = assets.map((a) => a._id);
-      }
-      const roleFilter = issueFilterForUser(req.user, roleAssetIds);
-      if (roleFilter && Object.keys(roleFilter).length) {
-        filter = { ...filter, ...roleFilter };
-      }
+      // ROLE-BASED ACCESS DISABLED - Only organization filtering active
+      // let roleAssetIds = null;
+      // if (isHod(req.user) && req.user.departmentId) {
+      //   const assets = await Asset.find({ 
+      //     departmentId: req.user.departmentId,
+      //     organizationId: req.user.organizationId 
+      //   }).select('_id').lean();
+      //   roleAssetIds = assets.map((a) => a._id);
+      // } else if (isLabTechnician(req.user) && req.user.assignedLocationIds?.length) {
+      //   const assets = await Asset.find({ 
+      //     locationId: { $in: req.user.assignedLocationIds },
+      //     organizationId: req.user.organizationId 
+      //   }).select('_id').lean();
+      //   roleAssetIds = assets.map((a) => a._id);
+      // }
+      // const roleFilter = issueFilterForUser(req.user, roleAssetIds);
+      // if (roleFilter && Object.keys(roleFilter).length) {
+      //   filter = { ...filter, ...roleFilter };
+      // }
     }
     const skip = (Number(page) - 1) * Number(limit);
     const [issues, total] = await Promise.all([
@@ -209,10 +217,27 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ message: 'Asset ID and title are required' });
     }
     
-    // Get asset to determine department
-    const asset = await Asset.findById(assetId).select('departmentId').lean();
+    // Rate limiting check for authenticated users
+    const deviceId = getDeviceFingerprint(req);
+    const rateLimitCheck = await canReport(deviceId, assetId);
+    
+    if (!rateLimitCheck.canReport) {
+      return res.status(429).json({
+        message: `You can report again after ${rateLimitCheck.timeRemaining} minutes`,
+        nextReportAt: rateLimitCheck.nextReportAt,
+        timeRemaining: rateLimitCheck.timeRemaining
+      });
+    }
+    
+    // Get asset to determine department and organization
+    const asset = await Asset.findById(assetId).select('departmentId organizationId').lean();
     if (!asset) {
       return res.status(404).json({ message: 'Asset not found' });
+    }
+    
+    // Verify the asset belongs to the user's organization (security check)
+    if (asset.organizationId?.toString() !== req.user.organizationId?.toString()) {
+      return res.status(403).json({ message: 'You can only report issues for assets in your organization' });
     }
     
     // Create issue
@@ -220,6 +245,7 @@ router.post('/', async (req, res) => {
     const issueData = {
       ticketId,
       assetId,
+      organizationId: asset.organizationId, // Inherit from asset, not user
       title,
       description,
       category: category || 'repair',
@@ -233,8 +259,11 @@ router.post('/', async (req, res) => {
     
     const issue = await Issue.create(issueData);
     
-    // Assign to superadmin and lab technicians
-    await assignIssueToUsers(issue._id, asset.departmentId);
+    // Assign to superadmin and lab technicians within the same organization as the asset
+    await assignIssueToUsers(issue._id, asset.departmentId, asset.organizationId);
+    
+    // Record the report attempt for rate limiting
+    await recordReportAttempt(deviceId, assetId, req);
     
     await logAudit(req.user._id, 'issue.created', 'issue', issue._id, { 
       ticketId, 

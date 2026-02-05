@@ -17,7 +17,7 @@ function requireCanEdit(req, res, next) {
 router.get('/', async (req, res) => {
   try {
     const { parentId, type } = req.query;
-    const filter = {};
+    const filter = { organizationId: req.user.organizationId };
     if (parentId !== undefined) filter.parentId = parentId || null;
     if (type) filter.type = type;
     const locations = await Location.find(filter).sort({ name: 1 }).lean();
@@ -29,7 +29,10 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const location = await Location.findById(req.params.id).lean();
+    const location = await Location.findOne({ 
+      _id: req.params.id, 
+      organizationId: req.user.organizationId 
+    }).lean();
     if (!location) return res.status(404).json({ message: 'Location not found' });
     res.json(location);
   } catch (err) {
@@ -43,7 +46,25 @@ router.post('/', requireCanEdit, async (req, res) => {
     if (!name || !type) {
       return res.status(400).json({ message: 'name and type are required' });
     }
-    const location = await Location.create({ name, type, parentId: parentId || null, code });
+    
+    // Verify parentId belongs to same organization if provided
+    if (parentId) {
+      const parentLocation = await Location.findOne({ 
+        _id: parentId, 
+        organizationId: req.user.organizationId 
+      });
+      if (!parentLocation) {
+        return res.status(400).json({ message: 'Invalid parent location' });
+      }
+    }
+    
+    const location = await Location.create({ 
+      name, 
+      type, 
+      parentId: parentId || null, 
+      code,
+      organizationId: req.user.organizationId 
+    });
     res.status(201).json(location);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -56,9 +77,26 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
     const update = {};
     if (name !== undefined) update.name = name;
     if (type !== undefined) update.type = type;
-    if (parentId !== undefined) update.parentId = parentId || null;
+    if (parentId !== undefined) {
+      // Verify parentId belongs to same organization if provided
+      if (parentId) {
+        const parentLocation = await Location.findOne({ 
+          _id: parentId, 
+          organizationId: req.user.organizationId 
+        });
+        if (!parentLocation) {
+          return res.status(400).json({ message: 'Invalid parent location' });
+        }
+      }
+      update.parentId = parentId || null;
+    }
     if (code !== undefined) update.code = code;
-    const location = await Location.findByIdAndUpdate(req.params.id, update, { new: true }).lean();
+    
+    const location = await Location.findOneAndUpdate(
+      { _id: req.params.id, organizationId: req.user.organizationId }, 
+      update, 
+      { new: true }
+    ).lean();
     if (!location) return res.status(404).json({ message: 'Location not found' });
     res.json(location);
   } catch (err) {
@@ -68,14 +106,16 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
 
 router.delete('/:id', requireCanEdit, async (req, res) => {
   try {
-    const location = await Location.findById(req.params.id).lean();
+    const location = await Location.findOneAndDelete({ 
+      _id: req.params.id, 
+      organizationId: req.user.organizationId 
+    });
     if (!location) return res.status(404).json({ message: 'Location not found' });
-    const children = await Location.countDocuments({ parentId: req.params.id });
-    if (children > 0) {
-      return res.status(400).json({ message: 'Cannot delete: location has child locations. Remove or reassign them first.' });
-    }
-    await Location.deleteOne({ _id: req.params.id });
-    res.json({ message: 'Location deleted' });
+    
+    // Also delete child locations
+    await Location.deleteMany({ parentId: req.params.id });
+    
+    res.json({ message: 'Location deleted successfully' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
