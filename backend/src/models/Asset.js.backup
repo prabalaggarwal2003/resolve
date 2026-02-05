@@ -34,11 +34,55 @@ const assetSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Virtual field for age calculation
+assetSchema.virtual('age').get(function() {
+  if (!this.purchaseDate) return null;
+  
+  const today = new Date();
+  const purchaseDate = new Date(this.purchaseDate);
+  
+  // Calculate total days first
+  const totalDays = Math.floor((today - purchaseDate) / (1000 * 60 * 60 * 24));
+  
+  // Convert to years and months if days exceed 30
+  let years = 0;
+  let months = 0;
+  let remainingDays = totalDays;
+  
+  if (totalDays >= 365) {
+    years = Math.floor(totalDays / 365);
+    remainingDays = totalDays % 365;
+  }
+  
+  if (remainingDays >= 30) {
+    months = Math.floor(remainingDays / 30);
+    remainingDays = remainingDays % 30;
+  }
+  
+  return {
+    years,
+    months,
+    totalDays,
+    remainingDays,
+    formatted: years > 0 
+      ? `${years} year${years !== 1 ? 's' : ''}${months > 0 ? `, ${months} month${months !== 1 ? 's' : ''}${remainingDays > 0 ? `, ${remainingDays} day${remainingDays !== 1 ? 's' : ''}` : ''}`
+      : months > 0 
+        ? `${months} month${months !== 1 ? 's' : ''}${remainingDays > 0 ? `, ${remainingDays} day${remainingDays !== 1 ? 's' : ''}` : ''}`
+        : `${totalDays} day${totalDays !== 1 ? 's' : ''}`
+  };
+});
+
+// Ensure virtual fields are included in JSON output
+assetSchema.set('toJSON', { virtuals: true });
+assetSchema.set('toObject', { virtuals: true });
+
 assetSchema.index({ assetId: 1 }, { unique: true });
 assetSchema.index({ serialNumber: 1 });
 assetSchema.index({ category: 1 });
 assetSchema.index({ locationId: 1 });
+
 assetSchema.index({ status: 1 });
+
 assetSchema.index({ name: 1, locationId: 1 });
 assetSchema.index({ model: 1, vendor: 1, purchaseDate: 1 });
 assetSchema.index({ assignedTo: 1 });

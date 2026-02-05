@@ -103,7 +103,12 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', requireCanEdit, async (req, res) => {
   try {
-    const body = { ...req.body, createdBy: req.user._id, updatedBy: req.user._id };
+    const body = { 
+      ...req.body, 
+      createdBy: req.user._id, 
+      updatedBy: req.user._id,
+      organizationId: req.user.organizationId,
+    };
     const asset = await Asset.create(body);
     const url = getAssetPublicUrl(asset._id.toString(), env.frontendUrl);
     const qrCodeUrl = await generateQrDataUrl(url);

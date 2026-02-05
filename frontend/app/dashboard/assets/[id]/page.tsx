@@ -111,7 +111,7 @@ export default function AssetDetailPage() {
     } finally {
       setDeleting(false);
     }
-  };
+  }
 
   if (loading) return <p className="text-slate-600">Loading…</p>;
   if (error || !asset) {

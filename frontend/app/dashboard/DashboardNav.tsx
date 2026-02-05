@@ -47,6 +47,11 @@ export default function DashboardNav() {
           Users & Roles
         </Link>
       )}
+      {role === 'super_admin' && (
+        <Link href="/dashboard/organization" className="px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100">
+          Organization
+        </Link>
+      )}
       <NotificationsLink />
     </nav>
   );
