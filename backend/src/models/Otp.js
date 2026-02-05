@@ -8,6 +8,7 @@ const otpSchema = new mongoose.Schema(
     tempData: {
       name: String,
       passwordHash: String,
+      organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
     },
   },
   { timestamps: true }

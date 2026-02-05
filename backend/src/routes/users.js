@@ -19,7 +19,7 @@ router.get('/', async (req, res) => {
     }
     
     const { departmentId } = req.query;
-    let filter = { isActive: true };
+    let filter = { isActive: true, organizationId: req.user.organizationId };
     
     // Apply department filter if provided and user has department
     if (departmentId) {
