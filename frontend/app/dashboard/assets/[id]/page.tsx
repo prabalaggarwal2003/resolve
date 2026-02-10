@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import dayjs from 'dayjs';
 
 type Asset = {
   _id: string;
@@ -60,6 +61,24 @@ const ISSUE_STATUS_CLASSES: Record<string, string> = {
 function api(path: string) {
   const base = process.env.NEXT_PUBLIC_API_URL || '';
   return base ? `${base}${path}` : path;
+}
+
+function calculateAssetAge(purchaseDate: string | undefined): string {
+  if (!purchaseDate) return '';
+
+  const purchase = dayjs(purchaseDate);
+  const now = dayjs();
+
+  const years = now.diff(purchase, 'year');
+  const months = now.diff(purchase, 'month') % 12;
+  const days = now.diff(purchase.add(years, 'year').add(months, 'month'), 'day');
+
+  const parts = [];
+  if (years > 0) parts.push(`${years} year${years > 1 ? 's' : ''}`);
+  if (months > 0) parts.push(`${months} month${months > 1 ? 's' : ''}`);
+  if (days > 0 && years === 0) parts.push(`${days} day${days > 1 ? 's' : ''}`);
+
+  return parts.length > 0 ? parts.join(', ') : 'Less than a day';
 }
 
 export default function AssetDetailPage() {
@@ -214,7 +233,17 @@ export default function AssetDetailPage() {
           <Item label="Assigned to" value={asset.assignedTo?.name} />
           <Item label="Location" value={asset.locationId?.path || asset.locationId?.name} />
           <Item label="Department" value={asset.departmentId?.name} />
-          <Item label="Purchase date" value={asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString() : undefined} />
+          <div>
+            <p className="text-xs text-slate-500">Purchase date</p>
+            <p className="font-medium">
+              {asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString() : '—'}
+              {asset.purchaseDate && (
+                <span className="ml-2 text-sm text-slate-600 font-normal">
+                  ({calculateAssetAge(asset.purchaseDate)} old)
+                </span>
+              )}
+            </p>
+          </div>
           <Item label="Vendor" value={asset.vendor} />
           <Item label="Cost" value={asset.cost != null ? `₹${asset.cost}` : undefined} />
           <Item label="Warranty expiry" value={asset.warrantyExpiry ? new Date(asset.warrantyExpiry).toLocaleDateString() : undefined} />

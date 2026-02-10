@@ -4,6 +4,18 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
+const CATEGORIES = [
+  'Projector',
+  'Whiteboard',
+  'Desktop',
+  'Laptop',
+  'AC',
+  'Furniture',
+  'Lab Equipment',
+  'Printer',
+  'Other',
+];
+
 type Asset = {
   _id: string;
   assetId: string;
@@ -51,10 +63,24 @@ function AssetsPageContent() {
   const [user, setUser] = useState<{ id: string; role: string } | null>(null);
   const [departments, setDepartments] = useState<{ _id: string; name: string }[]>([]);
   const [users, setUsers] = useState<{ _id: string; name: string; email: string }[]>([]);
+  const [categories, setCategories] = useState<string[]>(CATEGORIES);
 
   useEffect(() => {
     const u = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
     if (u) try { setUser(JSON.parse(u)); } catch (_) {}
+
+    // Load custom categories from localStorage
+    const saved = localStorage.getItem('assetCategories');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Merge default categories with saved custom ones, removing duplicates
+        const merged = CATEGORIES.concat(parsed);
+        setCategories(Array.from(new Set(merged)));
+      } catch {
+        // If parsing fails, keep default categories
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -169,14 +195,9 @@ function AssetsPageContent() {
           className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
         >
           <option value="">All types</option>
-          <option value="Projector">Projector</option>
-          <option value="Desktop">Desktop</option>
-          <option value="Laptop">Laptop</option>
-          <option value="AC">AC</option>
-          <option value="Furniture">Furniture</option>
-          <option value="Lab Equipment">Lab Equipment</option>
-          <option value="Printer">Printer</option>
-          <option value="Other">Other</option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
         </select>
         <select
           value={`${sort}-${order}`}
