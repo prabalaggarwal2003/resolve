@@ -4,14 +4,9 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Get organization details (superadmin only)
+// Get organization details (all authenticated users can access)
 router.get('/', protect, async (req, res) => {
   try {
-    // Only superadmin can view organization details
-    if (req.user.role !== 'super_admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
     if (!req.user.organizationId) {
       return res.status(400).json({ message: 'No organization found' });
     }
@@ -21,16 +16,25 @@ router.get('/', protect, async (req, res) => {
       return res.status(404).json({ message: 'Organization not found' });
     }
 
-    // Get organization statistics
-    const userCount = await User.countDocuments({ organizationId: req.user.organizationId });
-    
-    res.json({
-      organization,
-      statistics: {
-        totalUsers: userCount,
-        createdAt: organization.createdAt
-      }
-    });
+    // Return orgId and basic info for all users, full details for super_admin
+    if (req.user.role === 'super_admin') {
+      const userCount = await User.countDocuments({ organizationId: req.user.organizationId });
+      res.json({
+        organization,
+        statistics: {
+          totalUsers: userCount,
+          createdAt: organization.createdAt
+        }
+      });
+    } else {
+      // Non-admin users get basic info only (needed for asset ID generation)
+      res.json({
+        organization: {
+          orgId: organization.orgId,
+          name: organization.name
+        }
+      });
+    }
   } catch (err) {
     console.error('Get organization error:', err);
     res.status(500).json({ message: err.message });

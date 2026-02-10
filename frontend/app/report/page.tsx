@@ -23,20 +23,6 @@ interface Asset {
   locationId?: { name: string };
 }
 
-interface Report {
-  reporterName: string;
-  reporterEmail: string;
-  createdAt: string;
-}
-
-interface PreviousIssue {
-  ticketId: string;
-  title: string;
-  description: string;
-  status: string;
-  createdAt: string;
-  reports: Report[];
-}
 
 function api(path: string) {
   const base = process.env.NEXT_PUBLIC_API_URL || '';
@@ -58,30 +44,24 @@ function ReportContent() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<{ merged: boolean; ticketId: string; message: string } | null>(null);
   const [asset, setAsset] = useState<Asset | null>(null);
-  const [previousIssues, setPreviousIssues] = useState<PreviousIssue[]>([]);
-  const [issuesLoading, setIssuesLoading] = useState(false);
 
-  // Fetch asset and previous issues when component mounts
+  // Fetch asset when component mounts
   useEffect(() => {
     if (assetId) {
-      fetchAssetAndIssues();
+      fetchAsset();
     }
   }, [assetId]);
 
-  const fetchAssetAndIssues = async () => {
-    setIssuesLoading(true);
+  const fetchAsset = async () => {
     try {
-      const res = await fetch(api(`/api/public/report?assetId=${assetId}&assetName=${encodeURIComponent(assetName)}`));
+      const res = await fetch(api(`/api/public/assets/${assetId}`));
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to load asset');
       
-      setAsset(data.asset);
-      setPreviousIssues(data.previousIssues || []);
+      setAsset(data);
     } catch (err) {
       console.error('Failed to load asset:', err);
-      // Don't show error for asset loading, just continue without previous issues
-    } finally {
-      setIssuesLoading(false);
+      // Don't show error for asset loading, just continue
     }
   };
 
@@ -155,37 +135,35 @@ function ReportContent() {
 
   return (
     <main className="min-h-screen bg-slate-50 p-4 pb-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Form Column */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-              <h1 className="text-xl font-bold mb-1">Report an issue</h1>
-              {asset && (
-                <div className="bg-slate-50 p-3 rounded-lg mb-4">
-                  <p className="text-sm text-slate-600">
-                    <strong>Asset:</strong> {asset.name} ({asset.assetId})
-                  </p>
-                  <p className="text-sm text-slate-600">
-                    <strong>Category:</strong> {asset.category}
-                  </p>
-                  <p className="text-sm text-slate-600">
-                    <strong>Status:</strong> {asset.status}
-                  </p>
-                  {asset.departmentId && (
-                    <p className="text-sm text-slate-600">
-                      <strong>Department:</strong> {asset.departmentId.name}
-                    </p>
-                  )}
-                </div>
-              )}
-              {!assetId && (
-                <p className="text-amber-700 bg-amber-50 text-sm p-3 rounded-lg mb-4">
-                  No asset selected. Open this page from the asset QR or link.
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <h1 className="text-xl font-bold mb-1">Report an issue</h1>
+          {asset && (
+            <div className="bg-slate-50 p-3 rounded-lg mb-4">
+              <p className="text-sm text-slate-600">
+                <strong>Asset:</strong> {asset.name} ({asset.assetId})
+              </p>
+              <p className="text-sm text-slate-600">
+                <strong>Category:</strong> {asset.category}
+              </p>
+              <p className="text-sm text-slate-600">
+                <strong>Status:</strong> {asset.status}
+              </p>
+              {asset.departmentId && (
+                <p className="text-sm text-slate-600">
+                  <strong>Department:</strong> {asset.departmentId.name}
                 </p>
               )}
+            </div>
+          )}
+          {!assetId && (
+            <p className="text-amber-700 bg-amber-50 text-sm p-3 rounded-lg mb-4">
+              No asset selected. Open this page from the asset QR or link.
+            </p>
+          )}
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* ...existing code... */}
                 {error && (
                   <p className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</p>
                 )}
@@ -274,72 +252,21 @@ function ReportContent() {
                   )}
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={loading || !assetId}
-                  className="w-full py-3 bg-primary text-white rounded-lg font-semibold disabled:opacity-60 hover:bg-primary-hover"
-                >
-                  {loading ? 'Submitting…' : 'Submit report'}
-                </button>
-              </form>
+            <button
+              type="submit"
+              disabled={loading || !assetId}
+              className="w-full py-3 bg-primary text-white rounded-lg font-semibold disabled:opacity-60 hover:bg-primary-hover"
+            >
+              {loading ? 'Submitting…' : 'Submit report'}
+            </button>
+          </form>
 
-              <Link
-                href={assetId ? `/a/${assetId}` : '/'}
-                className="block mt-4 text-center text-slate-500 text-sm hover:text-slate-700"
-              >
-                ← Back to asset
-              </Link>
-            </div>
-          </div>
-
-          {/* Previous Issues Column */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 sticky top-4">
-              <h2 className="text-lg font-bold mb-4">Previous Issues</h2>
-              
-              {issuesLoading ? (
-                <p className="text-slate-500 text-sm">Loading...</p>
-              ) : previousIssues.length === 0 ? (
-                <p className="text-slate-500 text-sm">No previous issues found for this asset.</p>
-              ) : (
-                <div className="space-y-4 max-h-96 overflow-y-auto">
-                  {previousIssues.map((issue) => (
-                    <div key={issue.ticketId} className="border border-slate-200 rounded-lg p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="font-medium text-slate-900 text-sm">{issue.title}</h3>
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          issue.status === 'open' 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-amber-100 text-amber-800'
-                        }`}>
-                          {issue.status}
-                        </span>
-                      </div>
-                      
-                      <p className="text-xs text-slate-600 mb-2">
-                        <strong>Ticket:</strong> {issue.ticketId}
-                      </p>
-                      
-                      <p className="text-xs text-slate-700 mb-2 line-clamp-2">
-                        {issue.description}
-                      </p>
-                      
-                      <p className="text-xs text-slate-500 mb-2">
-                        <strong>Reported:</strong> {new Date(issue.createdAt).toLocaleString()}
-                      </p>
-                      
-                      {issue.reports.length > 0 && (
-                        <p className="text-xs text-slate-500">
-                          <strong>Reporter:</strong> {issue.reports[0].reporterName}
-                          {issue.reports.length > 1 && ` (+${issue.reports.length - 1} more)`}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          <Link
+            href={assetId ? `/a/${assetId}` : '/'}
+            className="block mt-4 text-center text-slate-500 text-sm hover:text-slate-700"
+          >
+            ← Back to asset
+          </Link>
         </div>
       </div>
     </main>
