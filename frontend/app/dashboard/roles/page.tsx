@@ -63,13 +63,12 @@ export default function RolesPage() {
       fetch(api('/api/departments'), { headers }).then((r) => r.json()),
       fetch(api('/api/locations'), { headers }).then((r) => r.json()),
     ])
-      .then(([usersRes, deptRes, locRes]) => {
-        if (usersRes.users) setUsers(usersRes.users);
-        else setError(usersRes.message || 'Failed to load users');
-        if (deptRes.departments) setDepartments(deptRes.departments);
-        if (locRes.locations) setLocations(locRes.locations);
+      .then(([usersData, departmentsData, locationsData]) => {
+        if (usersData.users) setUsers(usersData.users);
+        if (departmentsData.departments) setDepartments(departmentsData.departments);
+        if (locationsData.locations) setLocations(locationsData.locations);
       })
-      .catch(() => setError('Failed to load'))
+      .catch(() => setError('Request failed'))
       .finally(() => setLoading(false));
   };
 
