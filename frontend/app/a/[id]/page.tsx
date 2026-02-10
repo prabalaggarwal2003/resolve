@@ -48,6 +48,10 @@ export default function PublicAssetPage() {
   const [asset, setAsset] = useState<Asset | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [issueId, setIssueId] = useState('');
+  const [searchingIssue, setSearchingIssue] = useState(false);
+  const [issueResult, setIssueResult] = useState<any>(null);
+  const [issueError, setIssueError] = useState('');
 
   useEffect(() => {
     if (!params.id) {
@@ -67,6 +71,32 @@ export default function PublicAssetPage() {
       .catch(() => setError('Failed to load'))
       .finally(() => setLoading(false));
   }, [params.id]);
+
+const searchIssue = async () => {
+    if (!issueId.trim()) {
+      setIssueError('Please enter an issue ID');
+      return;
+    }
+    
+    setSearchingIssue(true);
+    setIssueError('');
+    setIssueResult(null);
+    
+    try {
+      const res = await fetch(api(`/api/public/issues/${issueId.trim()}`));
+      const data = await res.json();
+      
+      if (res.ok) {
+        setIssueResult(data);
+      } else {
+        setIssueError(data.message || 'Issue not found');
+      }
+    } catch (err) {
+      setIssueError('Failed to search issue');
+    } finally {
+      setSearchingIssue(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -174,6 +204,86 @@ export default function PublicAssetPage() {
       >
         Report an issue
       </Link>
+
+      {/* Issue Search */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-4 mt-4">
+        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
+          Check Issue Status
+        </h2>
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={issueId}
+              onChange={(e) => setIssueId(e.target.value)}
+              placeholder="Enter issue ID (e.g., ISS-2024-001)"
+              className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm"
+              onKeyDown={(e) => e.key === 'Enter' && searchIssue()}
+            />
+            <button
+              type="button"
+              onClick={searchIssue}
+              disabled={searchingIssue || !issueId.trim()}
+              className="px-4 py-2 bg-primary text-white rounded-lg font-medium text-sm disabled:opacity-60"
+            >
+              {searchingIssue ? 'Searching…' : 'Search'}
+            </button>
+          </div>
+          
+          {issueError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-700 text-sm">{issueError}</p>
+            </div>
+          )}
+          
+          {issueResult && (
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="space-y-2">
+                <div className="flex justify-between items-start">
+                  <h3 className="font-semibold text-green-900">{issueResult.ticketId}</h3>
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                    issueResult.status === 'open' ? 'bg-red-100 text-red-800' :
+                    issueResult.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                    issueResult.status === 'completed' ? 'bg-green-100 text-green-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {issueResult.status.replace('_', ' ').toUpperCase()}
+                  </span>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium text-green-900 mb-1">{issueResult.title}</h4>
+                  <p className="text-green-700 text-sm">{issueResult.description}</p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2 text-xs text-green-700">
+                  <div>
+                    <span className="font-medium">Priority:</span> {issueResult.priority}
+                  </div>
+                  <div>
+                    <span className="font-medium">Category:</span> {issueResult.category}
+                  </div>
+                  <div>
+                    <span className="font-medium">Reported:</span> {new Date(issueResult.createdAt).toLocaleDateString()}
+                  </div>
+                  {issueResult.assignedTo && (
+                    <div>
+                      <span className="font-medium">Assigned to:</span> {issueResult.assignedTo.name}
+                    </div>
+                  )}
+                </div>
+                
+                {issueResult.resolutionNotes && (
+                  <div className="mt-2 pt-2 border-t border-green-200">
+                    <p className="text-sm font-medium text-green-900 mb-1">Resolution:</p>
+                    <p className="text-green-700 text-sm">{issueResult.resolutionNotes}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       <p className="mt-4 text-center text-slate-500 text-sm">
         <Link href="/" className="text-primary hover:underline">
