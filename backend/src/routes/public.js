@@ -215,4 +215,8 @@ router.post('/report', async (req, res) => {
   }
 });
 
+// Import public issues routes
+import publicIssuesRouter from './public/issues.js';
+router.use('/issues', publicIssuesRouter);
+
 export default router;

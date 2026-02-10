@@ -157,12 +157,17 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
       .populate('assignedTo', 'name email')
       .lean();
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
-    const url = getAssetPublicUrl(asset._id.toString(), env.frontendUrl);
-    const qrCodeUrl = await generateQrDataUrl(url);
-    if (qrCodeUrl) {
-      await Asset.updateOne({ _id: asset._id }, { qrCodeUrl });
-      asset.qrCodeUrl = qrCodeUrl;
+    
+    // Only generate QR code if it doesn't exist
+    if (!asset.qrCodeUrl) {
+      const url = getAssetPublicUrl(asset._id.toString(), env.frontendUrl);
+      const qrCodeUrl = await generateQrDataUrl(url);
+      if (qrCodeUrl) {
+        await Asset.updateOne({ _id: asset._id }, { qrCodeUrl });
+        asset.qrCodeUrl = qrCodeUrl;
+      }
     }
+    
     await logAudit(req.user._id, 'asset.updated', 'asset', asset._id, { changed: Object.keys(req.body) });
     res.json(asset);
   } catch (err) {
