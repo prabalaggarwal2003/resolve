@@ -44,6 +44,84 @@ export default function NewAssetPage() {
   const [users, setUsers] = useState<{ _id: string; name: string; email: string }[]>([]);
   const [locations, setLocations] = useState<{ _id: string; name: string; type: string }[]>([]);
   const [departments, setDepartments] = useState<{ _id: string; name: string }[]>([]);
+  const [categories, setCategories] = useState<string[]>(CATEGORIES);
+  const [newCategory, setNewCategory] = useState('');
+  const [generatingAssetId, setGeneratingAssetId] = useState(false);
+  const [quantity, setQuantity] = useState(1);
+  const [bulkCreating, setBulkCreating] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
+
+  const generateAssetId = async () => {
+    setGeneratingAssetId(true);
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('Not signed in');
+      setGeneratingAssetId(false);
+      return;
+    }
+
+    try {
+      const base = process.env.NEXT_PUBLIC_API_URL || '';
+
+      // Fetch organization info and ALL assets to find the highest ID
+      const [orgRes, assetsRes] = await Promise.all([
+        fetch(base ? `${base}/api/organization` : '/api/organization', {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(base ? `${base}/api/assets?limit=9999&sort=createdAt&order=desc` : '/api/assets?limit=9999&sort=createdAt&order=desc', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      ]);
+
+      const orgData = await orgRes.json();
+      const assetsData = await assetsRes.json();
+
+      if (!orgRes.ok || !orgData.organization || !orgData.organization.orgId) {
+        throw new Error('Failed to fetch organization details');
+      }
+
+      // Get the organization prefix (first 3 letters of orgId or full if shorter)
+      const orgPrefix = orgData.organization.orgId.substring(0, 3).toUpperCase();
+
+      // Find the highest asset number from existing assets
+      let highestNumber = 0;
+
+      if (assetsData.assets && assetsData.assets.length > 0) {
+        // Extract numbers from all asset IDs that match our org prefix
+        assetsData.assets.forEach((asset: any) => {
+          if (asset.assetId && typeof asset.assetId === 'string') {
+            // Expected format: ORG-AST-123
+            const parts = asset.assetId.split('-');
+            if (parts.length === 3 && parts[0] === orgPrefix && parts[1] === 'AST') {
+              const num = parseInt(parts[2], 10);
+              if (!isNaN(num) && num > highestNumber) {
+                highestNumber = num;
+              }
+            }
+          }
+        });
+      }
+
+      // Next number is highest + 1
+      const nextNumber = highestNumber + 1;
+
+      // Dynamic padding: minimum 3 digits, but grows as needed
+      const minDigits = 3;
+      const numberLength = String(nextNumber).length;
+      const paddingLength = Math.max(minDigits, numberLength);
+      const paddedNumber = String(nextNumber).padStart(paddingLength, '0');
+
+      // Generate ID in format: ORG-AST-001 (or ORG-AST-1000 for larger numbers)
+      const generatedId = `${orgPrefix}-AST-${paddedNumber}`;
+
+      setForm({ ...form, assetId: generatedId });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate Asset ID');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setGeneratingAssetId(false);
+    }
+  };
 
   const addPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -68,6 +146,43 @@ export default function NewAssetPage() {
     e.target.value = '';
   };
 
+  const addNewCategory = () => {
+    const trimmed = newCategory.trim();
+    if (!trimmed) return;
+    if (categories.includes(trimmed)) {
+      setError('Category already exists');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    const updatedCategories = [...categories, trimmed];
+    setCategories(updatedCategories);
+    setForm({ ...form, category: trimmed });
+    setNewCategory('');
+
+    // Save only custom categories (those not in the default CATEGORIES list)
+    const customCategories = updatedCategories.filter(cat => !CATEGORIES.includes(cat));
+    localStorage.setItem('assetCategories', JSON.stringify(customCategories));
+  };
+
+  const generateSequentialId = (baseId: string, index: number): string => {
+    // Extract prefix and current number from base ID (e.g., "SCH-AST-048")
+    const parts = baseId.split('-');
+    if (parts.length !== 3) return `${baseId}-${index + 1}`;
+
+    const prefix = parts[0]; // "SCH"
+    const type = parts[1];   // "AST"
+    const baseNumber = parseInt(parts[2], 10); // 48
+
+    const newNumber = baseNumber + index;
+    const minDigits = 3;
+    const numberLength = String(newNumber).length;
+    const paddingLength = Math.max(minDigits, numberLength);
+    const paddedNumber = String(newNumber).padStart(paddingLength, '0');
+
+    return `${prefix}-${type}-${paddedNumber}`;
+  };
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) return;
@@ -83,44 +198,135 @@ export default function NewAssetPage() {
         if (deptRes.departments) setDepartments(deptRes.departments);
       })
       .catch(() => {});
+
+    // Load custom categories from localStorage
+    const saved = localStorage.getItem('assetCategories');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Merge default categories with saved custom ones, removing duplicates
+        const merged = CATEGORIES.concat(parsed);
+        setCategories(Array.from(new Set(merged)));
+      } catch {
+        // If parsing fails, keep default categories
+      }
+    }
+
+    // Auto-generate Asset ID on mount
+    generateAssetId();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
+
+    if (quantity < 1 || quantity > 1000) {
+      setError('Quantity must be between 1 and 1000');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
     const token = localStorage.getItem('token');
     if (!token) {
       setError('Not signed in');
-      setLoading(false);
       return;
     }
-    try {
-      const url = process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/api/assets` : '/api/assets';
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          ...form,
-          cost: form.cost ? Number(form.cost) : undefined,
-          purchaseDate: form.purchaseDate || undefined,
-          assignedTo: form.assignedTo || undefined,
-          locationId: form.locationId || undefined,
-          departmentId: form.departmentId || undefined,
-          photos: photos.length ? photos : undefined,
-          documents: documents.length ? documents : undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to create');
-      router.push(`/dashboard/assets/${data._id}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create asset');
-    } finally {
-      setLoading(false);
+
+    if (quantity === 1) {
+      // Single asset creation (existing logic)
+      setLoading(true);
+      try {
+        const url = process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/api/assets` : '/api/assets';
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            ...form,
+            cost: form.cost ? Number(form.cost) : undefined,
+            purchaseDate: form.purchaseDate || undefined,
+            assignedTo: form.assignedTo || undefined,
+            locationId: form.locationId || undefined,
+            departmentId: form.departmentId || undefined,
+            photos: photos.length ? photos : undefined,
+            documents: documents.length ? documents : undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed to create');
+        router.push(`/dashboard/assets/${data._id}`);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to create asset');
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Bulk asset creation
+      setBulkCreating(true);
+      setBulkProgress({ current: 0, total: quantity });
+
+      try {
+        const baseAssetId = form.assetId;
+        const createdAssets: string[] = [];
+        const failedAssets: { id: string; error: string }[] = [];
+
+        for (let i = 0; i < quantity; i++) {
+          setBulkProgress({ current: i + 1, total: quantity });
+
+          // Generate sequential asset ID
+          const currentAssetId = generateSequentialId(baseAssetId, i);
+
+          try {
+            const url = process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/api/assets` : '/api/assets';
+            const res = await fetch(url, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                ...form,
+                assetId: currentAssetId,
+                cost: form.cost ? Number(form.cost) : undefined,
+                purchaseDate: form.purchaseDate || undefined,
+                assignedTo: form.assignedTo || undefined,
+                locationId: form.locationId || undefined,
+                departmentId: form.departmentId || undefined,
+                photos: photos.length ? photos : undefined,
+                documents: documents.length ? documents : undefined,
+              }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+              failedAssets.push({ id: currentAssetId, error: data.message || 'Failed' });
+            } else {
+              createdAssets.push(currentAssetId);
+            }
+          } catch (err) {
+            failedAssets.push({ id: currentAssetId, error: err instanceof Error ? err.message : 'Network error' });
+          }
+        }
+
+        // Show summary
+        if (failedAssets.length === 0) {
+          alert(`✅ Successfully created ${createdAssets.length} assets!\n\nIDs: ${createdAssets[0]} to ${createdAssets[createdAssets.length - 1]}`);
+          router.push('/dashboard/assets');
+        } else {
+          const summary = `Created: ${createdAssets.length}\nFailed: ${failedAssets.length}\n\nFailed Assets:\n${failedAssets.slice(0, 10).map(f => `${f.id}: ${f.error}`).join('\n')}${failedAssets.length > 10 ? '\n...and more' : ''}`;
+          alert(summary);
+          if (createdAssets.length > 0) {
+            router.push('/dashboard/assets');
+          }
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Bulk creation failed');
+      } finally {
+        setBulkCreating(false);
+        setBulkProgress({ current: 0, total: 0 });
+      }
     }
   };
 
@@ -141,14 +347,38 @@ export default function NewAssetPage() {
         {error && (
           <p className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</p>
         )}
-        <Field label="Asset ID (e.g. AST-001)" required>
+        <Field label="Asset ID (auto-generated)" required>
           <input
             value={form.assetId}
-            onChange={(e) => setForm({ ...form, assetId: e.target.value })}
+            readOnly
             required
-            placeholder="AST-001"
-            className={inputClassName}
+            placeholder="Generating..."
+            className="w-full px-3 py-2.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 cursor-not-allowed"
+            title="Auto-generated based on your organization"
           />
+          <p className="text-xs text-slate-500 mt-1">
+            Unique ID automatically generated based on your organization
+          </p>
+        </Field>
+        <Field label="Quantity (How many identical assets?)" required>
+          <input
+            type="number"
+            min="1"
+            max="1000"
+            value={quantity}
+            onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+            className={inputClassName}
+            placeholder="1"
+          />
+          {quantity > 1 && form.assetId ? (
+            <p className="text-xs text-green-600 mt-1 font-medium">
+              ✓ Will create {quantity} assets with IDs: {form.assetId} to {generateSequentialId(form.assetId, quantity - 1)}
+            </p>
+          ) : (
+            <p className="text-xs text-slate-500 mt-1">
+              Enter 1 for single asset or more for bulk creation (max 1000)
+            </p>
+          )}
         </Field>
         <Field label="Name" required>
           <input
@@ -166,10 +396,32 @@ export default function NewAssetPage() {
             className={inputClassName}
           >
             <option value="">Select</option>
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
+          <div className="mt-2 flex gap-2">
+            <input
+              type="text"
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addNewCategory();
+                }
+              }}
+              placeholder="Add new category..."
+              className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
+            <button
+              type="button"
+              onClick={addNewCategory}
+              className="px-4 py-2 bg-slate-600 text-white rounded-lg font-medium text-sm hover:bg-slate-700"
+            >
+              Add
+            </button>
+          </div>
         </Field>
         <Field label="Model">
           <input
@@ -289,11 +541,33 @@ export default function NewAssetPage() {
         </Field>
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || bulkCreating || generatingAssetId}
           className="mt-4 px-6 py-3 bg-primary text-white rounded-lg font-semibold disabled:opacity-60 hover:bg-primary-hover"
         >
-          {loading ? 'Adding…' : 'Add asset'}
+          {bulkCreating
+            ? `Creating ${bulkProgress.current} of ${bulkProgress.total}...`
+            : loading
+            ? 'Creating asset...'
+            : generatingAssetId
+            ? 'Generating ID...'
+            : quantity > 1
+            ? `Create ${quantity} Assets`
+            : 'Add asset'}
         </button>
+
+        {bulkCreating && (
+          <div className="mt-4">
+            <div className="w-full bg-slate-200 rounded-full h-2.5">
+              <div
+                className="bg-primary h-2.5 rounded-full transition-all duration-300"
+                style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
+              />
+            </div>
+            <p className="text-sm text-slate-600 text-center mt-2">
+              Creating asset {bulkProgress.current} of {bulkProgress.total}...
+            </p>
+          </div>
+        )}
       </form>
     </div>
   );
