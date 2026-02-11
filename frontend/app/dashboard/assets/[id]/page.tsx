@@ -246,7 +246,35 @@ export default function AssetDetailPage() {
           </div>
           <Item label="Vendor" value={asset.vendor} />
           <Item label="Cost" value={asset.cost != null ? `₹${asset.cost}` : undefined} />
-          <Item label="Warranty expiry" value={asset.warrantyExpiry ? new Date(asset.warrantyExpiry).toLocaleDateString() : undefined} />
+          <div>
+            <p className="text-xs text-slate-500">Warranty expiry</p>
+            {asset.warrantyExpiry ? (
+              <div className="font-medium">
+                <p className={`${
+                  new Date(asset.warrantyExpiry) < new Date() 
+                    ? 'text-red-600' 
+                    : new Date(asset.warrantyExpiry) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                    ? 'text-amber-600'
+                    : 'text-slate-900'
+                }`}>
+                  {new Date(asset.warrantyExpiry).toLocaleDateString()}
+                </p>
+                {new Date(asset.warrantyExpiry) < new Date() && (
+                  <span className="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-700 font-medium">
+                    Expired
+                  </span>
+                )}
+                {new Date(asset.warrantyExpiry) >= new Date() &&
+                 new Date(asset.warrantyExpiry) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) && (
+                  <span className="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700 font-medium">
+                    Expiring soon
+                  </span>
+                )}
+              </div>
+            ) : (
+              <p className="font-medium">—</p>
+            )}
+          </div>
           <Item label="AMC expiry" value={asset.amcExpiry ? new Date(asset.amcExpiry).toLocaleDateString() : undefined} />
           <Item label="Next maintenance" value={asset.nextMaintenanceDate ? new Date(asset.nextMaintenanceDate).toLocaleDateString() : undefined} />
         </div>

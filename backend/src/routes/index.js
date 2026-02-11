@@ -10,5 +10,8 @@ import locations from './locations.js';
 import departments from './departments.js';
 import publicRoutes from './public.js';
 import organization from './organization.js';
+import warrantyChecks from './warranty-checks.js';
+import auditLogs from './audit-logs.js';
+import assetHealth from './assetHealth.js';
 
-export { auth, signup, health, assets, issues, dashboard, notifications, users, locations, departments, publicRoutes, organization };
+export { auth, signup, health, assets, issues, dashboard, notifications, users, locations, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth };

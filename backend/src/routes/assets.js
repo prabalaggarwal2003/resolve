@@ -2,7 +2,7 @@ import express from 'express';
 import { Asset, AssetLog, User } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
 import { generateQrDataUrl, getAssetPublicUrl } from '../services/qrService.js';
-import { logAudit } from '../services/auditService.js';
+import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
 import { assetFilterForUser, canEdit, canViewAsset } from '../services/permissions.js';
 import { env } from '../config/env.js';
 
@@ -115,7 +115,21 @@ router.post('/', requireCanEdit, async (req, res) => {
     if (qrCodeUrl) {
       await Asset.updateOne({ _id: asset._id }, { qrCodeUrl });
     }
-    await logAudit(req.user._id, 'asset.created', 'asset', asset._id, { name: asset.name });
+
+    // Enhanced audit logging
+    await logAudit(req.user._id, AUDIT_ACTIONS.ASSET_CREATED, AUDIT_RESOURCES.ASSET, asset._id, {
+      resourceName: `${asset.name} (${asset.assetId})`,
+      description: `Created asset "${asset.name}" with ID ${asset.assetId}`,
+      details: {
+        assetId: asset.assetId,
+        name: asset.name,
+        category: asset.category,
+        status: asset.status
+      },
+      severity: 'low',
+      ...getRequestMetadata(req)
+    });
+
     const populated = await Asset.findById(asset._id)
       .populate('locationId', 'name path')
       .populate('departmentId', 'name')
@@ -131,26 +145,43 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
   try {
     const prev = await Asset.findById(req.params.id).lean();
     if (!prev) return res.status(404).json({ message: 'Asset not found' });
+
     const update = { ...req.body, updatedBy: req.user._id };
+    let auditAction = AUDIT_ACTIONS.ASSET_UPDATED;
+    let auditDescription = `Updated asset "${prev.name}"`;
+    let auditSeverity = 'low';
+
+    // Handle assignment changes
     if (update.assignedTo !== undefined) {
       update.assignedAt = update.assignedTo ? new Date() : null;
+
       if (prev.assignedTo && !update.assignedTo) {
+        // Unassigning
         await AssetLog.create({
           assetId: prev._id,
           userId: prev.assignedTo,
           type: 'check_out',
           unassignedAt: new Date(),
         });
+        auditAction = AUDIT_ACTIONS.ASSET_UNASSIGNED;
+        auditDescription = `Unassigned asset "${prev.name}" from user`;
+        auditSeverity = 'medium';
       }
+
       if (update.assignedTo) {
+        // Assigning
         await AssetLog.create({
           assetId: prev._id,
           userId: update.assignedTo,
           type: 'check_in',
           assignedAt: new Date(),
         });
+        auditAction = AUDIT_ACTIONS.ASSET_ASSIGNED;
+        auditDescription = `Assigned asset "${prev.name}" to user`;
+        auditSeverity = 'medium';
       }
     }
+
     const asset = await Asset.findByIdAndUpdate(req.params.id, update, { new: true })
       .populate('locationId', 'name path')
       .populate('departmentId', 'name')
@@ -158,6 +189,25 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
       .lean();
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
     
+    // Enhanced audit logging
+    const changedFields = {};
+    Object.keys(update).forEach(key => {
+      if (key !== 'updatedBy' && prev[key] !== update[key]) {
+        changedFields[key] = { old: prev[key], new: update[key] };
+      }
+    });
+
+    await logAudit(req.user._id, auditAction, AUDIT_RESOURCES.ASSET, asset._id, {
+      resourceName: `${asset.name} (${asset.assetId})`,
+      description: auditDescription,
+      details: {
+        changes: changedFields,
+        assignedTo: asset.assignedTo?.name
+      },
+      severity: auditSeverity,
+      ...getRequestMetadata(req)
+    });
+
     // Only generate QR code if it doesn't exist
     if (!asset.qrCodeUrl) {
       const url = getAssetPublicUrl(asset._id.toString(), env.frontendUrl);

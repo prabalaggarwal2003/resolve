@@ -122,7 +122,7 @@ export default function DashboardPage() {
     const headers = { Authorization: `Bearer ${token}` };
     Promise.all([
       fetch(api('/api/dashboard/summary'), { headers }).then((r) => r.json()),
-      fetch(api('/api/issues?limit=10'), { headers }).then((r) => r.json()),
+      fetch(api('/api/issues?limit=10&sort=createdAt&order=desc'), { headers }).then((r) => r.json()),
     ])
       .then(([summaryData, issuesData]) => {
         if (summaryData.totalAssets !== undefined) setSummary(summaryData);
@@ -170,7 +170,12 @@ export default function DashboardPage() {
       )}
 
       <section className="mt-8">
-        <h2 className="text-lg font-semibold mb-4">Latest issues</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Latest 10 Issues</h2>
+          <Link href="/dashboard/issues" className="text-sm text-primary hover:underline">
+            View all issues →
+          </Link>
+        </div>
         {issues.length === 0 && !loading && (
           <p className="text-slate-600">
             No issues yet. Report via QR scan or from an asset page.
@@ -252,14 +257,14 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
-        {issues.length > 0 && (
-          <Link
-            href="/dashboard/issues"
-            className="inline-block mt-3 text-primary text-sm font-medium hover:underline"
-          >
-            View all issues →
-          </Link>
-        )}
+        {/*{issues.length > 0 && (*/}
+        {/*  <Link*/}
+        {/*    href="/dashboard/issues"*/}
+        {/*    className="inline-block mt-3 text-primary text-sm font-medium hover:underline"*/}
+        {/*  >*/}
+        {/*    View all issues →*/}
+        {/*  </Link>*/}
+        {/*)}*/}
       </section>
     </div>
   );
