@@ -19,6 +19,9 @@ export default function DashboardNav() {
   const role = user?.role ?? '';
   const canManageUsers = role === 'super_admin' || role === 'admin';
   const canViewRoles = canManageUsers || role === 'principal';
+  const canViewAudit = ['super_admin', 'admin', 'manager'].includes(role);
+  const canViewAssetHealth = ['super_admin', 'admin', 'manager'].includes(role);
+  const canViewMaintenance = ['super_admin', 'admin', 'manager'].includes(role);
   const reportOnly = ['teacher', 'student', 'reporter'].includes(role);
 
   return (
@@ -45,6 +48,21 @@ export default function DashboardNav() {
       {canViewRoles && (
         <Link href="/dashboard/roles" className="px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100">
           Users & Roles
+        </Link>
+      )}
+      {canViewMaintenance && (
+        <Link href="/dashboard/maintenance" className="px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100">
+          🔧 Maintenance
+        </Link>
+      )}
+      {canViewAssetHealth && (
+        <Link href="/dashboard/asset-health" className="px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100">
+          📈 Asset Health
+        </Link>
+      )}
+      {canViewAudit && (
+        <Link href="/dashboard/audit" className="px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100">
+          📊 Audit Logs
         </Link>
       )}
       {role === 'super_admin' && (

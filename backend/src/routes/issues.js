@@ -1,7 +1,7 @@
 import express from 'express';
 import { Issue, Notification, User, Asset } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
-import { logAudit } from '../services/auditService.js';
+import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
 import { issueFilterForUser, canEdit, canViewAll, isHod, isLabTechnician, assignIssueToUsers } from '../services/permissions.js';
 import { generateTicketId } from '../services/ticketId.js';
 import { getDeviceFingerprint, canReport, recordReportAttempt } from '../utils/rateLimiter.js';
@@ -190,7 +190,25 @@ router.patch('/:id', (req, res, next) => {
       .populate('assignedTo', 'name email')
       .lean();
     if (!issue) return res.status(404).json({ message: 'Issue not found' });
-    await logAudit(req.user._id, 'issue.updated', 'issue', issue._id, { status: issue.status });
+
+    // Enhanced audit logging
+    const auditAction = status === 'completed' ? 'resolved' : AUDIT_ACTIONS.ISSUE_STATUS_CHANGED;
+    const severity = status === 'completed' ? 'medium' : 'low';
+
+    await logAudit(req.user._id, auditAction, AUDIT_RESOURCES.ISSUE, issue._id, {
+      resourceName: `${issue.ticketId} - ${issue.title}`,
+      description: `Changed issue status from "${prev.status}" to "${status}"`,
+      details: {
+        ticketId: issue.ticketId,
+        oldStatus: prev.status,
+        newStatus: status,
+        assetId: issue.assetId?.assetId,
+        resolvedAt: update.resolvedAt
+      },
+      severity,
+      ...getRequestMetadata(req)
+    });
+
     const managers = await User.find({ role: { $in: ['super_admin', 'admin', 'manager', 'principal'] }, isActive: true }).limit(50).select('_id').lean();
     const notif = {
       type: status === 'completed' ? 'report_resolved' : 'report_updated',
@@ -229,8 +247,8 @@ router.post('/', async (req, res) => {
       });
     }
     
-    // Get asset to determine department and organization
-    const asset = await Asset.findById(assetId).select('departmentId organizationId').lean();
+    // Get asset to determine department, organization, and check status
+    const asset = await Asset.findById(assetId).select('departmentId organizationId status condition maintenanceReason assetId name').lean();
     if (!asset) {
       return res.status(404).json({ message: 'Asset not found' });
     }
@@ -240,6 +258,36 @@ router.post('/', async (req, res) => {
       return res.status(403).json({ message: 'You can only report issues for assets in your organization' });
     }
     
+    // Check if asset is under maintenance
+    if (asset.status === 'under_maintenance') {
+      return res.status(400).json({
+        message: 'Cannot report issues for this asset - currently under maintenance',
+        assetCondition: 'under_maintenance',
+        maintenanceReason: asset.maintenanceReason || 'Asset is under maintenance',
+        canReport: false,
+        assetName: asset.name,
+        assetId: asset.assetId
+      });
+    }
+
+    // Check asset health and potentially update status automatically
+    const { checkAssetHealth } = await import('../services/assetHealthService.js');
+    const healthCheck = await checkAssetHealth(assetId, req.user._id);
+
+    if (healthCheck && !healthCheck.canReportIssues) {
+      return res.status(400).json({
+        message: 'Cannot report issues for this asset - asset needs maintenance',
+        assetCondition: healthCheck.recommendedCondition,
+        healthFactors: healthCheck.healthFactors,
+        maintenanceReason: healthCheck.maintenanceReason,
+        canReport: false,
+        assetName: asset.name,
+        assetId: asset.assetId
+      });
+    }
+
+    // ...existing code...
+
     // Create issue
     const ticketId = await generateTicketId();
     const issueData = {
@@ -265,10 +313,19 @@ router.post('/', async (req, res) => {
     // Record the report attempt for rate limiting
     await recordReportAttempt(deviceId, assetId, req);
     
-    await logAudit(req.user._id, 'issue.created', 'issue', issue._id, { 
-      ticketId, 
-      assetId, 
-      title 
+    // Enhanced audit logging
+    await logAudit(req.user._id, AUDIT_ACTIONS.ISSUE_CREATED, AUDIT_RESOURCES.ISSUE, issue._id, {
+      resourceName: `${ticketId} - ${title}`,
+      description: `Created issue "${title}" for asset ${asset?.assetId || assetId}`,
+      details: {
+        ticketId,
+        assetId,
+        title,
+        category: category || 'repair',
+        priority: priority || 'medium'
+      },
+      severity: priority === 'high' ? 'high' : 'medium',
+      ...getRequestMetadata(req)
     });
     
     const populated = await Issue.findById(issue._id)

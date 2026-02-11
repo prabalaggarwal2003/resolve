@@ -46,6 +46,7 @@ function api(path: string) {
 function AssetsPageContent() {
   const searchParams = useSearchParams();
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -54,6 +55,8 @@ function AssetsPageContent() {
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [assignedToFilter, setAssignedToFilter] = useState('');
   const [sort, setSort] = useState('createdAt');
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
   useEffect(() => {
     const q = searchParams.get('assignedTo') || '';
     setAssignedToFilter(q);
@@ -116,16 +119,26 @@ function AssetsPageContent() {
     else if (myAssetsOnly && user?.id) params.set('assignedTo', user.id);
     params.set('sort', sort);
     params.set('order', order);
+    params.set('page', String(page));
+    params.set('limit', String(limit));
     const url = api(`/api/assets?${params.toString()}`);
     fetch(url, { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => res.json())
       .then((data) => {
-        if (data.assets) setAssets(data.assets);
+        if (data.assets) {
+          setAssets(data.assets);
+          setTotal(data.total || 0);
+        }
         else setError(data.message || 'Failed to load');
       })
       .catch(() => setError('Failed to load assets'))
       .finally(() => setLoading(false));
-  }, [search, statusFilter, categoryFilter, departmentFilter, assignedToFilter, sort, order, myAssetsOnly, user?.id]);
+  }, [search, statusFilter, categoryFilter, departmentFilter, assignedToFilter, sort, order, myAssetsOnly, user?.id, page, limit]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, categoryFilter, departmentFilter, assignedToFilter, myAssetsOnly]);
 
   const canAddAsset = ['super_admin', 'admin', 'manager'].includes(user?.role ?? '');
 
@@ -283,6 +296,34 @@ function AssetsPageContent() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {total > limit && (
+            <div className="p-4 border-t border-slate-200 flex items-center justify-between">
+              <p className="text-sm text-slate-600">
+                Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total} assets
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                >
+                  Previous
+                </button>
+                <span className="px-3 py-1.5 text-sm">
+                  Page {page} of {Math.ceil(total / limit)}
+                </span>
+                <button
+                  onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
+                  disabled={page >= Math.ceil(total / limit)}
+                  className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

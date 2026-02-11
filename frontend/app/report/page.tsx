@@ -19,6 +19,8 @@ interface Asset {
   name: string;
   category: string;
   status: string;
+  condition?: string;
+  maintenanceReason?: string;
   departmentId?: { name: string };
   locationId?: { name: string };
 }
@@ -156,12 +158,41 @@ function ReportContent() {
               )}
             </div>
           )}
+
+          {/* Maintenance Warning */}
+          {asset?.status === 'under_maintenance' && (
+            <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-5 mb-4">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">🔧</div>
+                <div>
+                  <h3 className="font-bold text-amber-900 text-lg mb-1">Can't Report Issues</h3>
+                  <p className="text-amber-800 text-sm mb-2">
+                    This asset is currently under maintenance and issue reporting is temporarily disabled.
+                  </p>
+                  {asset.maintenanceReason && (
+                    <p className="text-amber-700 text-xs">
+                      <span className="font-medium">Reason:</span> {asset.maintenanceReason}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <Link
+                href={assetId ? `/a/${assetId}` : '/'}
+                className="mt-4 block w-full py-3 bg-amber-600 text-white text-center font-semibold rounded-lg hover:bg-amber-700"
+              >
+                ← Back to Asset
+              </Link>
+            </div>
+          )}
+
           {!assetId && (
             <p className="text-amber-700 bg-amber-50 text-sm p-3 rounded-lg mb-4">
               No asset selected. Open this page from the asset QR or link.
             </p>
           )}
 
+          {/* Only show form if asset is not under maintenance */}
+          {asset?.status !== 'under_maintenance' && (
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* ...existing code... */}
                 {error && (
@@ -260,13 +291,16 @@ function ReportContent() {
               {loading ? 'Submitting…' : 'Submit report'}
             </button>
           </form>
+          )}
 
+          {asset?.status !== 'under_maintenance' && (
           <Link
             href={assetId ? `/a/${assetId}` : '/'}
             className="block mt-4 text-center text-slate-500 text-sm hover:text-slate-700"
           >
             ← Back to asset
           </Link>
+          )}
         </div>
       </div>
     </main>
