@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { env } from './config/env.js';
-import { auth, signup, health, assets, issues, dashboard, notifications, users, locations, departments, publicRoutes, organization } from './routes/index.js';
+import { auth, signup, health, assets, issues, dashboard, notifications, users, locations, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth } from './routes/index.js';
 
 const app = express();
 
@@ -17,8 +17,8 @@ const allowedOrigins = [
   'https://localhost:3000/',
 ].filter(Boolean);
 
-app.use(cors({ 
-  origin: allowedOrigins, 
+app.use(cors({
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -37,6 +37,9 @@ app.use('/api/notifications', notifications);
 app.use('/api/users', users);
 app.use('/api/locations', locations);
 app.use('/api/departments', departments);
+app.use('/api/warranty-checks', warrantyChecks);
+app.use('/api/audit-logs', auditLogs);
+app.use('/api/asset-health', assetHealth);
 
 app.use((req, res) => res.status(404).json({ message: 'Not found' }));
 app.use((err, req, res, next) => {

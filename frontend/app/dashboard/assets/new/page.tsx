@@ -36,6 +36,7 @@ export default function NewAssetPage() {
     locationId: '' as string,
     departmentId: '' as string,
     purchaseDate: '',
+    warrantyExpiry: '',
     vendor: '',
     cost: '',
   });
@@ -76,23 +77,34 @@ export default function NewAssetPage() {
       const orgData = await orgRes.json();
       const assetsData = await assetsRes.json();
 
-      if (!orgRes.ok || !orgData.organization || !orgData.organization.orgId) {
+      if (!orgRes.ok || !orgData.organization || !orgData.organization.name) {
         throw new Error('Failed to fetch organization details');
       }
 
-      // Get the organization prefix (first 3 letters of orgId or full if shorter)
-      const orgPrefix = orgData.organization.orgId.substring(0, 3).toUpperCase();
+      // Get category from form - if not selected, use default "ASS" for Asset
+      const selectedCategory = form.category || 'Asset';
 
-      // Find the highest asset number from existing assets
+      // Get organization prefix (first 3 letters of organization name, or full if shorter)
+      const orgName = orgData.organization.name.replace(/[^A-Za-z]/g, ''); // Remove non-letters
+      const orgPrefix = orgName.substring(0, 3).toUpperCase() || 'ORG';
+
+      // Get category prefix (first 3 letters of category, or full if shorter)
+      const categoryName = selectedCategory.replace(/[^A-Za-z]/g, ''); // Remove non-letters
+      const categoryPrefix = categoryName.substring(0, 3).toUpperCase() || 'ASS';
+
+      // Create the expected format: ORG-CAT-001
+      const expectedPrefix = `${orgPrefix}-${categoryPrefix}`;
+
+      // Find the highest asset number from existing assets with same org and category prefix
       let highestNumber = 0;
 
       if (assetsData.assets && assetsData.assets.length > 0) {
-        // Extract numbers from all asset IDs that match our org prefix
+        // Extract numbers from all asset IDs that match our org and category prefix
         assetsData.assets.forEach((asset: any) => {
           if (asset.assetId && typeof asset.assetId === 'string') {
-            // Expected format: ORG-AST-123
+            // Expected format: ORG-CAT-123
             const parts = asset.assetId.split('-');
-            if (parts.length === 3 && parts[0] === orgPrefix && parts[1] === 'AST') {
+            if (parts.length === 3 && parts[0] === orgPrefix && parts[1] === categoryPrefix) {
               const num = parseInt(parts[2], 10);
               if (!isNaN(num) && num > highestNumber) {
                 highestNumber = num;
@@ -111,8 +123,8 @@ export default function NewAssetPage() {
       const paddingLength = Math.max(minDigits, numberLength);
       const paddedNumber = String(nextNumber).padStart(paddingLength, '0');
 
-      // Generate ID in format: ORG-AST-001 (or ORG-AST-1000 for larger numbers)
-      const generatedId = `${orgPrefix}-AST-${paddedNumber}`;
+      // Generate ID in format: ORG-CAT-001 (e.g., ABC-PRO-001 for ABC School, Projector category)
+      const generatedId = `${orgPrefix}-${categoryPrefix}-${paddedNumber}`;
 
       setForm({ ...form, assetId: generatedId });
     } catch (err) {
@@ -166,13 +178,13 @@ export default function NewAssetPage() {
   };
 
   const generateSequentialId = (baseId: string, index: number): string => {
-    // Extract prefix and current number from base ID (e.g., "SCH-AST-048")
+    // Extract prefix and current number from base ID (e.g., "ABC-PRO-001")
     const parts = baseId.split('-');
     if (parts.length !== 3) return `${baseId}-${index + 1}`;
 
-    const prefix = parts[0]; // "SCH"
-    const type = parts[1];   // "AST"
-    const baseNumber = parseInt(parts[2], 10); // 48
+    const orgPrefix = parts[0]; // "ABC"
+    const categoryPrefix = parts[1]; // "PRO"
+    const baseNumber = parseInt(parts[2], 10); // 1
 
     const newNumber = baseNumber + index;
     const minDigits = 3;
@@ -180,7 +192,7 @@ export default function NewAssetPage() {
     const paddingLength = Math.max(minDigits, numberLength);
     const paddedNumber = String(newNumber).padStart(paddingLength, '0');
 
-    return `${prefix}-${type}-${paddedNumber}`;
+    return `${orgPrefix}-${categoryPrefix}-${paddedNumber}`;
   };
 
   useEffect(() => {
@@ -216,6 +228,13 @@ export default function NewAssetPage() {
     generateAssetId();
   }, []);
 
+  // Regenerate asset ID when category changes
+  useEffect(() => {
+    if (form.category && form.assetId) {
+      generateAssetId();
+    }
+  }, [form.category]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -247,6 +266,7 @@ export default function NewAssetPage() {
             ...form,
             cost: form.cost ? Number(form.cost) : undefined,
             purchaseDate: form.purchaseDate || undefined,
+            warrantyExpiry: form.warrantyExpiry || undefined,
             assignedTo: form.assignedTo || undefined,
             locationId: form.locationId || undefined,
             departmentId: form.departmentId || undefined,
@@ -291,6 +311,7 @@ export default function NewAssetPage() {
                 assetId: currentAssetId,
                 cost: form.cost ? Number(form.cost) : undefined,
                 purchaseDate: form.purchaseDate || undefined,
+                warrantyExpiry: form.warrantyExpiry || undefined,
                 assignedTo: form.assignedTo || undefined,
                 locationId: form.locationId || undefined,
                 departmentId: form.departmentId || undefined,
@@ -354,10 +375,10 @@ export default function NewAssetPage() {
             required
             placeholder="Generating..."
             className="w-full px-3 py-2.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 cursor-not-allowed"
-            title="Auto-generated based on your organization"
+            title="Auto-generated based on your organization name and asset category"
           />
           <p className="text-xs text-slate-500 mt-1">
-            Unique ID automatically generated based on your organization
+            Format: [ORG]-[CATEGORY]-[NUMBER] (e.g., ABC-PRO-001 for ABC School, Projector)
           </p>
         </Field>
         <Field label="Quantity (How many identical assets?)" required>
@@ -492,6 +513,17 @@ export default function NewAssetPage() {
             onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })}
             className={inputClassName}
           />
+        </Field>
+        <Field label="Warranty expiry">
+          <input
+            type="date"
+            value={form.warrantyExpiry}
+            onChange={(e) => setForm({ ...form, warrantyExpiry: e.target.value })}
+            className={inputClassName}
+          />
+          <p className="text-xs text-slate-500 mt-1">
+            You'll be notified when warranty expires
+          </p>
         </Field>
         <Field label="Vendor">
           <input

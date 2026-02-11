@@ -1,24 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
-
-function api(path: string) {
-  const base = process.env.NEXT_PUBLIC_API_URL || '';
-  return base ? `${base}${path}` : path;
-}
+import { useNotifications } from '@/contexts/NotificationContext';
 
 export function NotificationsLink() {
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (!token) return;
-    fetch(api('/api/notifications'), { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then((d) => typeof d.unreadCount === 'number' && setUnreadCount(d.unreadCount))
-      .catch(() => {});
-  }, []);
+  const { unreadCount } = useNotifications();
 
   return (
     <Link

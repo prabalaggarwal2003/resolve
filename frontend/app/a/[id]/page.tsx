@@ -21,6 +21,8 @@ type Asset = {
   category: string;
   serialNumber?: string;
   status: string;
+  condition?: string;
+  maintenanceReason?: string;
   purchaseDate?: string;
   vendor?: string;
   cost?: number;
@@ -226,13 +228,38 @@ const searchIssue = async () => {
               </dl>
             </div>
 
-            {/* Report issue — prominent for scan flow */}
-            <Link
-              href={`/report?assetId=${asset._id}&assetName=${encodeURIComponent(asset.name)}`}
-              className="block w-full py-4 bg-primary text-white text-center font-semibold rounded-xl hover:bg-primary-hover shadow-sm"
-            >
-              Report an issue
-            </Link>
+            {/* Report issue — prominent for scan flow, or maintenance warning */}
+            {asset.status === 'under_maintenance' ? (
+              <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-5">
+                <div className="flex items-start gap-3">
+                  <div className="text-2xl">🔧</div>
+                  <div>
+                    <h3 className="font-bold text-amber-900 text-lg mb-1">Can't Report Issues</h3>
+                    <p className="text-amber-800 text-sm mb-2">
+                      This asset is currently under maintenance and issue reporting is temporarily disabled.
+                    </p>
+                    {asset.maintenanceReason && (
+                      <p className="text-amber-700 text-xs">
+                        <span className="font-medium">Reason:</span> {asset.maintenanceReason}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  disabled
+                  className="mt-4 w-full py-3 bg-gray-300 text-gray-500 text-center font-semibold rounded-lg cursor-not-allowed"
+                >
+                  🚫 Reporting Disabled
+                </button>
+              </div>
+            ) : (
+              <Link
+                href={`/report?assetId=${asset._id}&assetName=${encodeURIComponent(asset.name)}`}
+                className="block w-full py-4 bg-primary text-white text-center font-semibold rounded-xl hover:bg-primary-hover shadow-sm"
+              >
+                Report an issue
+              </Link>
+            )}
           </div>
 
           {/* Right Column - Issue Search and Previous Issues */}

@@ -30,6 +30,26 @@ const assetSchema = new mongoose.Schema(
     qrCodeUrl: String,
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+
+    // Health monitoring fields
+    condition: {
+      type: String,
+      enum: ['excellent', 'good', 'fair', 'poor', 'critical', 'under_maintenance'],
+      default: 'good'
+    },
+    lastHealthCheck: {
+      type: Date,
+      default: Date.now
+    },
+    maintenanceReason: {
+      type: String
+    },
+    maintenanceStartDate: {
+      type: Date
+    },
+    maintenanceCompletedDate: {
+      type: Date
+    }
   },
   { timestamps: true }
 );
