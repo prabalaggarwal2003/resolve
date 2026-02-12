@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { env } from './config/env.js';
-import { auth, signup, health, assets, issues, dashboard, notifications, users, locations, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth } from './routes/index.js';
+import { auth, signup, health, assets, issues, dashboard, notifications, users, locations, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth, testNotifications, qrPdf, depreciation, kpis, vendors, invoices } from './routes/index.js';
 
 const app = express();
 
@@ -40,6 +40,12 @@ app.use('/api/departments', departments);
 app.use('/api/warranty-checks', warrantyChecks);
 app.use('/api/audit-logs', auditLogs);
 app.use('/api/asset-health', assetHealth);
+app.use('/api/test-notifications', testNotifications);
+app.use('/api/qr-pdf', qrPdf);
+app.use('/api/depreciation', depreciation);
+app.use('/api/kpis', kpis);
+app.use('/api/vendors', vendors);
+app.use('/api/invoices', invoices);
 
 app.use((req, res) => res.status(404).json({ message: 'Not found' }));
 app.use((err, req, res, next) => {

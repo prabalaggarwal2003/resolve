@@ -168,6 +168,15 @@ async function updateAssetCondition(assetId, healthAnalysis, systemUserId = null
     // Track if we're entering maintenance mode
     const enteringMaintenance = healthAnalysis.recommendedCondition === ASSET_CONDITIONS.MAINTENANCE;
 
+    // Track if crossing critical threshold (not maintenance)
+    const enteringCritical = healthAnalysis.recommendedCondition === ASSET_CONDITIONS.CRITICAL &&
+                            healthAnalysis.currentCondition !== ASSET_CONDITIONS.CRITICAL;
+
+    // Track if crossing poor/warning threshold
+    const enteringPoor = healthAnalysis.recommendedCondition === ASSET_CONDITIONS.POOR &&
+                        healthAnalysis.currentCondition !== ASSET_CONDITIONS.POOR &&
+                        healthAnalysis.currentCondition !== ASSET_CONDITIONS.CRITICAL;
+
     // Add maintenance details if going into maintenance
     if (enteringMaintenance) {
       updateData.maintenanceReason = healthAnalysis.maintenanceReason;
@@ -182,9 +191,13 @@ async function updateAssetCondition(assetId, healthAnalysis, systemUserId = null
 
     if (!updatedAsset) return false;
 
-    // Send notification if asset enters maintenance
+    // Send notifications based on condition changes
     if (enteringMaintenance) {
       await sendMaintenanceNotification(updatedAsset, healthAnalysis.maintenanceReason);
+    } else if (enteringCritical) {
+      await sendCriticalConditionNotification(updatedAsset, healthAnalysis);
+    } else if (enteringPoor) {
+      await sendWarningConditionNotification(updatedAsset, healthAnalysis);
     }
 
     // Log audit entry for automatic condition change
@@ -350,6 +363,95 @@ async function sendMaintenanceNotification(asset, reason) {
     console.log(`Sent maintenance notifications for asset ${asset.assetId} to ${uniqueUserIds.length} users`);
   } catch (error) {
     console.error('Error sending maintenance notification:', error);
+  }
+}
+
+/**
+ * Send notification when asset enters critical condition (5+ open issues or 3+ years old)
+ */
+async function sendCriticalConditionNotification(asset, healthAnalysis) {
+  try {
+    const usersToNotify = await User.find({
+      organizationId: asset.organizationId,
+      role: { $in: ['super_admin', 'admin', 'manager'] },
+      isActive: true
+    }).select('_id').lean();
+
+    const userIds = usersToNotify.map(u => u._id.toString());
+    if (asset.assignedTo) {
+      userIds.push(asset.assignedTo.toString());
+    }
+    const uniqueUserIds = [...new Set(userIds)];
+
+    const { openIssuesCount, assetAge } = healthAnalysis.healthFactors;
+    let reason = '';
+    if (openIssuesCount >= HEALTH_THRESHOLDS.OPEN_ISSUES_CRITICAL) {
+      reason = `${openIssuesCount} open issues (threshold: ${HEALTH_THRESHOLDS.OPEN_ISSUES_CRITICAL})`;
+    } else if (assetAge >= HEALTH_THRESHOLDS.AGE_CRITICAL_YEARS) {
+      reason = `Asset age: ${assetAge} years (threshold: ${HEALTH_THRESHOLDS.AGE_CRITICAL_YEARS} years)`;
+    }
+
+    const notifications = uniqueUserIds.map(userId => ({
+      userId,
+      type: 'asset_critical',
+      title: `🚨 Critical Asset Health: ${asset.name}`,
+      body: `${asset.assetId} has entered critical condition. ${reason}. Please review immediately.`,
+      link: `/dashboard/assets/${asset._id}`,
+      read: false,
+      metadata: {
+        assetId: asset._id,
+        assetName: asset.name,
+        openIssues: openIssuesCount,
+        assetAge: assetAge,
+        condition: 'critical'
+      }
+    }));
+
+    await Notification.insertMany(notifications);
+    console.log(`Sent critical condition notifications for asset ${asset.assetId} to ${uniqueUserIds.length} users`);
+  } catch (error) {
+    console.error('Error sending critical condition notification:', error);
+  }
+}
+
+/**
+ * Send notification when asset enters poor/warning condition (3+ open issues)
+ */
+async function sendWarningConditionNotification(asset, healthAnalysis) {
+  try {
+    const usersToNotify = await User.find({
+      organizationId: asset.organizationId,
+      role: { $in: ['super_admin', 'admin', 'manager'] },
+      isActive: true
+    }).select('_id').lean();
+
+    const userIds = usersToNotify.map(u => u._id.toString());
+    if (asset.assignedTo) {
+      userIds.push(asset.assignedTo.toString());
+    }
+    const uniqueUserIds = [...new Set(userIds)];
+
+    const { openIssuesCount } = healthAnalysis.healthFactors;
+
+    const notifications = uniqueUserIds.map(userId => ({
+      userId,
+      type: 'asset_warning',
+      title: `⚠️ Asset Health Warning: ${asset.name}`,
+      body: `${asset.assetId} has ${openIssuesCount} open issues (threshold: ${HEALTH_THRESHOLDS.OPEN_ISSUES_WARNING}). Please review.`,
+      link: `/dashboard/assets/${asset._id}`,
+      read: false,
+      metadata: {
+        assetId: asset._id,
+        assetName: asset.name,
+        openIssues: openIssuesCount,
+        condition: 'poor'
+      }
+    }));
+
+    await Notification.insertMany(notifications);
+    console.log(`Sent warning condition notifications for asset ${asset.assetId} to ${uniqueUserIds.length} users`);
+  } catch (error) {
+    console.error('Error sending warning condition notification:', error);
   }
 }
 

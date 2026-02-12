@@ -76,6 +76,16 @@ export const AUDIT_ACTIONS = {
   DEPARTMENT_UPDATED: 'updated',
   DEPARTMENT_DELETED: 'deleted',
 
+  // Vendors
+  VENDOR_CREATED: 'created',
+  VENDOR_UPDATED: 'updated',
+  VENDOR_DELETED: 'deleted',
+
+  // Invoices
+  INVOICE_CREATED: 'created',
+  INVOICE_UPDATED: 'updated',
+  INVOICE_DELETED: 'deleted',
+
   // Authentication
   LOGIN_SUCCESS: 'login_success',
   LOGIN_FAILED: 'login_failed',
@@ -89,6 +99,8 @@ export const AUDIT_RESOURCES = {
   ORGANIZATION: 'organization',
   LOCATION: 'location',
   DEPARTMENT: 'department',
+  VENDOR: 'vendor',
+  INVOICE: 'invoice',
   AUTH: 'authentication'
 };
 

@@ -22,6 +22,7 @@ export default function EditAssetPage() {
   const [error, setError] = useState('');
   const [users, setUsers] = useState<{ _id: string; name: string; email: string }[]>([]);
   const [departments, setDepartments] = useState<{ _id: string; name: string }[]>([]);
+  const [vendors, setVendors] = useState<{ _id: string; vendorId: string; name: string }[]>([]);
   const [form, setForm] = useState({
     name: '',
     model: '',
@@ -32,7 +33,7 @@ export default function EditAssetPage() {
     locationId: '' as string,
     departmentId: '' as string,
     purchaseDate: '',
-    vendor: '',
+    vendorId: '',
     cost: '',
   });
   const [photos, setPhotos] = useState<{ url: string; caption?: string }[]>([]);
@@ -47,8 +48,9 @@ export default function EditAssetPage() {
       fetch(api('/api/users'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       fetch(api('/api/locations'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       fetch(api('/api/departments'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      fetch(api('/api/vendors?status=Active'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
     ])
-      .then(([asset, usersRes, locRes, deptRes]) => {
+      .then(([asset, usersRes, locRes, deptRes, vendorsRes]) => {
         if (asset._id) {
           setForm({
             name: asset.name ?? '',
@@ -60,7 +62,7 @@ export default function EditAssetPage() {
             locationId: asset.locationId?._id ?? (typeof asset.locationId === 'string' ? asset.locationId : ''),
             departmentId: asset.departmentId?._id ?? (typeof asset.departmentId === 'string' ? asset.departmentId : ''),
             purchaseDate: asset.purchaseDate ? asset.purchaseDate.slice(0, 10) : '',
-            vendor: asset.vendor ?? '',
+            vendorId: asset.vendorId?._id ?? (typeof asset.vendorId === 'string' ? asset.vendorId : ''),
             cost: asset.cost != null ? String(asset.cost) : '',
           });
           setPhotos(Array.isArray(asset.photos) ? asset.photos.map((p: { url: string; caption?: string }) => ({ url: p.url, caption: p.caption ?? '' })) : []);
@@ -69,6 +71,7 @@ export default function EditAssetPage() {
         if (usersRes.users) setUsers(usersRes.users);
         if (locRes.locations) setLocations(locRes.locations);
         if (deptRes.departments) setDepartments(deptRes.departments);
+        if (Array.isArray(vendorsRes)) setVendors(vendorsRes.filter((v: any) => v.status === 'Active'));
       })
       .catch(() => setLoadErr('Failed to load'));
   }, [params.id]);
@@ -152,7 +155,7 @@ export default function EditAssetPage() {
         <Field label="Location"><select value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })} className={inputClassName}><option value="">None</option>{locations.map((l) => <option key={l._id} value={l._id}>{l.name} ({l.type})</option>)}</select></Field>
         <Field label="Department"><select value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })} className={inputClassName}><option value="">None</option>{departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}</select></Field>
         <Field label="Purchase date"><input type="date" value={form.purchaseDate} onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })} className={inputClassName} /></Field>
-        <Field label="Vendor"><input value={form.vendor} onChange={(e) => setForm({ ...form, vendor: e.target.value })} className={inputClassName} /></Field>
+        <Field label="Vendor"><select value={form.vendorId} onChange={(e) => setForm({ ...form, vendorId: e.target.value })} className={inputClassName}><option value="">None</option>{vendors.map((v) => <option key={v._id} value={v._id}>{v.vendorId} - {v.name}</option>)}</select></Field>
         <Field label="Cost (₹)"><input type="number" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} className={inputClassName} /></Field>
         <Field label="Photos">
           <div className="space-y-2">
