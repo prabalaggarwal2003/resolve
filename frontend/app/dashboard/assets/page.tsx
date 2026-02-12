@@ -142,23 +142,59 @@ function AssetsPageContent() {
 
   const canAddAsset = ['super_admin', 'admin', 'manager'].includes(user?.role ?? '');
 
+  const downloadQRPDF = async () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) return;
+
+    try {
+      const res = await fetch(api('/api/qr-pdf/download'), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `asset-qr-codes-${new Date().toISOString().split('T')[0]}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } else {
+        const data = await res.json();
+        alert(data.message || 'Failed to download PDF');
+      }
+    } catch (err) {
+      alert('Failed to download PDF');
+    }
+  };
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold mb-1">{myAssetsOnly ? 'My Assets' : 'Assets'}</h1>
-          <p className="text-slate-600">
+          <h1 className="text-2xl font-bold mb-1 text-gray-900 dark:text-gray-100">{myAssetsOnly ? 'My Assets' : 'Assets'}</h1>
+          <p className="text-slate-600 dark:text-gray-400">
             Search by ID, name, serial; filter by status, type; sort by date or value
           </p>
         </div>
-        {canAddAsset && (
-          <Link
-            href="/dashboard/assets/new"
-            className="inline-flex items-center justify-center px-5 py-2.5 bg-primary text-white rounded-lg font-semibold hover:bg-primary-hover shrink-0"
+        <div className="flex gap-2">
+          <button
+            onClick={downloadQRPDF}
+            className="inline-flex items-center justify-center px-4 py-2.5 bg-green-600 dark:bg-green-500 text-white rounded-lg font-semibold hover:bg-green-700 dark:hover:bg-green-600 shrink-0"
           >
-            Add asset
-          </Link>
-        )}
+            📥 Download QR Codes PDF
+          </button>
+          {canAddAsset && (
+            <Link
+              href="/dashboard/assets/new"
+              className="inline-flex items-center justify-center px-5 py-2.5 bg-primary dark:bg-blue-500 text-white rounded-lg font-semibold hover:bg-primary-hover dark:hover:bg-blue-600 shrink-0"
+            >
+              Add asset
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3 mb-4">
@@ -167,12 +203,12 @@ function AssetsPageContent() {
           placeholder="Search (ID, name, serial…)"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="px-3 py-2 border border-slate-300 rounded-lg w-56 focus:outline-none focus:ring-2 focus:ring-primary"
+          className="px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 rounded-lg w-56 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400"
         />
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          className="px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400"
         >
           <option value="">All statuses</option>
           <option value="available">Available</option>
@@ -185,7 +221,7 @@ function AssetsPageContent() {
         <select
           value={departmentFilter}
           onChange={(e) => setDepartmentFilter(e.target.value)}
-          className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          className="px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400"
         >
           <option value="">All departments</option>
           {departments.map((d) => (
@@ -195,7 +231,7 @@ function AssetsPageContent() {
         <select
           value={assignedToFilter}
           onChange={(e) => setAssignedToFilter(e.target.value)}
-          className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          className="px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400"
         >
           <option value="">All assigned</option>
           {users.map((u) => (
@@ -205,7 +241,7 @@ function AssetsPageContent() {
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          className="px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400"
         >
           <option value="">All types</option>
           {categories.map((cat) => (
@@ -219,7 +255,7 @@ function AssetsPageContent() {
             setSort(s);
             setOrder(o);
           }}
-          className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          className="px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400"
         >
           <option value="createdAt-desc">Newest first</option>
           <option value="createdAt-asc">Oldest first</option>
@@ -236,58 +272,58 @@ function AssetsPageContent() {
               onChange={(e) => setMyAssetsOnly(e.target.checked)}
               className="rounded"
             />
-            <span className="text-sm text-slate-700">My assets only</span>
+            <span className="text-sm text-slate-700 dark:text-gray-300">My assets only</span>
           </label>
         )}
       </div>
 
-      {loading && <p className="text-slate-600">Loading…</p>}
+      {loading && <p className="text-slate-600 dark:text-gray-400">Loading…</p>}
       {error && (
-        <p className="p-4 bg-red-50 text-red-600 rounded-lg text-sm">{error}</p>
+        <p className="p-4 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 text-red-600 dark:text-red-200 rounded-lg text-sm">{error}</p>
       )}
       {!loading && !error && assets.length === 0 && (
-        <div className="bg-white p-12 rounded-lg border border-slate-200 text-center text-slate-600">
+        <div className="bg-white dark:bg-gray-800 p-12 rounded-lg border border-slate-200 dark:border-gray-700 text-center text-slate-600 dark:text-gray-400">
           No assets match. Try changing filters or add your first asset.
         </div>
       )}
       {!loading && !error && assets.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
-                <tr className="bg-slate-50 text-left">
-                  <th className="p-3 text-sm font-medium text-slate-700">ID</th>
-                  <th className="p-3 text-sm font-medium text-slate-700">Name</th>
-                  <th className="p-3 text-sm font-medium text-slate-700">Category</th>
-                  <th className="p-3 text-sm font-medium text-slate-700">Department</th>
-                  <th className="p-3 text-sm font-medium text-slate-700">Status</th>
-                  <th className="p-3 text-sm font-medium text-slate-700">Assigned to</th>
-                  <th className="p-3 text-sm font-medium text-slate-700">Location</th>
-                  <th className="p-3 text-sm font-medium text-slate-700"></th>
+                <tr className="bg-slate-50 dark:bg-gray-700 text-left">
+                  <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">ID</th>
+                  <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Name</th>
+                  <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Category</th>
+                  <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Department</th>
+                  <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Status</th>
+                  <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Assigned to</th>
+                  <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Location</th>
+                  <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300"></th>
                 </tr>
               </thead>
               <tbody>
                 {assets.map((a) => (
-                  <tr key={a._id} className="border-t border-slate-200 hover:bg-slate-50/50">
-                    <td className="p-3">{a.assetId}</td>
-                    <td className="p-3 font-medium">{a.name}</td>
-                    <td className="p-3">{a.category}</td>
-                    <td className="p-3 text-slate-600 text-sm">{a.departmentId?.name ?? '—'}</td>
+                  <tr key={a._id} className="border-t border-slate-200 dark:border-gray-700 hover:bg-slate-50/50 dark:hover:bg-gray-700/50">
+                    <td className="p-3 text-gray-900 dark:text-gray-100">{a.assetId}</td>
+                    <td className="p-3 font-medium text-gray-900 dark:text-gray-100">{a.name}</td>
+                    <td className="p-3 text-gray-900 dark:text-gray-100">{a.category}</td>
+                    <td className="p-3 text-slate-600 dark:text-gray-400 text-sm">{a.departmentId?.name ?? '—'}</td>
                     <td className="p-3">
                       <span
-                        className={`inline-block px-2 py-1 rounded text-xs font-medium ${STATUS_CLASSES[a.status] ?? 'bg-slate-100 text-slate-700'}`}
+                        className={`inline-block px-2 py-1 rounded text-xs font-medium ${STATUS_CLASSES[a.status] ?? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200'}`}
                       >
                         {a.status?.replace('_', ' ') || '—'}
                       </span>
                     </td>
-                    <td className="p-3 text-slate-600 text-sm">
+                    <td className="p-3 text-slate-600 dark:text-gray-400 text-sm">
                       {a.assignedTo?.name ?? '—'}
                     </td>
-                    <td className="p-3 text-slate-600">
+                    <td className="p-3 text-slate-600 dark:text-gray-400">
                       {a.locationId?.path || a.locationId?.name || '—'}
                     </td>
                     <td className="p-3">
-                      <Link href={`/dashboard/assets/${a._id}`} className="text-primary hover:underline">
+                      <Link href={`/dashboard/assets/${a._id}`} className="text-primary dark:text-blue-400 hover:underline">
                         View
                       </Link>
                     </td>
@@ -299,25 +335,25 @@ function AssetsPageContent() {
 
           {/* Pagination */}
           {total > limit && (
-            <div className="p-4 border-t border-slate-200 flex items-center justify-between">
-              <p className="text-sm text-slate-600">
+            <div className="p-4 border-t border-slate-200 dark:border-gray-700 flex items-center justify-between">
+              <p className="text-sm text-slate-600 dark:text-gray-400">
                 Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total} assets
               </p>
               <div className="flex gap-2">
                 <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                  className="px-3 py-1.5 text-sm border border-slate-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-gray-700"
                 >
                   Previous
                 </button>
-                <span className="px-3 py-1.5 text-sm">
+                <span className="px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100">
                   Page {page} of {Math.ceil(total / limit)}
                 </span>
                 <button
                   onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
                   disabled={page >= Math.ceil(total / limit)}
-                  className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                  className="px-3 py-1.5 text-sm border border-slate-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-gray-700"
                 >
                   Next
                 </button>

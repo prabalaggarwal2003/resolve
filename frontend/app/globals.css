@@ -5,12 +5,148 @@
 @layer base {
   html,
   body {
-    @apply min-h-screen bg-slate-50 text-slate-900 antialiased;
+    @apply min-h-screen bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-gray-100 antialiased;
   }
   a {
-    @apply text-primary hover:underline;
+    @apply text-primary dark:text-blue-400 hover:underline;
   }
   button {
     @apply cursor-pointer;
   }
+
+  /* Prevent flash of unstyled content */
+  html {
+    color-scheme: light dark;
+  }
+
+  /* Form inputs default styling */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="search"],
+  input[type="date"],
+  input[type="time"],
+  textarea,
+  select {
+    @apply bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400;
+  }
+
+  input[type="text"]:focus,
+  input[type="email"]:focus,
+  input[type="password"]:focus,
+  input[type="number"]:focus,
+  input[type="tel"]:focus,
+  input[type="url"]:focus,
+  input[type="search"]:focus,
+  input[type="date"]:focus,
+  input[type="time"]:focus,
+  textarea:focus,
+  select:focus {
+    @apply ring-2 ring-blue-500 dark:ring-blue-400 border-transparent;
+  }
 }
+
+/* Smooth transitions for theme switching */
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+@layer components {
+  /* Common card pattern */
+  .card-dark {
+    @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg;
+  }
+
+  /* Input fields */
+  .input-dark {
+    @apply bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400;
+  }
+
+  /* Filter section (white in light, dark in dark mode) */
+  .filter-section {
+    @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg;
+  }
+
+  /* Buttons */
+  .btn-primary-dark {
+    @apply bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white;
+  }
+
+  .btn-secondary-dark {
+    @apply bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200;
+  }
+
+  .btn-danger {
+    @apply bg-red-600 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-600 text-white;
+  }
+
+  .btn-success {
+    @apply bg-green-600 dark:bg-green-500 hover:bg-green-700 dark:hover:bg-green-600 text-white;
+  }
+
+  /* Table */
+  .table-dark {
+    @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700;
+  }
+
+  .table-header-dark {
+    @apply bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300;
+  }
+
+  .table-row-dark {
+    @apply hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-700;
+  }
+
+  .table-cell-dark {
+    @apply text-gray-900 dark:text-gray-100;
+  }
+
+  /* Modal */
+  .modal-dark {
+    @apply bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100;
+  }
+
+  .modal-overlay-dark {
+    @apply bg-black bg-opacity-50 dark:bg-opacity-70;
+  }
+
+  /* Form sections */
+  .form-section {
+    @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6;
+  }
+
+  /* Status badges - maintain color but adjust for dark mode */
+  .badge-green {
+    @apply bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200;
+  }
+
+  .badge-blue {
+    @apply bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200;
+  }
+
+  .badge-yellow {
+    @apply bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200;
+  }
+
+  .badge-red {
+    @apply bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200;
+  }
+
+  .badge-gray {
+    @apply bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200;
+  }
+
+  .badge-purple {
+    @apply bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200;
+  }
+
+  .badge-orange {
+    @apply bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200;
+  }
+}
+
