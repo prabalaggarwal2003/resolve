@@ -13,5 +13,11 @@ import organization from './organization.js';
 import warrantyChecks from './warranty-checks.js';
 import auditLogs from './audit-logs.js';
 import assetHealth from './assetHealth.js';
+import testNotifications from './test-notifications.js';
+import qrPdf from './qr-pdf.js';
+import depreciation from './depreciation.js';
+import kpis from './kpis.js';
+import vendors from './vendors.js';
+import invoices from './invoices.js';
 
-export { auth, signup, health, assets, issues, dashboard, notifications, users, locations, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth };
+export { auth, signup, health, assets, issues, dashboard, notifications, users, locations, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth, testNotifications, qrPdf, depreciation, kpis, vendors, invoices };
