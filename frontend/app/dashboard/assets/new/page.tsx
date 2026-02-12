@@ -37,7 +37,7 @@ export default function NewAssetPage() {
     departmentId: '' as string,
     purchaseDate: '',
     warrantyExpiry: '',
-    vendor: '',
+    vendorId: '',
     cost: '',
   });
   const [photos, setPhotos] = useState<{ url: string; caption: string }[]>([]);
@@ -45,6 +45,7 @@ export default function NewAssetPage() {
   const [users, setUsers] = useState<{ _id: string; name: string; email: string }[]>([]);
   const [locations, setLocations] = useState<{ _id: string; name: string; type: string }[]>([]);
   const [departments, setDepartments] = useState<{ _id: string; name: string }[]>([]);
+  const [vendors, setVendors] = useState<{ _id: string; vendorId: string; name: string }[]>([]);
   const [categories, setCategories] = useState<string[]>(CATEGORIES);
   const [newCategory, setNewCategory] = useState('');
   const [generatingAssetId, setGeneratingAssetId] = useState(false);
@@ -203,11 +204,13 @@ export default function NewAssetPage() {
       fetch(base ? `${base}/api/users` : '/api/users', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       fetch(base ? `${base}/api/locations` : '/api/locations', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       fetch(base ? `${base}/api/departments` : '/api/departments', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      fetch(base ? `${base}/api/vendors?status=Active` : '/api/vendors?status=Active', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
     ])
-      .then(([usersRes, locRes, deptRes]) => {
+      .then(([usersRes, locsRes, deptRes, vendorsRes]) => {
         if (usersRes.users) setUsers(usersRes.users);
-        if (locRes.locations) setLocations(locRes.locations);
+        if (locsRes.locations) setLocations(locsRes.locations);
         if (deptRes.departments) setDepartments(deptRes.departments);
+        if (Array.isArray(vendorsRes)) setVendors(vendorsRes.filter((v: any) => v.status === 'Active'));
       })
       .catch(() => {});
 
@@ -526,11 +529,23 @@ export default function NewAssetPage() {
           </p>
         </Field>
         <Field label="Vendor">
-          <input
-            value={form.vendor}
-            onChange={(e) => setForm({ ...form, vendor: e.target.value })}
+          <select
+            value={form.vendorId}
+            onChange={(e) => setForm({ ...form, vendorId: e.target.value })}
             className={inputClassName}
-          />
+          >
+            <option value="">Select vendor (optional)</option>
+            {vendors.map((v) => (
+              <option key={v._id} value={v._id}>
+                {v.vendorId} - {v.name}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-slate-500 mt-1">
+            <Link href="/dashboard/vendors" className="text-blue-600 hover:underline">
+              Manage vendors
+            </Link> to add new vendors
+          </p>
         </Field>
         <Field label="Cost (₹)">
           <input

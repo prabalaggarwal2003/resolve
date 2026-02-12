@@ -9,3 +9,5 @@ export { default as AssetLog } from './AssetLog.js';
 export { default as AuditLog } from './AuditLog.js';
 export { default as Notification } from './Notification.js';
 export { default as RateLimit } from './RateLimit.js';
+export { default as Vendor } from './Vendor.js';
+export { default as Invoice } from './Invoice.js';
