@@ -2,6 +2,7 @@ import app from './app.js';
 import { connectDB } from './config/db.js';
 import { env } from './config/env.js';
 import { initWarrantyCronJobs } from './services/warrantyScheduler.js';
+import reportScheduler from './services/reportScheduler.js';
 
 connectDB()
   .then(() => {
@@ -10,6 +11,9 @@ connectDB()
 
       // Initialize warranty check cron jobs
       initWarrantyCronJobs();
+
+      // Initialize report generation cron jobs
+      reportScheduler.startScheduledJobs();
     });
   })
   .catch((err) => {

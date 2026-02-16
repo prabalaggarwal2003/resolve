@@ -514,7 +514,7 @@ export default function NewAssetPage() {
             type="date"
             value={form.purchaseDate}
             onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })}
-            className={inputClassName}
+            className="w-full px-3 py-2.5 border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           />
         </Field>
         <Field label="Warranty expiry">
@@ -522,9 +522,9 @@ export default function NewAssetPage() {
             type="date"
             value={form.warrantyExpiry}
             onChange={(e) => setForm({ ...form, warrantyExpiry: e.target.value })}
-            className={inputClassName}
+            className="w-full px-3 py-2.5 border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           />
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
             You'll be notified when warranty expires
           </p>
         </Field>
@@ -623,7 +623,7 @@ export default function NewAssetPage() {
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div className="mb-4">
-      <label className="block mb-1.5 font-medium text-slate-700">
+      <label className="block mb-1.5 font-medium text-slate-700 dark:text-gray-300">
         {label} {required && '*'}
       </label>
       {children}

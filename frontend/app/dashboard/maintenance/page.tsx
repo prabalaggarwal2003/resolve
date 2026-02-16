@@ -45,37 +45,37 @@ function AssetCard({ asset, onCompleteMaintenance }: {
   };
 
   return (
-    <div className={`bg-white rounded-lg border p-5 ${
+    <div className={`bg-white dark:bg-gray-800 rounded-lg border p-5 ${
       asset.isOverdue 
-        ? 'border-red-300 bg-red-50' 
-        : 'border-gray-200'
+        ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20' 
+        : 'border-gray-200 dark:border-gray-700'
     }`}>
       <div className="flex items-start justify-between mb-3">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-gray-900">{asset.name}</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{asset.name}</h3>
             {asset.isOverdue && (
-              <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full font-medium">
+              <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 text-xs rounded-full font-medium">
                 ⚠️ Overdue
               </span>
             )}
           </div>
-          <p className="text-sm text-gray-600">{asset.assetId} · {asset.category}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">{asset.assetId} · {asset.category}</p>
         </div>
         <div className="text-right">
           <div className={`text-lg font-bold ${
-            asset.isOverdue ? 'text-red-600' : 'text-amber-600'
+            asset.isOverdue ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'
           }`}>
             {asset.daysUnderMaintenance} days
           </div>
-          <p className="text-xs text-gray-500">under maintenance</p>
+          <p className="text-xs text-gray-500 dark:text-gray-500">under maintenance</p>
         </div>
       </div>
 
       {/* Maintenance Reason */}
       {asset.maintenanceReason && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
-          <p className="text-sm text-amber-800">
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3 mb-3">
+          <p className="text-sm text-amber-800 dark:text-amber-200">
             <span className="font-medium">Reason:</span> {asset.maintenanceReason}
           </p>
         </div>
@@ -85,37 +85,37 @@ function AssetCard({ asset, onCompleteMaintenance }: {
       <div className="grid grid-cols-2 gap-2 text-sm mb-4">
         {asset.model && (
           <div>
-            <span className="text-gray-500">Model:</span>{' '}
-            <span className="text-gray-900">{asset.model}</span>
+            <span className="text-gray-500 dark:text-gray-400">Model:</span>{' '}
+            <span className="text-gray-900 dark:text-gray-100">{asset.model}</span>
           </div>
         )}
         {asset.serialNumber && (
           <div>
-            <span className="text-gray-500">Serial:</span>{' '}
-            <span className="text-gray-900">{asset.serialNumber}</span>
+            <span className="text-gray-500 dark:text-gray-400">Serial:</span>{' '}
+            <span className="text-gray-900 dark:text-gray-100">{asset.serialNumber}</span>
           </div>
         )}
         {asset.locationId && (
           <div>
-            <span className="text-gray-500">Location:</span>{' '}
-            <span className="text-gray-900">{asset.locationId.path || asset.locationId.name}</span>
+            <span className="text-gray-500 dark:text-gray-400">Location:</span>{' '}
+            <span className="text-gray-900 dark:text-gray-100">{asset.locationId.path || asset.locationId.name}</span>
           </div>
         )}
         {asset.departmentId && (
           <div>
-            <span className="text-gray-500">Department:</span>{' '}
-            <span className="text-gray-900">{asset.departmentId.name}</span>
+            <span className="text-gray-500 dark:text-gray-400">Department:</span>{' '}
+            <span className="text-gray-900 dark:text-gray-100">{asset.departmentId.name}</span>
           </div>
         )}
         {asset.assignedTo && (
           <div>
-            <span className="text-gray-500">Assigned to:</span>{' '}
-            <span className="text-gray-900">{asset.assignedTo.name}</span>
+            <span className="text-gray-500 dark:text-gray-400">Assigned to:</span>{' '}
+            <span className="text-gray-900 dark:text-gray-100">{asset.assignedTo.name}</span>
           </div>
         )}
         <div>
-          <span className="text-gray-500">Started:</span>{' '}
-          <span className="text-gray-900">{formatDate(asset.maintenanceStartDate)}</span>
+          <span className="text-gray-500 dark:text-gray-400">Started:</span>{' '}
+          <span className="text-gray-900 dark:text-gray-100">{formatDate(asset.maintenanceStartDate)}</span>
         </div>
       </div>
 
@@ -123,14 +123,14 @@ function AssetCard({ asset, onCompleteMaintenance }: {
       <div className="flex gap-2">
         <Link
           href={`/dashboard/assets/${asset._id}`}
-          className="flex-1 text-center py-2 px-3 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+          className="flex-1 text-center py-2 px-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
         >
           View Details
         </Link>
         <button
           onClick={handleComplete}
           disabled={completing}
-          className="flex-1 py-2 px-3 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+          className="flex-1 py-2 px-3 bg-green-600 dark:bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-700 dark:hover:bg-green-600 transition-colors disabled:opacity-50"
         >
           {completing ? 'Completing...' : '✓ Complete Maintenance'}
         </button>
@@ -210,7 +210,7 @@ export default function MaintenancePage() {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-        <span className="ml-3 text-gray-600">Loading maintenance assets...</span>
+        <span className="ml-3 text-gray-600 dark:text-gray-400">Loading maintenance assets...</span>
       </div>
     );
   }
@@ -220,14 +220,14 @@ export default function MaintenancePage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">🔧 Maintenance</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">🔧 Maintenance</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
             Assets currently under maintenance and requiring attention
           </p>
         </div>
         <Link
           href="/dashboard/asset-health"
-          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium"
+          className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-medium"
         >
           View Health Dashboard →
         </Link>
@@ -235,40 +235,40 @@ export default function MaintenancePage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
+        <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg border border-amber-200 dark:border-amber-700">
           <div className="flex items-center gap-3">
             <div className="text-2xl">🔧</div>
             <div>
-              <p className="text-sm text-amber-600">Under Maintenance</p>
-              <p className="text-2xl font-bold text-amber-900">{assets.length}</p>
+              <p className="text-sm text-amber-600 dark:text-amber-400">Under Maintenance</p>
+              <p className="text-2xl font-bold text-amber-900 dark:text-amber-200">{assets.length}</p>
             </div>
           </div>
         </div>
 
         <div className={`p-4 rounded-lg border ${
           overdueCount > 0 
-            ? 'bg-red-50 border-red-200' 
-            : 'bg-green-50 border-green-200'
+            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700' 
+            : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
         }`}>
           <div className="flex items-center gap-3">
             <div className="text-2xl">{overdueCount > 0 ? '⚠️' : '✅'}</div>
             <div>
-              <p className={`text-sm ${overdueCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              <p className={`text-sm ${overdueCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
                 Overdue (&gt;2 days)
               </p>
-              <p className={`text-2xl font-bold ${overdueCount > 0 ? 'text-red-900' : 'text-green-900'}`}>
+              <p className={`text-2xl font-bold ${overdueCount > 0 ? 'text-red-900 dark:text-red-200' : 'text-green-900 dark:text-green-200'}`}>
                 {overdueCount}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-700">
           <div className="flex items-center gap-3">
             <div className="text-2xl">📊</div>
             <div>
-              <p className="text-sm text-blue-600">On Track</p>
-              <p className="text-2xl font-bold text-blue-900">{assets.length - overdueCount}</p>
+              <p className="text-sm text-blue-600 dark:text-blue-400">On Track</p>
+              <p className="text-2xl font-bold text-blue-900 dark:text-blue-200">{assets.length - overdueCount}</p>
             </div>
           </div>
         </div>
@@ -280,8 +280,8 @@ export default function MaintenancePage() {
           onClick={() => setFilter('all')}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
             filter === 'all'
-              ? 'bg-gray-900 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-gray-900 dark:bg-gray-700 text-white'
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
           }`}
         >
           All ({assets.length})
@@ -290,8 +290,8 @@ export default function MaintenancePage() {
           onClick={() => setFilter('overdue')}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
             filter === 'overdue'
-              ? 'bg-red-600 text-white'
-              : 'bg-red-100 text-red-700 hover:bg-red-200'
+              ? 'bg-red-600 dark:bg-red-500 text-white'
+              : 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/40'
           }`}
         >
           Overdue ({overdueCount})
@@ -300,22 +300,22 @@ export default function MaintenancePage() {
 
       {/* Error State */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <p className="text-red-600">{error}</p>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4 mb-6">
+          <p className="text-red-600 dark:text-red-300">{error}</p>
         </div>
       )}
 
       {/* Empty State */}
       {filteredAssets.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
           <div className="text-4xl mb-4">✅</div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
             {filter === 'overdue'
               ? 'No overdue maintenance'
               : 'No assets under maintenance'
             }
           </h3>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-gray-400">
             {filter === 'overdue'
               ? 'All maintenance tasks are on track.'
               : 'All assets are in working condition.'
