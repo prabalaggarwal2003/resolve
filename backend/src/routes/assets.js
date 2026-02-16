@@ -109,6 +109,15 @@ router.post('/', requireCanEdit, async (req, res) => {
       updatedBy: req.user._id,
       organizationId: req.user.organizationId,
     };
+
+    // Convert empty strings to null for ObjectId fields to prevent casting errors
+    const objectIdFields = ['vendorId', 'locationId', 'departmentId', 'assignedTo', 'purchaseInvoiceId'];
+    objectIdFields.forEach(field => {
+      if (body[field] === '' || body[field] === 'null' || body[field] === 'undefined') {
+        body[field] = null;
+      }
+    });
+
     const asset = await Asset.create(body);
     const url = getAssetPublicUrl(asset._id.toString(), env.frontendUrl);
     const qrCodeUrl = await generateQrDataUrl(url);
@@ -147,6 +156,15 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
     if (!prev) return res.status(404).json({ message: 'Asset not found' });
 
     const update = { ...req.body, updatedBy: req.user._id };
+
+    // Convert empty strings to null for ObjectId fields to prevent casting errors
+    const objectIdFields = ['vendorId', 'locationId', 'departmentId', 'assignedTo', 'purchaseInvoiceId'];
+    objectIdFields.forEach(field => {
+      if (update[field] === '' || update[field] === 'null' || update[field] === 'undefined') {
+        update[field] = null;
+      }
+    });
+
     let auditAction = AUDIT_ACTIONS.ASSET_UPDATED;
     let auditDescription = `Updated asset "${prev.name}"`;
     let auditSeverity = 'low';
