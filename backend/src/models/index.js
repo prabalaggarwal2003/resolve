@@ -11,3 +11,4 @@ export { default as Notification } from './Notification.js';
 export { default as RateLimit } from './RateLimit.js';
 export { default as Vendor } from './Vendor.js';
 export { default as Invoice } from './Invoice.js';
+export { default as Report } from './Report.js';
