@@ -19,5 +19,6 @@ import depreciation from './depreciation.js';
 import kpis from './kpis.js';
 import vendors from './vendors.js';
 import invoices from './invoices.js';
+import reports from './reports.js';
 
-export { auth, signup, health, assets, issues, dashboard, notifications, users, locations, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth, testNotifications, qrPdf, depreciation, kpis, vendors, invoices };
+export { auth, signup, health, assets, issues, dashboard, notifications, users, locations, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth, testNotifications, qrPdf, depreciation, kpis, vendors, invoices, reports };
