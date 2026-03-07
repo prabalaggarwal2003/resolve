@@ -132,7 +132,7 @@ export default function LocationsPage() {
     return (
       <div>
         <h1 className="text-2xl font-bold mb-2">Locations</h1>
-        <p className="text-slate-600">Loading…</p>
+        <p className="text-gray-400">Loading…</p>
       </div>
     );
   }
@@ -140,12 +140,12 @@ export default function LocationsPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-2">Locations</h1>
-      <p className="text-slate-600 mb-6">
+      <p className="text-gray-400 mb-6">
         Campus → Building → Floor → Room. Set up once so every asset can be linked to a classroom or lab.
       </p>
 
       {error && (
-        <p className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</p>
+        <p className="mb-4 p-3 bg-red-900/20 text-red-400 rounded-lg text-sm">{error}</p>
       )}
 
       <div className="mb-4 flex flex-wrap items-center gap-4">
@@ -173,11 +173,11 @@ export default function LocationsPage() {
       </div>
 
       {showForm && (
-        <div className="bg-white p-6 rounded-lg border border-slate-200 mb-6 max-w-md">
+        <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 mb-6 max-w-md">
           <h2 className="text-lg font-semibold mb-4">{editing ? 'Edit location' : 'New location'}</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block mb-1 font-medium text-slate-700">Name *</label>
+              <label className="block mb-1 font-medium text-gray-300">Name *</label>
               <input
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -187,7 +187,7 @@ export default function LocationsPage() {
               />
             </div>
             <div>
-              <label className="block mb-1 font-medium text-slate-700">Type *</label>
+              <label className="block mb-1 font-medium text-gray-300">Type *</label>
               <select
                 value={form.type}
                 onChange={(e) => setForm({ ...form, type: e.target.value })}
@@ -199,7 +199,7 @@ export default function LocationsPage() {
               </select>
             </div>
             <div>
-              <label className="block mb-1 font-medium text-slate-700">Parent</label>
+              <label className="block mb-1 font-medium text-gray-300">Parent</label>
               <select
                 value={form.parentId}
                 onChange={(e) => setForm({ ...form, parentId: e.target.value })}
@@ -216,7 +216,7 @@ export default function LocationsPage() {
               </select>
             </div>
             <div>
-              <label className="block mb-1 font-medium text-slate-700">Code</label>
+              <label className="block mb-1 font-medium text-gray-300">Code</label>
               <input
                 value={form.code}
                 onChange={(e) => setForm({ ...form, code: e.target.value })}
@@ -238,7 +238,7 @@ export default function LocationsPage() {
                   setShowForm(false);
                   setEditing(null);
                 }}
-                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200"
+                className="px-4 py-2 bg-slate-100 text-gray-300 rounded-lg font-medium hover:bg-slate-200"
               >
                 Cancel
               </button>
@@ -247,29 +247,29 @@ export default function LocationsPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+      <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
         {filtered.length === 0 ? (
-          <div className="p-12 text-center text-slate-600">
+          <div className="p-12 text-center text-gray-400">
             No locations yet. Add a campus, building, floor, or room to get started.
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 text-left">
-                <th className="p-3 font-medium text-slate-700">Name</th>
-                <th className="p-3 font-medium text-slate-700">Type</th>
-                <th className="p-3 font-medium text-slate-700">Code</th>
-                <th className="p-3 font-medium text-slate-700">Parent</th>
-                <th className="p-3 font-medium text-slate-700">Actions</th>
+              <tr className="bg-gray-950 text-left">
+                <th className="p-3 font-medium text-gray-300">Name</th>
+                <th className="p-3 font-medium text-gray-300">Type</th>
+                <th className="p-3 font-medium text-gray-300">Code</th>
+                <th className="p-3 font-medium text-gray-300">Parent</th>
+                <th className="p-3 font-medium text-gray-300">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((loc) => (
-                <tr key={loc._id} className="border-t border-slate-200">
+                <tr key={loc._id} className="border-t border-gray-700">
                   <td className="p-3 font-medium">{loc.name}</td>
-                  <td className="p-3 text-slate-600">{loc.type}</td>
-                  <td className="p-3 text-slate-600">{loc.code ?? '—'}</td>
-                  <td className="p-3 text-slate-600">{getParentName(loc.parentId)}</td>
+                  <td className="p-3 text-gray-400">{loc.type}</td>
+                  <td className="p-3 text-gray-400">{loc.code ?? '—'}</td>
+                  <td className="p-3 text-gray-400">{getParentName(loc.parentId)}</td>
                   <td className="p-3">
                     <button
                       type="button"
@@ -281,7 +281,7 @@ export default function LocationsPage() {
                     <button
                       type="button"
                       onClick={() => handleDelete(loc._id)}
-                      className="text-red-600 hover:underline"
+                      className="text-red-400 hover:underline"
                     >
                       Delete
                     </button>

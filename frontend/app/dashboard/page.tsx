@@ -31,7 +31,7 @@ const STATUS_CLASSES: Record<string, string> = {
   open: 'bg-amber-100 text-amber-800',
   in_progress: 'bg-blue-100 text-blue-800',
   completed: 'bg-green-100 text-green-800',
-  cancelled: 'bg-slate-200 text-slate-600',
+  cancelled: 'bg-slate-200 text-gray-400',
 };
 
 function api(path: string) {
@@ -85,7 +85,7 @@ function StatusButtons({
           type="button"
           onClick={() => setStatus(o.value)}
           disabled={loading}
-          className="px-2 py-1 text-xs font-medium rounded bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50"
+          className="px-2 py-1 text-xs font-medium rounded bg-slate-100 text-gray-300 hover:bg-slate-200 disabled:opacity-50"
         >
           {o.label}
         </button>
@@ -139,14 +139,14 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-gray-100">Dashboard</h1>
-      <p className="text-slate-600 dark:text-gray-400 mb-6">
+      <h1 className="text-2xl font-bold mb-2 text-gray-100">Dashboard</h1>
+      <p className="text-gray-400 mb-6">
         Overview of assets and issues for your school or college
       </p>
 
-      {loading && <p className="text-slate-600 dark:text-gray-400">Loading…</p>}
+      {loading && <p className="text-gray-400">Loading…</p>}
       {error && (
-        <p className="p-4 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 text-red-600 dark:text-red-200 rounded-lg text-sm mb-4">{error}</p>
+        <p className="p-4 bg-red-900/20 border border-red-800 text-red-400 rounded-lg text-sm mb-4">{error}</p>
       )}
 
       {summary && (
@@ -171,50 +171,50 @@ export default function DashboardPage() {
 
       <section className="mt-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Latest 10 Issues</h2>
-          <Link href="/dashboard/issues" className="text-sm text-primary dark:text-blue-400 hover:underline">
+          <h2 className="text-lg font-semibold text-gray-100">Latest 10 Issues</h2>
+          <Link href="/dashboard/issues" className="text-sm text-primary hover:underline">
             View all issues →
           </Link>
         </div>
         {issues.length === 0 && !loading && (
-          <p className="text-slate-600 dark:text-gray-400">
+          <p className="text-gray-400">
             No issues yet. Report via QR scan or from an asset page.
           </p>
         )}
         {issues.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 overflow-hidden">
+          <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 dark:bg-gray-700 text-left">
-                    <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Ticket</th>
-                    <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Asset</th>
-                    <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Title</th>
-                    <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Status</th>
-                    <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Reported by</th>
-                    <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Date</th>
-                    {canEdit && <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Actions</th>}
+                  <tr className="bg-gray-950 text-left">
+                    <th className="p-3 text-sm font-medium text-gray-300">Ticket</th>
+                    <th className="p-3 text-sm font-medium text-gray-300">Asset</th>
+                    <th className="p-3 text-sm font-medium text-gray-300">Title</th>
+                    <th className="p-3 text-sm font-medium text-gray-300">Status</th>
+                    <th className="p-3 text-sm font-medium text-gray-300">Reported by</th>
+                    <th className="p-3 text-sm font-medium text-gray-300">Date</th>
+                    {canEdit && <th className="p-3 text-sm font-medium text-gray-300">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {issues.map((issue) => (
                     <tr
                       key={issue._id}
-                      className="border-t border-slate-200 dark:border-gray-700 hover:bg-slate-50/50 dark:hover:bg-gray-700/50"
+                      className="border-t border-gray-700 hover:bg-gray-950/50"
                     >
-                      <td className="p-3 font-medium text-gray-900 dark:text-gray-100">
+                      <td className="p-3 font-medium text-gray-100">
                         <Link
                           href={`/dashboard/issues/${issue._id}`}
-                          className="text-primary dark:text-blue-400 hover:underline"
+                          className="text-primary hover:underline"
                         >
                           {issue.ticketId}
                         </Link>
                       </td>
-                      <td className="p-3 text-gray-900 dark:text-gray-100">
+                      <td className="p-3 text-gray-100">
                         {issue.assetId ? (
                           <Link
                             href={`/dashboard/assets/${issue.assetId._id}`}
-                            className="text-primary dark:text-blue-400 hover:underline text-sm"
+                            className="text-primary hover:underline text-sm"
                           >
                             {issue.assetId.name}
                           </Link>
@@ -222,23 +222,23 @@ export default function DashboardPage() {
                           '—'
                         )}
                       </td>
-                      <td className="p-3 text-slate-700 dark:text-gray-300 text-sm max-w-xs truncate" title={issue.title}>
+                      <td className="p-3 text-gray-300 text-sm max-w-xs truncate" title={issue.title}>
                         {issue.title}
                       </td>
                       <td className="p-3">
                         <span
-                          className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${STATUS_CLASSES[issue.status] ?? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200'}`}
+                          className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${STATUS_CLASSES[issue.status] ?? 'bg-slate-100 text-gray-300'}`}
                         >
                           {issue.status.replace('_', ' ')}
                         </span>
                       </td>
-                      <td className="p-3 text-sm text-slate-600 dark:text-gray-400">
+                      <td className="p-3 text-sm text-gray-400">
                         {issue.reporterName ?? issue.reports?.[0]?.reporterName ?? '—'}
                         {issue.reports && issue.reports.length > 1 && (
-                          <span className="text-slate-400 dark:text-gray-500"> (+{issue.reports.length - 1})</span>
+                          <span className="text-slate-400"> (+{issue.reports.length - 1})</span>
                         )}
                       </td>
-                      <td className="p-3 text-slate-600 dark:text-gray-400 text-sm">
+                      <td className="p-3 text-gray-400 text-sm">
                         {new Date(issue.createdAt).toLocaleDateString()}
                       </td>
                       {canEdit && (
@@ -272,9 +272,9 @@ export default function DashboardPage() {
 
 function Card({ title, value, className = '' }: { title: string; value: string; className?: string }) {
   return (
-    <div className={`bg-white dark:bg-gray-800 p-5 rounded-lg border border-slate-200 dark:border-gray-700 ${className}`}>
-      <p className="text-sm text-slate-600 dark:text-gray-400">{title}</p>
-      <p className="text-2xl font-bold mt-1 text-gray-900 dark:text-gray-100">{value}</p>
+    <div className={`bg-gray-800 p-5 rounded-lg border border-gray-700 ${className}`}>
+      <p className="text-sm text-gray-400">{title}</p>
+      <p className="text-2xl font-bold mt-1 text-gray-100">{value}</p>
     </div>
   );
 }

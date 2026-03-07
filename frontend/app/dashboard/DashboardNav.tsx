@@ -29,62 +29,62 @@ export default function DashboardNav() {
 
   return (
     <nav className="mt-8 flex flex-col gap-1">
-      <Link href="/dashboard" className="px-3 py-2 rounded-lg text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700">
+      <Link href="/dashboard" className="px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-100">
         Dashboard
       </Link>
-      <Link href="/dashboard/assets" className="px-3 py-2 rounded-lg text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700">
+      <Link href="/dashboard/assets" className="px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-100">
         Assets
       </Link>
-      <Link href="/dashboard/issues" className="px-3 py-2 rounded-lg text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700">
+      <Link href="/dashboard/issues" className="px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-100">
         Issues
       </Link>
       {!reportOnly && (
         <>
-          <Link href="/dashboard/locations" className="px-3 py-2 rounded-lg text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700">
+          <Link href="/dashboard/locations" className="px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-100">
             Locations
           </Link>
-          <Link href="/dashboard/reports" className="px-3 py-2 rounded-lg text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700">
+          <Link href="/dashboard/reports" className="px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-100">
             Reports
           </Link>
         </>
       )}
       {canViewRoles && (
-        <Link href="/dashboard/roles" className="px-3 py-2 rounded-lg text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700">
+        <Link href="/dashboard/roles" className="px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-100">
           Users & Roles
         </Link>
       )}
       {canViewVendors && (
-        <Link href="/dashboard/vendors" className="px-3 py-2 rounded-lg text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700">
+        <Link href="/dashboard/vendors" className="px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-100">
           🏢 Vendors
         </Link>
       )}
       {canViewKPIs && (
-        <Link href="/dashboard/kpis" className="px-3 py-2 rounded-lg text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700">
+        <Link href="/dashboard/kpis" className="px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-100">
           📊 KPIs & Metrics
         </Link>
       )}
       {canViewDepreciation && (
-        <Link href="/dashboard/depreciation" className="px-3 py-2 rounded-lg text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700">
+        <Link href="/dashboard/depreciation" className="px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-100">
           💰 Depreciation
         </Link>
       )}
       {canViewMaintenance && (
-        <Link href="/dashboard/maintenance" className="px-3 py-2 rounded-lg text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700">
+        <Link href="/dashboard/maintenance" className="px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-100">
           🔧 Maintenance
         </Link>
       )}
       {canViewAssetHealth && (
-        <Link href="/dashboard/asset-health" className="px-3 py-2 rounded-lg text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700">
+        <Link href="/dashboard/asset-health" className="px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-100">
           📈 Asset Health
         </Link>
       )}
       {canViewAudit && (
-        <Link href="/dashboard/audit" className="px-3 py-2 rounded-lg text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700">
+        <Link href="/dashboard/audit" className="px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-100">
           📊 Audit Logs
         </Link>
       )}
       {role === 'super_admin' && (
-        <Link href="/dashboard/organization" className="px-3 py-2 rounded-lg text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700">
+        <Link href="/dashboard/organization" className="px-3 py-2 rounded-lg text-gray-300 hover:bg-slate-100">
           Organization
         </Link>
       )}

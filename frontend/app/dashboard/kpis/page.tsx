@@ -59,7 +59,7 @@ function formatCurrency(amount: number): string {
 
 function ProgressBar({ percentage, color }: { percentage: number; color: string }) {
   return (
-    <div className="w-full bg-gray-200 rounded-full h-2">
+    <div className="w-full bg-gray-700 rounded-full h-2">
       <div
         className={`h-2 rounded-full ${color}`}
         style={{ width: `${Math.min(percentage, 100)}%` }}
@@ -76,20 +76,20 @@ function StatCard({ title, value, subtitle, icon, color = 'blue' }: {
   color?: string;
 }) {
   const colorClasses = {
-    blue: 'bg-blue-50 text-blue-600',
-    green: 'bg-green-50 text-green-600',
-    red: 'bg-red-50 text-red-600',
-    yellow: 'bg-yellow-50 text-yellow-600',
+    blue: 'bg-blue-900/20 text-blue-400',
+    green: 'bg-green-900/20 text-green-400',
+    red: 'bg-red-900/20 text-red-400',
+    yellow: 'bg-yellow-900/20 text-yellow-400',
     purple: 'bg-purple-50 text-purple-600',
-    gray: 'bg-gray-50 text-gray-600'
+    gray: 'bg-gray-900 text-gray-400'
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-5">
+    <div className="bg-gray-800 rounded-lg border border-gray-700 p-5">
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <p className="text-sm text-gray-600 mb-1">{title}</p>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
+          <p className="text-sm text-gray-400 mb-1">{title}</p>
+          <p className="text-2xl font-bold text-gray-100">{value}</p>
           {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
         </div>
         <div className={`p-3 rounded-lg ${colorClasses[color as keyof typeof colorClasses]}`}>
@@ -139,15 +139,15 @@ export default function KPIPage() {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-        <span className="ml-3 text-gray-600">Loading KPIs...</span>
+        <span className="ml-3 text-gray-400">Loading KPIs...</span>
       </div>
     );
   }
 
   if (error || !kpis) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <p className="text-red-600">{error || 'No data available'}</p>
+      <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
+        <p className="text-red-400">{error || 'No data available'}</p>
       </div>
     );
   }
@@ -157,14 +157,14 @@ export default function KPIPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">📊 KPIs & Metrics</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-2xl font-bold text-gray-100">📊 KPIs & Metrics</h1>
+          <p className="text-gray-400 mt-1">
             Comprehensive insights into asset utilization, status, and performance
           </p>
         </div>
         <button
           onClick={fetchKPIs}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+          className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-700 text-sm font-medium"
         >
           🔄 Refresh
         </button>
@@ -176,8 +176,8 @@ export default function KPIPage() {
           onClick={() => setView('overview')}
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
             view === 'overview'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-gray-700 text-white'
+              : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
           }`}
         >
           Overview
@@ -186,8 +186,8 @@ export default function KPIPage() {
           onClick={() => setView('detailed')}
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
             view === 'detailed'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-gray-700 text-white'
+              : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
           }`}
         >
           Detailed Analytics
@@ -229,22 +229,22 @@ export default function KPIPage() {
           </div>
 
           {/* Status Distribution */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Asset Status Distribution</h2>
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-100 mb-4">Asset Status Distribution</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {Object.entries(kpis.status).map(([status, data]) => (
                 data.count > 0 && (
-                  <div key={status} className="p-4 bg-gray-50 rounded-lg">
+                  <div key={status} className="p-4 bg-gray-900 rounded-lg">
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-gray-900 capitalize">
+                      <span className="text-sm font-medium text-gray-100 capitalize">
                         {status.replace(/_/g, ' ')}
                       </span>
-                      <span className="text-sm font-bold text-blue-600">
+                      <span className="text-sm font-bold text-blue-400">
                         {data.count}
                       </span>
                     </div>
-                    <ProgressBar percentage={data.percentage} color="bg-blue-600" />
-                    <div className="flex justify-between mt-2 text-xs text-gray-600">
+                    <ProgressBar percentage={data.percentage} color="bg-gray-700" />
+                    <div className="flex justify-between mt-2 text-xs text-gray-400">
                       <span>{data.percentage.toFixed(1)}%</span>
                       <span>{formatCurrency(data.value)}</span>
                     </div>
@@ -257,13 +257,13 @@ export default function KPIPage() {
           {/* Utilization & Warranty */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Utilization */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Asset Utilization</h2>
+            <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+              <h2 className="text-lg font-semibold text-gray-100 mb-4">Asset Utilization</h2>
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">Assigned</span>
-                    <span className="text-sm font-bold text-green-600">
+                    <span className="text-sm font-medium text-gray-300">Assigned</span>
+                    <span className="text-sm font-bold text-green-400">
                       {kpis.utilization.assigned.count} ({kpis.utilization.assigned.percentage.toFixed(1)}%)
                     </span>
                   </div>
@@ -271,8 +271,8 @@ export default function KPIPage() {
                 </div>
                 <div>
                   <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">Unassigned</span>
-                    <span className="text-sm font-bold text-gray-600">
+                    <span className="text-sm font-medium text-gray-300">Unassigned</span>
+                    <span className="text-sm font-bold text-gray-400">
                       {kpis.utilization.unassigned.count} ({kpis.utilization.unassigned.percentage.toFixed(1)}%)
                     </span>
                   </div>
@@ -282,13 +282,13 @@ export default function KPIPage() {
             </div>
 
             {/* Warranty Status */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Warranty Status</h2>
+            <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+              <h2 className="text-lg font-semibold text-gray-100 mb-4">Warranty Status</h2>
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">Active</span>
-                    <span className="text-sm font-bold text-green-600">
+                    <span className="text-sm font-medium text-gray-300">Active</span>
+                    <span className="text-sm font-bold text-green-400">
                       {kpis.warranty.active.count} ({kpis.warranty.active.percentage.toFixed(1)}%)
                     </span>
                   </div>
@@ -296,8 +296,8 @@ export default function KPIPage() {
                 </div>
                 <div>
                   <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">Expired</span>
-                    <span className="text-sm font-bold text-red-600">
+                    <span className="text-sm font-medium text-gray-300">Expired</span>
+                    <span className="text-sm font-bold text-red-400">
                       {kpis.warranty.expired.count} ({kpis.warranty.expired.percentage.toFixed(1)}%)
                     </span>
                   </div>
@@ -305,8 +305,8 @@ export default function KPIPage() {
                 </div>
                 <div>
                   <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">No Warranty</span>
-                    <span className="text-sm font-bold text-gray-600">
+                    <span className="text-sm font-medium text-gray-300">No Warranty</span>
+                    <span className="text-sm font-bold text-gray-400">
                       {kpis.warranty.none.count} ({kpis.warranty.none.percentage.toFixed(1)}%)
                     </span>
                   </div>
@@ -317,49 +317,49 @@ export default function KPIPage() {
           </div>
 
           {/* Issue Metrics */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Issue Metrics</h2>
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-100 mb-4">Issue Metrics</h2>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div className="text-center p-4 bg-yellow-50 rounded-lg">
-                <div className="text-2xl font-bold text-yellow-600">{kpis.issues.open}</div>
-                <div className="text-xs text-gray-600 mt-1">Open</div>
+              <div className="text-center p-4 bg-yellow-900/20 rounded-lg">
+                <div className="text-2xl font-bold text-yellow-400">{kpis.issues.open}</div>
+                <div className="text-xs text-gray-400 mt-1">Open</div>
               </div>
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">{kpis.issues.in_progress}</div>
-                <div className="text-xs text-gray-600 mt-1">In Progress</div>
+              <div className="text-center p-4 bg-blue-900/20 rounded-lg">
+                <div className="text-2xl font-bold text-blue-400">{kpis.issues.in_progress}</div>
+                <div className="text-xs text-gray-400 mt-1">In Progress</div>
               </div>
-              <div className="text-center p-4 bg-green-50 rounded-lg">
-                <div className="text-2xl font-bold text-green-600">{kpis.issues.completed}</div>
-                <div className="text-xs text-gray-600 mt-1">Completed</div>
+              <div className="text-center p-4 bg-green-900/20 rounded-lg">
+                <div className="text-2xl font-bold text-green-400">{kpis.issues.completed}</div>
+                <div className="text-xs text-gray-400 mt-1">Completed</div>
               </div>
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <div className="text-2xl font-bold text-gray-600">{kpis.issues.cancelled}</div>
-                <div className="text-xs text-gray-600 mt-1">Cancelled</div>
+              <div className="text-center p-4 bg-gray-900 rounded-lg">
+                <div className="text-2xl font-bold text-gray-400">{kpis.issues.cancelled}</div>
+                <div className="text-xs text-gray-400 mt-1">Cancelled</div>
               </div>
               <div className="text-center p-4 bg-purple-50 rounded-lg">
                 <div className="text-2xl font-bold text-purple-600">{kpis.issues.resolutionRate.toFixed(0)}%</div>
-                <div className="text-xs text-gray-600 mt-1">Resolution Rate</div>
+                <div className="text-xs text-gray-400 mt-1">Resolution Rate</div>
               </div>
             </div>
           </div>
 
           {/* Top Categories */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Top Asset Categories</h2>
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+            <h2 className="text-lg font-semibold text-gray-100 mb-4">Top Asset Categories</h2>
             <div className="space-y-3">
               {kpis.categories.slice(0, 5).map((cat, idx) => (
                 <div key={cat.name} className="flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-400 flex items-center justify-center font-bold text-sm">
                     {idx + 1}
                   </div>
                   <div className="flex-1">
                     <div className="flex justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-900">{cat.name}</span>
-                      <span className="text-sm font-bold text-blue-600">{cat.count}</span>
+                      <span className="text-sm font-medium text-gray-100">{cat.name}</span>
+                      <span className="text-sm font-bold text-blue-400">{cat.count}</span>
                     </div>
-                    <ProgressBar percentage={cat.percentage} color="bg-blue-600" />
+                    <ProgressBar percentage={cat.percentage} color="bg-gray-700" />
                   </div>
-                  <div className="text-sm text-gray-600">{formatCurrency(cat.value)}</div>
+                  <div className="text-sm text-gray-400">{formatCurrency(cat.value)}</div>
                 </div>
               ))}
             </div>
@@ -370,14 +370,14 @@ export default function KPIPage() {
       {view === 'detailed' && (
         <>
           {/* Condition Distribution */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Asset Condition Distribution</h2>
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-100 mb-4">Asset Condition Distribution</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {Object.entries(kpis.condition).map(([condition, count]) => (
                 count > 0 && (
-                  <div key={condition} className="text-center p-4 bg-gray-50 rounded-lg">
-                    <div className="text-2xl font-bold text-gray-900">{count}</div>
-                    <div className="text-xs text-gray-600 mt-1 capitalize">{condition.replace(/_/g, ' ')}</div>
+                  <div key={condition} className="text-center p-4 bg-gray-900 rounded-lg">
+                    <div className="text-2xl font-bold text-gray-100">{count}</div>
+                    <div className="text-xs text-gray-400 mt-1 capitalize">{condition.replace(/_/g, ' ')}</div>
                   </div>
                 )
               ))}
@@ -385,14 +385,14 @@ export default function KPIPage() {
           </div>
 
           {/* Age Distribution */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Asset Age Distribution</h2>
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-100 mb-4">Asset Age Distribution</h2>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               {kpis.ageDistribution.map((age) => (
-                <div key={age.range} className="p-4 bg-gray-50 rounded-lg">
-                  <div className="text-xl font-bold text-gray-900">{age.count}</div>
-                  <div className="text-xs text-gray-600 mt-1">{age.range}</div>
-                  <div className="text-xs text-blue-600 mt-1">{age.percentage.toFixed(1)}%</div>
+                <div key={age.range} className="p-4 bg-gray-900 rounded-lg">
+                  <div className="text-xl font-bold text-gray-100">{age.count}</div>
+                  <div className="text-xs text-gray-400 mt-1">{age.range}</div>
+                  <div className="text-xs text-blue-400 mt-1">{age.percentage.toFixed(1)}%</div>
                 </div>
               ))}
             </div>
@@ -401,29 +401,29 @@ export default function KPIPage() {
           {/* Location & Department Distribution */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Locations */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Top Locations</h2>
+            <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+              <h2 className="text-lg font-semibold text-gray-100 mb-4">Top Locations</h2>
               <div className="space-y-3">
                 {kpis.locations.slice(0, 5).map((loc) => (
                   <div key={loc.name}>
                     <div className="flex justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-900">{loc.name}</span>
-                      <span className="text-sm font-bold text-blue-600">{loc.count}</span>
+                      <span className="text-sm font-medium text-gray-100">{loc.name}</span>
+                      <span className="text-sm font-bold text-blue-400">{loc.count}</span>
                     </div>
-                    <ProgressBar percentage={loc.percentage} color="bg-blue-600" />
+                    <ProgressBar percentage={loc.percentage} color="bg-gray-700" />
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Departments */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Department Distribution</h2>
+            <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+              <h2 className="text-lg font-semibold text-gray-100 mb-4">Department Distribution</h2>
               <div className="space-y-3">
                 {kpis.departments.slice(0, 5).map((dept) => (
                   <div key={dept.name}>
                     <div className="flex justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-900">{dept.name}</span>
+                      <span className="text-sm font-medium text-gray-100">{dept.name}</span>
                       <span className="text-sm font-bold text-purple-600">{dept.count}</span>
                     </div>
                     <ProgressBar percentage={dept.percentage} color="bg-purple-600" />

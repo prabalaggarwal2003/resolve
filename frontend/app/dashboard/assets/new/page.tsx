@@ -356,20 +356,20 @@ export default function NewAssetPage() {
 
   return (
     <div>
-      <Link href="/dashboard/assets" className="inline-block mb-4 text-slate-600 hover:text-slate-900">
+      <Link href="/dashboard/assets" className="inline-block mb-4 text-gray-400 hover:text-gray-100">
         ← Back to assets
       </Link>
       <h1 className="text-2xl font-bold mb-2">Add asset</h1>
-      <p className="text-slate-600 mb-6">
+      <p className="text-gray-400 mb-6">
         Classroom, lab, or office — add one asset at a time. You can add location & department later.
       </p>
 
       <form
         onSubmit={handleSubmit}
-        className="max-w-lg bg-white p-6 rounded-lg border border-slate-200"
+        className="max-w-lg bg-gray-800 p-6 rounded-lg border border-gray-700"
       >
         {error && (
-          <p className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</p>
+          <p className="mb-4 p-3 bg-red-900/20 text-red-400 rounded-lg text-sm">{error}</p>
         )}
         <Field label="Asset ID (auto-generated)" required>
           <input
@@ -377,10 +377,10 @@ export default function NewAssetPage() {
             readOnly
             required
             placeholder="Generating..."
-            className="w-full px-3 py-2.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 cursor-not-allowed"
+            className="w-full px-3 py-2.5 border border-slate-300 rounded-lg bg-gray-950 text-gray-300 cursor-not-allowed"
             title="Auto-generated based on your organization name and asset category"
           />
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             Format: [ORG]-[CATEGORY]-[NUMBER] (e.g., ABC-PRO-001 for ABC School, Projector)
           </p>
         </Field>
@@ -395,11 +395,11 @@ export default function NewAssetPage() {
             placeholder="1"
           />
           {quantity > 1 && form.assetId ? (
-            <p className="text-xs text-green-600 mt-1 font-medium">
+            <p className="text-xs text-green-400 mt-1 font-medium">
               ✓ Will create {quantity} assets with IDs: {form.assetId} to {generateSequentialId(form.assetId, quantity - 1)}
             </p>
           ) : (
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-gray-500 mt-1">
               Enter 1 for single asset or more for bulk creation (max 1000)
             </p>
           )}
@@ -514,7 +514,7 @@ export default function NewAssetPage() {
             type="date"
             value={form.purchaseDate}
             onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })}
-            className="w-full px-3 py-2.5 border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            className="w-full px-3 py-2.5 border border-slate-300 bg-gray-800 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           />
         </Field>
         <Field label="Warranty expiry">
@@ -522,9 +522,9 @@ export default function NewAssetPage() {
             type="date"
             value={form.warrantyExpiry}
             onChange={(e) => setForm({ ...form, warrantyExpiry: e.target.value })}
-            className="w-full px-3 py-2.5 border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            className="w-full px-3 py-2.5 border border-slate-300 bg-gray-800 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           />
-          <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             You'll be notified when warranty expires
           </p>
         </Field>
@@ -541,8 +541,8 @@ export default function NewAssetPage() {
               </option>
             ))}
           </select>
-          <p className="text-xs text-slate-500 mt-1">
-            <Link href="/dashboard/vendors" className="text-blue-600 hover:underline">
+          <p className="text-xs text-gray-500 mt-1">
+            <Link href="/dashboard/vendors" className="text-blue-400 hover:underline">
               Manage vendors
             </Link> to add new vendors
           </p>
@@ -558,12 +558,12 @@ export default function NewAssetPage() {
         </Field>
         <Field label="Photos (optional)">
           <div className="space-y-2">
-            <input type="file" accept="image/*" onChange={addPhoto} className="text-sm text-slate-600" />
+            <input type="file" accept="image/*" onChange={addPhoto} className="text-sm text-gray-400" />
             {photos.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {photos.map((p, i) => (
                   <div key={i} className="relative">
-                    <img src={p.url} alt="" className="h-20 w-20 object-cover rounded border border-slate-200" />
+                    <img src={p.url} alt="" className="h-20 w-20 object-cover rounded border border-gray-700" />
                     <button type="button" onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs leading-none">×</button>
                   </div>
                 ))}
@@ -573,13 +573,13 @@ export default function NewAssetPage() {
         </Field>
         <Field label="Documents (optional)">
           <div className="space-y-2">
-            <input type="file" accept=".pdf,.doc,.docx,image/*" onChange={addDocument} className="text-sm text-slate-600" />
+            <input type="file" accept=".pdf,.doc,.docx,image/*" onChange={addDocument} className="text-sm text-gray-400" />
             {documents.length > 0 && (
-              <ul className="text-sm text-slate-600 mt-2 space-y-1">
+              <ul className="text-sm text-gray-400 mt-2 space-y-1">
                 {documents.map((d, i) => (
                   <li key={i} className="flex items-center gap-2">
                     <span>{d.name}</span>
-                    <button type="button" onClick={() => setDocuments((prev) => prev.filter((_, j) => j !== i))} className="text-red-600 hover:underline">Remove</button>
+                    <button type="button" onClick={() => setDocuments((prev) => prev.filter((_, j) => j !== i))} className="text-red-400 hover:underline">Remove</button>
                   </li>
                 ))}
               </ul>
@@ -610,7 +610,7 @@ export default function NewAssetPage() {
                 style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
               />
             </div>
-            <p className="text-sm text-slate-600 text-center mt-2">
+            <p className="text-sm text-gray-400 text-center mt-2">
               Creating asset {bulkProgress.current} of {bulkProgress.total}...
             </p>
           </div>
@@ -623,7 +623,7 @@ export default function NewAssetPage() {
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div className="mb-4">
-      <label className="block mb-1.5 font-medium text-slate-700 dark:text-gray-300">
+      <label className="block mb-1.5 font-medium text-gray-300">
         {label} {required && '*'}
       </label>
       {children}

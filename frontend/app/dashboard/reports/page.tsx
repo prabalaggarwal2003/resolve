@@ -74,9 +74,12 @@ function ReportsPage() {
   const [generating, setGenerating] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'daily' | 'weekly' | 'monthly'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const reportsPerPage = 10;
 
   useEffect(() => {
     fetchReports();
+    setCurrentPage(1); // Reset to page 1 when filter changes
   }, [filterType]);
 
   const fetchReports = async () => {
@@ -438,11 +441,17 @@ function ReportsPage() {
 
   const filteredReports = reports;
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredReports.length / reportsPerPage);
+  const startIndex = (currentPage - 1) * reportsPerPage;
+  const endIndex = startIndex + reportsPerPage;
+  const currentReports = filteredReports.slice(startIndex, endIndex);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-        <span className="ml-3 text-gray-600">Loading reports...</span>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        <span className="ml-3 text-gray-400">Loading reports...</span>
       </div>
     );
   }
@@ -451,26 +460,26 @@ function ReportsPage() {
     <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">📊 Automated Reports</h1>
-        <p className="text-gray-600">
+        <h1 className="text-2xl font-bold text-gray-100 mb-2">📊 Automated Reports</h1>
+        <p className="text-gray-400">
           Daily, weekly, and monthly reports with insights, trends, and performance metrics
         </p>
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600">
+        <div className="mb-6 p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-400">
           {error}
         </div>
       )}
 
       {/* Generate Reports Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Generate New Report</h2>
+      <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
+        <h2 className="text-lg font-semibold text-gray-100 mb-4">Generate New Report</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
             onClick={() => generateReport('daily')}
             disabled={generating !== null}
-            className="px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-3 bg-gray-700 text-white rounded-lg font-medium hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {generating === 'daily' ? 'Generating...' : '📅 Generate Daily Report'}
           </button>
@@ -495,8 +504,8 @@ function ReportsPage() {
       </div>
 
       {/* Download All Data Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Download Complete Data</h2>
+      <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
+        <h2 className="text-lg font-semibold text-gray-100 mb-4">Download Complete Data</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
             onClick={downloadAllAssets}
@@ -526,8 +535,8 @@ function ReportsPage() {
             onClick={() => setFilterType(type as any)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               filterType === type
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-gray-700 text-white'
+                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
             }`}
           >
             {type === 'all' ? 'All Reports' : `${type.charAt(0).toUpperCase() + type.slice(1)} Reports`}
@@ -537,17 +546,18 @@ function ReportsPage() {
 
       {/* Reports List */}
       {filteredReports.length === 0 ? (
-        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+        <div className="bg-gray-800 rounded-lg border border-gray-700 p-12 text-center">
           <div className="text-4xl mb-4">📋</div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No reports yet</h3>
-          <p className="text-gray-600">Generate your first report using the buttons above</p>
+          <h3 className="text-lg font-medium text-gray-100 mb-2">No reports yet</h3>
+          <p className="text-gray-400">Generate your first report using the buttons above</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {filteredReports.map((report) => (
+        <>
+          <div className="space-y-4">
+            {currentReports.map((report) => (
             <div
               key={report._id}
-              className="bg-white rounded-lg border border-gray-200 p-6 hover:border-blue-300 transition-colors"
+              className="bg-gray-800 rounded-lg border border-gray-700 p-6 hover:border-blue-300 transition-colors"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
@@ -556,10 +566,10 @@ function ReportsPage() {
                      report.reportType === 'weekly' ? '📆' : '📊'}
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-semibold text-gray-100">
                       {report.reportType.charAt(0).toUpperCase() + report.reportType.slice(1)} Report
                     </h3>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-400">
                       {new Date(report.period.start).toLocaleDateString()} - {new Date(report.period.end).toLocaleDateString()}
                     </p>
                     <p className="text-xs text-gray-500">
@@ -570,13 +580,13 @@ function ReportsPage() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setSelectedReport(selectedReport?._id === report._id ? null : report)}
-                    className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium"
+                    className="px-3 py-1.5 text-sm bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 font-medium"
                   >
                     {selectedReport?._id === report._id ? 'Hide Details' : 'View Details'}
                   </button>
                   <button
                     onClick={() => downloadReport(report)}
-                    className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                    className="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-700 font-medium"
                   >
                     📥 Download
                   </button>
@@ -585,12 +595,12 @@ function ReportsPage() {
 
               {/* Summary Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <p className="text-sm text-blue-600 font-medium">Total Issues</p>
+                <div className="bg-blue-900/20 p-3 rounded-lg">
+                  <p className="text-sm text-blue-400 font-medium">Total Issues</p>
                   <p className="text-2xl font-bold text-blue-900">{report.summary.totalIssuesReported}</p>
                 </div>
-                <div className="bg-green-50 p-3 rounded-lg">
-                  <p className="text-sm text-green-600 font-medium">Assets Affected</p>
+                <div className="bg-green-900/20 p-3 rounded-lg">
+                  <p className="text-sm text-green-400 font-medium">Assets Affected</p>
                   <p className="text-2xl font-bold text-green-900">{report.summary.totalAssetsAffected}</p>
                 </div>
                 <div className="bg-purple-50 p-3 rounded-lg">
@@ -605,18 +615,18 @@ function ReportsPage() {
 
               {/* Detailed View */}
               {selectedReport?._id === report._id && (
-                <div className="border-t border-gray-200 pt-4 mt-4 space-y-6">
+                <div className="border-t border-gray-700 pt-4 mt-4 space-y-6">
                   {/* Most Reported Assets */}
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-3">Most Reported Assets</h4>
+                    <h4 className="font-semibold text-gray-100 mb-3">Most Reported Assets</h4>
                     <div className="space-y-2">
                       {report.summary.mostReportedAssets.slice(0, 5).map((asset, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-900 rounded-lg">
                           <div>
-                            <p className="font-medium text-gray-900">{asset.assetName}</p>
-                            <p className="text-sm text-gray-600">{asset.assetTag}</p>
+                            <p className="font-medium text-gray-100">{asset.assetName}</p>
+                            <p className="text-sm text-gray-400">{asset.assetTag}</p>
                           </div>
-                          <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
+                          <span className="px-3 py-1 bg-red-100 text-red-400 rounded-full text-sm font-medium">
                             {asset.issueCount} issues
                           </span>
                         </div>
@@ -626,11 +636,11 @@ function ReportsPage() {
 
                   {/* Most Reported Locations */}
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-3">Most Reported Locations</h4>
+                    <h4 className="font-semibold text-gray-100 mb-3">Most Reported Locations</h4>
                     <div className="space-y-2">
                       {report.summary.mostReportedLocations.slice(0, 5).map((loc, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <p className="font-medium text-gray-900">{loc.locationName}</p>
+                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-900 rounded-lg">
+                          <p className="font-medium text-gray-100">{loc.locationName}</p>
                           <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
                             {loc.issueCount} issues
                           </span>
@@ -641,23 +651,23 @@ function ReportsPage() {
 
                   {/* Issues by Status */}
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-3">Issues by Status</h4>
+                    <h4 className="font-semibold text-gray-100 mb-3">Issues by Status</h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p className="text-sm text-yellow-700 font-medium">Open</p>
+                      <div className="p-3 bg-yellow-900/20 border border-yellow-200 rounded-lg">
+                        <p className="text-sm text-yellow-400 font-medium">Open</p>
                         <p className="text-xl font-bold text-yellow-900">{report.summary.issuesByStatus.open}</p>
                       </div>
-                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p className="text-sm text-blue-700 font-medium">In Progress</p>
+                      <div className="p-3 bg-blue-900/20 border border-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-400 font-medium">In Progress</p>
                         <p className="text-xl font-bold text-blue-900">{report.summary.issuesByStatus.in_progress}</p>
                       </div>
-                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-sm text-green-700 font-medium">Completed</p>
+                      <div className="p-3 bg-green-900/20 border border-green-800 rounded-lg">
+                        <p className="text-sm text-green-400 font-medium">Completed</p>
                         <p className="text-xl font-bold text-green-900">{report.summary.issuesByStatus.completed}</p>
                       </div>
-                      <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                        <p className="text-sm text-gray-700 font-medium">Cancelled</p>
-                        <p className="text-xl font-bold text-gray-900">{report.summary.issuesByStatus.cancelled}</p>
+                      <div className="p-3 bg-gray-900 border border-gray-700 rounded-lg">
+                        <p className="text-sm text-gray-300 font-medium">Cancelled</p>
+                        <p className="text-xl font-bold text-gray-100">{report.summary.issuesByStatus.cancelled}</p>
                       </div>
                     </div>
                   </div>
@@ -665,13 +675,13 @@ function ReportsPage() {
                   {/* Critical Assets */}
                   {report.insights.criticalAssets.length > 0 && (
                     <div>
-                      <h4 className="font-semibold text-gray-900 mb-3">⚠️ Critical Assets (High Issue Frequency)</h4>
+                      <h4 className="font-semibold text-gray-100 mb-3">⚠️ Critical Assets (High Issue Frequency)</h4>
                       <div className="space-y-2">
                         {report.insights.criticalAssets.map((asset, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg">
+                          <div key={idx} className="flex items-center justify-between p-3 bg-red-900/20 border border-red-800 rounded-lg">
                             <div>
                               <p className="font-medium text-red-900">{asset.assetName}</p>
-                              <p className="text-sm text-red-700">Avg Resolution: {asset.avgResolutionTime}h</p>
+                              <p className="text-sm text-red-400">Avg Resolution: {asset.avgResolutionTime}h</p>
                             </div>
                             <span className="px-3 py-1 bg-red-600 text-white rounded-full text-sm font-medium">
                               {asset.issueCount} issues
@@ -684,12 +694,12 @@ function ReportsPage() {
 
                   {/* Trends */}
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-3">📈 Trends</h4>
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <p className="text-gray-700">
+                    <h4 className="font-semibold text-gray-100 mb-3">📈 Trends</h4>
+                    <div className="p-4 bg-gray-900 rounded-lg">
+                      <p className="text-gray-300">
                         Issues vs Previous Period:
                         <span className={`ml-2 font-bold ${
-                          report.insights.trends.issuesVsPreviousPeriod > 0 ? 'text-red-600' : 'text-green-600'
+                          report.insights.trends.issuesVsPreviousPeriod > 0 ? 'text-red-400' : 'text-green-400'
                         }`}>
                           {report.insights.trends.issuesVsPreviousPeriod > 0 ? '+' : ''}
                           {report.insights.trends.issuesVsPreviousPeriod}%
@@ -697,10 +707,10 @@ function ReportsPage() {
                       </p>
                       {report.insights.trends.highRiskLocations.length > 0 && (
                         <div className="mt-3">
-                          <p className="text-gray-700 font-medium mb-2">High Risk Locations:</p>
+                          <p className="text-gray-300 font-medium mb-2">High Risk Locations:</p>
                           <div className="flex flex-wrap gap-2">
                             {report.insights.trends.highRiskLocations.map((loc, idx) => (
-                              <span key={idx} className="px-2 py-1 bg-red-100 text-red-700 rounded text-sm">
+                              <span key={idx} className="px-2 py-1 bg-red-100 text-red-400 rounded text-sm">
                                 {loc}
                               </span>
                             ))}
@@ -714,6 +724,37 @@ function ReportsPage() {
             </div>
           ))}
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-6 bg-gray-800 border border-gray-700 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-400">
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredReports.length)} of {filteredReports.length} reports
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 text-sm border border-gray-700 bg-gray-900 text-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-800"
+                >
+                  Previous
+                </button>
+                <span className="px-4 py-2 text-sm text-gray-100">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="px-4 py-2 text-sm border border-gray-700 bg-gray-900 text-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-800"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
       )}
     </div>
   );
