@@ -10,21 +10,63 @@ export default function DashboardLayout({
 }) {
   return (
     <NotificationProvider>
-      <div className="flex min-h-screen bg-gray-900">
-        <aside className="w-60 bg-gray-800 border-r border-gray-700 p-6 flex flex-col">
-          <Link href="/dashboard" className="font-bold text-xl text-gray-100">
-            Resolve
-          </Link>
-          <p className="text-xs text-gray-500 mt-1">Schools & Colleges</p>
-          <DashboardNav />
-          <div className="mt-auto pt-6 space-y-3">
-            <DarkModeToggle />
-            <Link href="/" className="text-sm text-gray-500 hover:text-gray-300 block">
-              Sign out
-            </Link>
+      <div
+        className="flex min-h-screen bg-gray-950"
+        style={{ fontFamily: 'var(--font-manrope, Manrope, sans-serif)' }}
+      >
+        {/* ── Floating sidebar ── */}
+        <aside className="w-64 shrink-0 p-3 flex flex-col sticky top-0 h-screen">
+          <div className="flex-1 flex flex-col rounded-2xl border border-gray-700/60 bg-gray-900/60 backdrop-blur-xl shadow-2xl overflow-hidden">
+            {/* Logo */}
+            <div className="px-5 pt-6 pb-4 border-b border-gray-800/60">
+              <Link
+                href="/dashboard"
+                className="font-extrabold text-xl text-gray-100 tracking-tight no-underline"
+              >
+                resolve
+              </Link>
+              <p className="text-xs text-gray-600 mt-0.5">Asset Management</p>
+            </div>
+
+            {/* Nav */}
+            <div className="flex-1 overflow-y-auto px-3 py-4">
+              <DashboardNav />
+            </div>
+
+            {/* Bottom */}
+            <div className="px-4 py-4 border-t border-gray-800/60 space-y-2">
+              <DarkModeToggle />
+              <Link
+                href="/"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-gray-600 hover:text-gray-300 hover:bg-gray-800/60 transition-all no-underline"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                Sign out
+              </Link>
+            </div>
           </div>
         </aside>
-        <main className="flex-1 p-6 overflow-auto bg-gray-900">{children}</main>
+
+        {/* ── Main content ── */}
+        <main className="flex-1 p-4 overflow-auto">
+          <div className="rounded-2xl border border-gray-800/60 bg-gray-900/40 backdrop-blur-sm min-h-full p-6">
+            {children}
+          </div>
+        </main>
       </div>
     </NotificationProvider>
   );
