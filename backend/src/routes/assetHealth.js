@@ -105,32 +105,69 @@ router.patch('/:assetId/maintenance', requireRole(['super_admin', 'admin', 'mana
       return res.status(400).json({ message: 'Status must be "start" or "complete"' });
     }
 
-    const updateData = {
-      lastHealthCheck: new Date()
-    };
+    // Fetch current asset first so we can access maintenanceStartDate and history
+    const currentAsset = await Asset.findById(req.params.assetId);
+    if (!currentAsset) {
+      return res.status(404).json({ message: 'Asset not found' });
+    }
+
+    const now = new Date();
+    let updateQuery = {};
 
     if (status === 'start') {
-      updateData.condition = 'under_maintenance';
-      updateData.status = 'under_maintenance';
-      updateData.maintenanceReason = reason || 'Manual maintenance request';
-      updateData.maintenanceStartDate = new Date();
+      updateQuery = {
+        $set: {
+          condition: 'under_maintenance',
+          status: 'under_maintenance',
+          maintenanceReason: reason || 'Manual maintenance request',
+          maintenanceStartDate: now,
+          lastHealthCheck: now,
+        },
+        $push: {
+          maintenanceHistory: {
+            startDate: now,
+            reason: reason || 'Manual maintenance request'
+          }
+        }
+      };
     } else {
-      updateData.condition = 'good';
-      updateData.status = 'available';
-      updateData.maintenanceReason = null;
-      updateData.maintenanceStartDate = null;
-      updateData.maintenanceCompletedDate = new Date();
+      // Calculate duration in minutes from when maintenance started
+      const startDate = currentAsset.maintenanceStartDate;
+      const durationMinutes = startDate
+        ? Math.round((now - new Date(startDate)) / 60000)
+        : null;
+
+      // Find the last open (no endDate) history entry index
+      const history = currentAsset.maintenanceHistory || [];
+      const lastIdx = history.length - 1;
+      const hasOpenEntry = lastIdx >= 0 && !history[lastIdx].endDate;
+
+      const setFields = {
+        condition: 'good',
+        status: 'available',
+        maintenanceReason: null,
+        maintenanceStartDate: null,
+        maintenanceCompletedDate: now,
+        lastHealthCheck: now,
+      };
+
+      // Close the last open history entry using positional dot notation
+      if (hasOpenEntry) {
+        setFields[`maintenanceHistory.${lastIdx}.endDate`] = now;
+        setFields[`maintenanceHistory.${lastIdx}.completedBy`] = req.user._id;
+        if (durationMinutes !== null) {
+          setFields[`maintenanceHistory.${lastIdx}.durationMinutes`] = durationMinutes;
+        }
+      }
+
+      updateQuery = { $set: setFields };
     }
 
     const asset = await Asset.findByIdAndUpdate(
       req.params.assetId,
-      updateData,
+      updateQuery,
       { new: true }
     );
-
-    if (!asset) {
-      return res.status(404).json({ message: 'Asset not found' });
-    }
 
     // Send notification if starting maintenance
     if (status === 'start') {
@@ -141,11 +178,7 @@ router.patch('/:assetId/maintenance', requireRole(['super_admin', 'admin', 'mana
     await logAudit(req.user._id, AUDIT_ACTIONS.ASSET_UPDATED, AUDIT_RESOURCES.ASSET, asset._id, {
       resourceName: `${asset.assetId} - ${asset.name}`,
       description: `Manual ${status === 'start' ? 'started' : 'completed'} maintenance`,
-      details: {
-        maintenanceAction: status,
-        reason: reason,
-        manual: true
-      },
+      details: { maintenanceAction: status, reason, manual: true },
       severity: 'medium',
       ...getRequestMetadata(req)
     });
