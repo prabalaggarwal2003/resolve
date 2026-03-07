@@ -131,13 +131,9 @@ router.patch('/:assetId/maintenance', requireRole(['super_admin', 'admin', 'mana
         }
       };
     } else {
-      // Calculate duration in minutes from when maintenance started
+      // COMPLETE maintenance
       const startDate = currentAsset.maintenanceStartDate;
-      const durationMinutes = startDate
-        ? Math.round((now - new Date(startDate)) / 60000)
-        : null;
-
-      // Find the last open (no endDate) history entry index
+      const durationMinutes = startDate ? Math.round((now - new Date(startDate)) / 60000) : 0;
       const history = currentAsset.maintenanceHistory || [];
       const lastIdx = history.length - 1;
       const hasOpenEntry = lastIdx >= 0 && !history[lastIdx].endDate;
@@ -151,16 +147,27 @@ router.patch('/:assetId/maintenance', requireRole(['super_admin', 'admin', 'mana
         lastHealthCheck: now,
       };
 
-      // Close the last open history entry using positional dot notation
       if (hasOpenEntry) {
+        // Close the existing open entry
         setFields[`maintenanceHistory.${lastIdx}.endDate`] = now;
         setFields[`maintenanceHistory.${lastIdx}.completedBy`] = req.user._id;
-        if (durationMinutes !== null) {
-          setFields[`maintenanceHistory.${lastIdx}.durationMinutes`] = durationMinutes;
-        }
+        setFields[`maintenanceHistory.${lastIdx}.durationMinutes`] = durationMinutes;
+        updateQuery = { $set: setFields };
+      } else {
+        // No open entry — push a full completed record (handles old assets with no history)
+        updateQuery = {
+          $set: setFields,
+          $push: {
+            maintenanceHistory: {
+              startDate: startDate || now,
+              endDate: now,
+              reason: currentAsset.maintenanceReason || 'Maintenance completed',
+              completedBy: req.user._id,
+              durationMinutes,
+            }
+          }
+        };
       }
-
-      updateQuery = { $set: setFields };
     }
 
     const asset = await Asset.findByIdAndUpdate(

@@ -157,7 +157,7 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
 
     const update = { ...req.body, updatedBy: req.user._id };
 
-    // Convert empty strings to null for ObjectId fields to prevent casting errors
+    // Convert empty strings to null for ObjectId fields
     const objectIdFields = ['vendorId', 'locationId', 'departmentId', 'assignedTo', 'purchaseInvoiceId'];
     objectIdFields.forEach(field => {
       if (update[field] === '' || update[field] === 'null' || update[field] === 'undefined') {
@@ -174,29 +174,57 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
       update.assignedAt = update.assignedTo ? new Date() : null;
 
       if (prev.assignedTo && !update.assignedTo) {
-        // Unassigning
-        await AssetLog.create({
-          assetId: prev._id,
-          userId: prev.assignedTo,
-          type: 'check_out',
-          unassignedAt: new Date(),
-        });
+        await AssetLog.create({ assetId: prev._id, userId: prev.assignedTo, type: 'check_out', unassignedAt: new Date() });
         auditAction = AUDIT_ACTIONS.ASSET_UNASSIGNED;
         auditDescription = `Unassigned asset "${prev.name}" from user`;
         auditSeverity = 'medium';
       }
-
       if (update.assignedTo) {
-        // Assigning
-        await AssetLog.create({
-          assetId: prev._id,
-          userId: update.assignedTo,
-          type: 'check_in',
-          assignedAt: new Date(),
-        });
+        await AssetLog.create({ assetId: prev._id, userId: update.assignedTo, type: 'check_in', assignedAt: new Date() });
         auditAction = AUDIT_ACTIONS.ASSET_ASSIGNED;
         auditDescription = `Assigned asset "${prev.name}" to user`;
         auditSeverity = 'medium';
+      }
+    }
+
+    // Track maintenance history when status changes
+    if (update.status && update.status !== prev.status) {
+      const now = new Date();
+      const currentAsset = await Asset.findById(req.params.id);
+      const history = currentAsset.maintenanceHistory || [];
+
+      if (update.status === 'under_maintenance') {
+        const hasOpenEntry = history.length > 0 && !history[history.length - 1].endDate;
+        if (!hasOpenEntry) {
+          update.$push = {
+            maintenanceHistory: {
+              startDate: now,
+              reason: update.maintenanceReason || 'Status changed to under maintenance'
+            }
+          };
+          if (!update.maintenanceStartDate) update.maintenanceStartDate = now;
+        }
+      } else if (prev.status === 'under_maintenance') {
+        const lastIdx = history.length - 1;
+        const hasOpenEntry = lastIdx >= 0 && !history[lastIdx].endDate;
+        const startDate = prev.maintenanceStartDate;
+        const durationMinutes = startDate ? Math.round((now - new Date(startDate)) / 60000) : 0;
+
+        if (hasOpenEntry) {
+          update[`maintenanceHistory.${lastIdx}.endDate`] = now;
+          update[`maintenanceHistory.${lastIdx}.durationMinutes`] = durationMinutes;
+        } else {
+          update.$push = {
+            maintenanceHistory: {
+              startDate: startDate || now,
+              endDate: now,
+              reason: prev.maintenanceReason || 'Maintenance completed',
+              durationMinutes,
+            }
+          };
+        }
+        if (!update.maintenanceCompletedDate) update.maintenanceCompletedDate = now;
+        update.maintenanceStartDate = null;
       }
     }
 
@@ -206,8 +234,7 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
       .populate('assignedTo', 'name email')
       .lean();
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
-    
-    // Enhanced audit logging
+
     const changedFields = {};
     Object.keys(update).forEach(key => {
       if (key !== 'updatedBy' && prev[key] !== update[key]) {
@@ -218,15 +245,11 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
     await logAudit(req.user._id, auditAction, AUDIT_RESOURCES.ASSET, asset._id, {
       resourceName: `${asset.name} (${asset.assetId})`,
       description: auditDescription,
-      details: {
-        changes: changedFields,
-        assignedTo: asset.assignedTo?.name
-      },
+      details: { changes: changedFields, assignedTo: asset.assignedTo?.name },
       severity: auditSeverity,
       ...getRequestMetadata(req)
     });
 
-    // Only generate QR code if it doesn't exist
     if (!asset.qrCodeUrl) {
       const url = getAssetPublicUrl(asset._id.toString(), env.frontendUrl);
       const qrCodeUrl = await generateQrDataUrl(url);
@@ -235,8 +258,7 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
         asset.qrCodeUrl = qrCodeUrl;
       }
     }
-    
-    await logAudit(req.user._id, 'asset.updated', 'asset', asset._id, { changed: Object.keys(req.body) });
+
     res.json(asset);
   } catch (err) {
     res.status(500).json({ message: err.message });
