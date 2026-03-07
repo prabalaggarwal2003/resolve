@@ -19,6 +19,16 @@ type Asset = {
   warrantyExpiry?: string;
   amcExpiry?: string;
   nextMaintenanceDate?: string;
+  maintenanceStartDate?: string;
+  maintenanceCompletedDate?: string;
+  maintenanceReason?: string;
+  maintenanceHistory?: {
+    startDate: string;
+    endDate?: string;
+    reason?: string;
+    durationMinutes?: number;
+    notes?: string;
+  }[];
   locationId?: { name: string; path?: string };
   departmentId?: { name: string };
   assignedTo?: { _id: string; name: string; email: string };
@@ -87,10 +97,11 @@ export default function AssetDetailPage() {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [logs, setLogs] = useState<{ userId: { name: string }; type: string; assignedAt?: string; unassignedAt?: string; createdAt: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
 
-  const fetchData = () => {
+  const fetchData = (silent = false) => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     if (!token || !params.id) {
       setLoading(false);
@@ -98,6 +109,8 @@ export default function AssetDetailPage() {
       else setError('Not signed in');
       return;
     }
+    if (!silent) setLoading(true);
+    else setRefreshing(true);
     const headers = { Authorization: `Bearer ${token}` };
     Promise.all([
       fetch(api(`/api/assets/${params.id}`), { headers }).then((r) => r.json()),
@@ -111,11 +124,20 @@ export default function AssetDetailPage() {
         if (logsData.logs) setLogs(logsData.logs);
       })
       .catch(() => setError('Failed to load'))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
   };
 
   useEffect(() => {
     fetchData();
+  }, [params.id]);
+
+  // Auto-refresh every 10 seconds to pick up maintenance status changes
+  useEffect(() => {
+    const interval = setInterval(() => fetchData(true), 10000);
+    return () => clearInterval(interval);
   }, [params.id]);
 
   const handleDelete = async () => {
@@ -156,10 +178,8 @@ export default function AssetDetailPage() {
             {asset.assetId} · {asset.category}
             {asset.locationId?.path && ` · ${asset.locationId.path}`}
           </p>
-          <span
-            className={`inline-block mt-2 px-3 py-1.5 rounded-lg text-sm font-medium ${STATUS_CLASSES[asset.status] ?? 'bg-slate-100 text-gray-300'}`}
-          >
-            {asset.status?.replace('_', ' ')}
+          <span className={`inline-block mt-2 px-3 py-1.5 rounded-lg text-sm font-medium ${STATUS_CLASSES[asset.status] ?? 'bg-slate-100 text-gray-300'}`}>
+            {asset.status?.replace(/_/g, ' ')}
           </span>
         </div>
         {asset.qrCodeUrl && (
@@ -168,13 +188,21 @@ export default function AssetDetailPage() {
             <p className="text-xs text-gray-500 mt-1">Scan for details</p>
           </div>
         )}
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-start flex-wrap">
+          <button
+            onClick={() => fetchData(true)}
+            disabled={refreshing}
+            className="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50"
+            title="Refresh asset data"
+          >
+            {refreshing ? '⟳ Refreshing…' : '⟳ Refresh'}
+          </button>
           {typeof window !== 'undefined' && (() => {
             try {
               const u = JSON.parse(localStorage.getItem('user') || '{}');
               if (['super_admin', 'admin', 'manager'].includes(u.role)) {
                 return (
-                  <Link href={`/dashboard/assets/${params.id}/edit`} className="px-3 py-1.5 text-sm font-medium rounded-lg bg-slate-100 text-gray-300 hover:bg-slate-200">Edit</Link>
+                  <Link href={`/dashboard/assets/${params.id}/edit`} className="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 no-underline">Edit</Link>
                 );
               }
             } catch (_) {}
@@ -185,7 +213,7 @@ export default function AssetDetailPage() {
               const u = JSON.parse(localStorage.getItem('user') || '{}');
               if (['super_admin', 'admin', 'manager'].includes(u.role)) {
                 return (
-                  <button type="button" onClick={handleDelete} disabled={deleting} className="px-3 py-1.5 text-sm font-medium rounded-lg bg-red-100 text-red-400 hover:bg-red-200 disabled:opacity-50">
+                  <button type="button" onClick={handleDelete} disabled={deleting} className="px-3 py-1.5 text-sm font-medium rounded-lg bg-red-900/30 text-red-400 hover:bg-red-900/50 disabled:opacity-50">
                     {deleting ? 'Deleting…' : 'Delete'}
                   </button>
                 );
@@ -305,6 +333,117 @@ export default function AssetDetailPage() {
           </div>
         </section>
       )}
+
+      <section className="mt-8">
+        <h2 className="text-lg font-semibold mb-4">Maintenance History</h2>
+
+        {/* ── Current / live status ── */}
+        {asset.status === 'under_maintenance' ? (
+          <div className="bg-amber-900/20 border border-amber-700 rounded-lg p-4 mb-4 flex items-start gap-3">
+            <div className="w-3 h-3 mt-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+            <div>
+              <p className="font-semibold text-amber-400">🔧 Currently Under Maintenance</p>
+              {asset.maintenanceStartDate && (
+                <p className="text-sm text-gray-300 mt-1">
+                  Started: <span className="font-medium">{new Date(asset.maintenanceStartDate).toLocaleString()}</span>
+                </p>
+              )}
+              {asset.maintenanceReason && (
+                <p className="text-sm text-gray-400 mt-1">Reason: {asset.maintenanceReason}</p>
+              )}
+            </div>
+          </div>
+        ) : asset.maintenanceCompletedDate ? (
+          <div className="bg-green-900/20 border border-green-700 rounded-lg p-4 mb-4 flex items-start gap-3">
+            <div className="w-3 h-3 mt-1.5 rounded-full bg-green-400 shrink-0" />
+            <div>
+              <p className="font-semibold text-green-400">✅ Last Maintenance Completed</p>
+              <p className="text-sm text-gray-300 mt-1">
+                Completed: <span className="font-medium">{new Date(asset.maintenanceCompletedDate).toLocaleString()}</span>
+              </p>
+              {asset.maintenanceStartDate === null && asset.maintenanceHistory && asset.maintenanceHistory.length > 0 && (() => {
+                const last = asset.maintenanceHistory[asset.maintenanceHistory.length - 1];
+                return last?.reason ? (
+                  <p className="text-sm text-gray-400 mt-1">Reason: {last.reason}</p>
+                ) : null;
+              })()}
+            </div>
+          </div>
+        ) : null}
+
+        {/* ── Full history from array (if populated) ── */}
+        {asset.maintenanceHistory && asset.maintenanceHistory.length > 0 ? (
+          <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+            <div className="grid grid-cols-3 divide-x divide-gray-700 border-b border-gray-700">
+              <div className="p-4 text-center">
+                <p className="text-2xl font-bold text-amber-400">{asset.maintenanceHistory.length}</p>
+                <p className="text-xs text-gray-400 mt-1">Total Sessions</p>
+              </div>
+              <div className="p-4 text-center">
+                <p className="text-2xl font-bold text-green-400">
+                  {asset.maintenanceHistory.filter(h => h.endDate).length}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">Completed</p>
+              </div>
+              <div className="p-4 text-center">
+                <p className="text-2xl font-bold text-blue-400">
+                  {asset.maintenanceHistory.filter(h => !h.endDate).length}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">Active</p>
+              </div>
+            </div>
+            <div className="divide-y divide-gray-700">
+              {[...asset.maintenanceHistory].reverse().map((entry, i) => {
+                const start = new Date(entry.startDate);
+                const end = entry.endDate ? new Date(entry.endDate) : null;
+                const isActive = !end;
+                const durationMins = entry.durationMinutes ?? (end ? Math.round((end.getTime() - start.getTime()) / 60000) : null);
+                const durationLabel = durationMins != null
+                  ? durationMins < 60 ? `${durationMins}m`
+                  : durationMins < 1440 ? `${Math.floor(durationMins / 60)}h ${durationMins % 60}m`
+                  : `${Math.floor(durationMins / 1440)}d ${Math.floor((durationMins % 1440) / 60)}h`
+                  : null;
+                return (
+                  <div key={i} className="p-4 flex items-start gap-3">
+                    <div className="mt-1.5 shrink-0">
+                      <div className={`w-3 h-3 rounded-full ${isActive ? 'bg-amber-400 animate-pulse' : 'bg-green-400'}`} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${isActive ? 'bg-amber-900/30 text-amber-400' : 'bg-green-900/30 text-green-400'}`}>
+                          {isActive ? '🔧 Active' : '✅ Completed'}
+                        </span>
+                        {durationLabel && <span className="text-xs text-gray-400">⏱ {durationLabel}</span>}
+                      </div>
+                      <p className="text-sm text-gray-300">
+                        <span className="font-medium text-gray-100">Start:</span> {start.toLocaleString()}
+                      </p>
+                      {end && (
+                        <p className="text-sm text-gray-300">
+                          <span className="font-medium text-gray-100">End:</span> {end.toLocaleString()}
+                        </p>
+                      )}
+                      {entry.reason && (
+                        <p className="text-sm text-gray-400 mt-1">
+                          <span className="font-medium text-gray-300">Reason:</span> {entry.reason}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          /* No array history yet — show a simple note only if not currently under maintenance */
+          asset.status !== 'under_maintenance' && !asset.maintenanceCompletedDate && (
+            <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 text-center">
+              <p className="text-2xl mb-2">🔧</p>
+              <p className="text-gray-400">This asset has never been under maintenance.</p>
+            </div>
+          )
+        )}
+      </section>
 
       <section className="mt-8">
         <h2 className="text-lg font-semibold mb-4">Issues</h2>
