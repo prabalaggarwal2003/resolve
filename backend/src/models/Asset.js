@@ -50,7 +50,17 @@ const assetSchema = new mongoose.Schema(
     },
     maintenanceCompletedDate: {
       type: Date
-    }
+    },
+    maintenanceHistory: [
+      {
+        startDate: { type: Date, required: true },
+        endDate: { type: Date },
+        reason: { type: String },
+        completedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        durationMinutes: { type: Number },
+        notes: { type: String }
+      }
+    ]
   },
   { timestamps: true }
 );

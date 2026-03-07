@@ -183,9 +183,25 @@ async function updateAssetCondition(assetId, healthAnalysis, systemUserId = null
       updateData.maintenanceStartDate = new Date();
     }
 
+    // Use proper $set/$push structure for maintenance history
+    let mongoUpdate;
+    if (enteringMaintenance) {
+      mongoUpdate = {
+        $set: updateData,
+        $push: {
+          maintenanceHistory: {
+            startDate: new Date(),
+            reason: healthAnalysis.maintenanceReason || 'Automatic maintenance (health threshold exceeded)'
+          }
+        }
+      };
+    } else {
+      mongoUpdate = { $set: updateData };
+    }
+
     const updatedAsset = await Asset.findByIdAndUpdate(
       assetId,
-      updateData,
+      mongoUpdate,
       { new: true }
     ).lean();
 
