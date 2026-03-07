@@ -55,7 +55,7 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 const SEVERITY_COLORS: Record<string, string> = {
-  low: 'bg-gray-100 text-gray-800',
+  low: 'bg-gray-800 text-gray-800',
   medium: 'bg-blue-100 text-blue-800',
   high: 'bg-amber-100 text-amber-800',
   critical: 'bg-red-100 text-red-800'
@@ -94,24 +94,24 @@ function AuditLogCard({ log }: { log: AuditLog }) {
   const resourceIcon = RESOURCE_ICONS[log.resource] || '📄';
   const resourceLabel = RESOURCE_LABELS[log.resource] || log.resource;
   const actionLabel = ACTION_LABELS[log.action] || log.action;
-  const severityColor = SEVERITY_COLORS[log.severity] || 'bg-gray-100 text-gray-800';
+  const severityColor = SEVERITY_COLORS[log.severity] || 'bg-gray-800 text-gray-800';
 
   return (
-    <div className="bg-white p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
+    <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 hover:shadow-md transition-shadow">
       <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm">
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-sm">
           {resourceIcon}
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium text-gray-100">
                 {log.userId?.name || 'Unknown User'} {actionLabel.toLowerCase()} {resourceLabel.toLowerCase()}
                 {log.resourceName && <span className="font-semibold"> "{log.resourceName}"</span>}
               </p>
               {log.description && (
-                <p className="text-sm text-gray-600 mt-1">{log.description}</p>
+                <p className="text-sm text-gray-400 mt-1">{log.description}</p>
               )}
             </div>
 
@@ -133,7 +133,7 @@ function AuditLogCard({ log }: { log: AuditLog }) {
   );
 }
 
-function StatsCard({ title, value, icon, color = 'bg-gray-50' }: {
+function StatsCard({ title, value, icon, color = 'bg-gray-900' }: {
   title: string;
   value: string | number;
   icon: string;
@@ -144,8 +144,8 @@ function StatsCard({ title, value, icon, color = 'bg-gray-50' }: {
       <div className="flex items-center gap-3">
         <div className="text-2xl">{icon}</div>
         <div>
-          <p className="text-sm text-gray-600">{title}</p>
-          <p className="text-xl font-bold text-gray-900">{value}</p>
+          <p className="text-sm text-gray-400">{title}</p>
+          <p className="text-xl font-bold text-gray-100">{value}</p>
         </div>
       </div>
     </div>
@@ -299,8 +299,8 @@ export default function AuditLogsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Audit Logs</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-2xl font-bold text-gray-100">Audit Logs</h1>
+          <p className="text-gray-400 mt-1">
             Track all system activities and changes for compliance and security
           </p>
         </div>
@@ -324,7 +324,7 @@ export default function AuditLogsPage() {
             title="Most Active Resource"
             value={stats.resourceStats[0] ? RESOURCE_LABELS[stats.resourceStats[0]._id] || stats.resourceStats[0]._id : 'None'}
             icon="🎯"
-            color="bg-blue-50 border-blue-200"
+            color="bg-blue-900/20 border-blue-200"
           />
           <StatsCard
             title="Common Action"
@@ -336,18 +336,18 @@ export default function AuditLogsPage() {
             title="Top User"
             value={stats.topUsers[0] ? stats.topUsers[0].user.name : 'None'}
             icon="👤"
-            color="bg-green-50 border-green-200"
+            color="bg-green-900/20 border-green-800"
           />
         </div>
       )}
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg border border-gray-200 mb-6">
+      <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 mb-6">
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-sm font-medium text-gray-700">Filters:</span>
+          <span className="text-sm font-medium text-gray-300">Filters:</span>
           <button
             onClick={clearFilters}
-            className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
+            className="text-xs px-2 py-1 bg-gray-800 text-gray-400 rounded hover:bg-gray-700"
           >
             Clear All
           </button>
@@ -355,11 +355,11 @@ export default function AuditLogsPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Resource</label>
+            <label className="block text-xs font-medium text-gray-300 mb-1">Resource</label>
             <select
               value={resource}
               onChange={(e) => setResource(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-700 rounded-md text-sm focus:ring-2 focus:ring-gray-600 focus:border-blue-500"
             >
               <option value="">All Resources</option>
               {Object.entries(RESOURCE_LABELS).map(([key, label]) => (
@@ -369,11 +369,11 @@ export default function AuditLogsPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Action</label>
+            <label className="block text-xs font-medium text-gray-300 mb-1">Action</label>
             <select
               value={action}
               onChange={(e) => setAction(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-700 rounded-md text-sm focus:ring-2 focus:ring-gray-600 focus:border-blue-500"
             >
               <option value="">All Actions</option>
               {Object.entries(ACTION_LABELS).map(([key, label]) => (
@@ -383,11 +383,11 @@ export default function AuditLogsPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Severity</label>
+            <label className="block text-xs font-medium text-gray-300 mb-1">Severity</label>
             <select
               value={severity}
               onChange={(e) => setSeverity(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-700 rounded-md text-sm focus:ring-2 focus:ring-gray-600 focus:border-blue-500"
             >
               <option value="">All Levels</option>
               <option value="low">Low</option>
@@ -398,33 +398,33 @@ export default function AuditLogsPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
+            <label className="block text-xs font-medium text-gray-300 mb-1">Start Date</label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-700 rounded-md text-sm focus:ring-2 focus:ring-gray-600 focus:border-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
+            <label className="block text-xs font-medium text-gray-300 mb-1">End Date</label>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-700 rounded-md text-sm focus:ring-2 focus:ring-gray-600 focus:border-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
+            <label className="block text-xs font-medium text-gray-300 mb-1">Search</label>
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search logs..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-700 rounded-md text-sm focus:ring-2 focus:ring-gray-600 focus:border-blue-500"
             />
           </div>
         </div>
@@ -432,8 +432,8 @@ export default function AuditLogsPage() {
 
       {/* Error Message */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <p className="text-red-600">{error}</p>
+        <div className="bg-red-900/20 border border-red-800 rounded-lg p-4 mb-6">
+          <p className="text-red-400">{error}</p>
         </div>
       )}
 
@@ -441,19 +441,19 @@ export default function AuditLogsPage() {
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          <span className="ml-3 text-gray-600">Loading audit logs...</span>
+          <span className="ml-3 text-gray-400">Loading audit logs...</span>
         </div>
       ) : logs.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+        <div className="text-center py-12 bg-gray-800 rounded-lg border border-gray-700">
           <div className="text-4xl mb-4">📋</div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No audit logs found</h3>
-          <p className="text-gray-600">No activity matches your current filters.</p>
+          <h3 className="text-lg font-medium text-gray-100 mb-2">No audit logs found</h3>
+          <p className="text-gray-400">No activity matches your current filters.</p>
         </div>
       ) : (
         <>
           {/* Results Info */}
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-400">
               Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total} logs
             </p>
           </div>
@@ -471,19 +471,19 @@ export default function AuditLogsPage() {
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                className="px-3 py-2 text-sm border border-gray-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-900"
               >
                 Previous
               </button>
 
-              <span className="px-3 py-2 text-sm text-gray-600">
+              <span className="px-3 py-2 text-sm text-gray-400">
                 Page {page} of {totalPages}
               </span>
 
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                className="px-3 py-2 text-sm border border-gray-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-900"
               >
                 Next
               </button>

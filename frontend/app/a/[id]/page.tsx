@@ -47,14 +47,14 @@ const STATUS_CLASSES: Record<string, string> = {
   working: 'bg-green-100 text-green-800',
   under_maintenance: 'bg-amber-100 text-amber-800',
   needs_repair: 'bg-red-100 text-red-800',
-  out_of_service: 'bg-slate-200 text-slate-600',
+  out_of_service: 'bg-slate-200 text-gray-400',
 };
 
 const ISSUE_STATUS_CLASSES: Record<string, string> = {
   open: 'bg-amber-100 text-amber-800',
   in_progress: 'bg-blue-100 text-blue-800',
   completed: 'bg-green-100 text-green-800',
-  cancelled: 'bg-slate-200 text-slate-600',
+  cancelled: 'bg-slate-200 text-gray-400',
 };
 
 function api(path: string) {
@@ -127,16 +127,16 @@ const searchIssue = async () => {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <p className="text-slate-600">Loading…</p>
+      <main className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
+        <p className="text-gray-400">Loading…</p>
       </main>
     );
   }
 
   if (error || !asset) {
     return (
-      <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-        <p className="text-red-600 mb-4">{error || 'Asset not found'}</p>
+      <main className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6 text-center">
+        <p className="text-red-400 mb-4">{error || 'Asset not found'}</p>
         <Link href="/" className="text-primary font-medium hover:underline">
           Go to Resolve
         </Link>
@@ -145,33 +145,33 @@ const searchIssue = async () => {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 pb-8">
+    <main className="min-h-screen bg-gray-950 p-4 pb-8">
       <div className="max-w-6xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Left Column - Asset Info and Actions */}
           <div className="lg:col-span-2 space-y-4">
             {/* Header — mobile-friendly */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-              <h1 className="text-xl font-bold text-slate-900 mb-1">{asset.name}</h1>
-              <p className="text-slate-600 text-sm mb-2">
+            <div className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-5">
+              <h1 className="text-xl font-bold text-gray-100 mb-1">{asset.name}</h1>
+              <p className="text-gray-400 text-sm mb-2">
                 {asset.assetId} · {asset.category}
               </p>
               <span
-                className={`inline-block px-3 py-1 rounded-lg text-sm font-medium ${STATUS_CLASSES[asset.status] ?? 'bg-slate-100 text-slate-700'}`}
+                className={`inline-block px-3 py-1 rounded-lg text-sm font-medium ${STATUS_CLASSES[asset.status] ?? 'bg-slate-100 text-gray-300'}`}
               >
                 {STATUS_LABELS[asset.status] ?? asset.status}
               </span>
             </div>
 
             {/* Details */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
+            <div className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-5">
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
                 Details
               </h2>
               <dl className="space-y-2 text-sm">
           {asset.purchaseDate && (
             <div>
-              <dt className="text-slate-500">Purchase date</dt>
+              <dt className="text-gray-500">Purchase date</dt>
               <dd className="font-medium">
                 {new Date(asset.purchaseDate).toLocaleDateString()}
               </dd>
@@ -179,7 +179,7 @@ const searchIssue = async () => {
           )}
           {asset.cost && (
             <div>
-              <dt className="text-slate-500">Cost</dt>
+              <dt className="text-gray-500">Cost</dt>
               <dd className="font-medium">
                 {asset.cost.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
               </dd>
@@ -187,31 +187,31 @@ const searchIssue = async () => {
           )}
           {asset.vendor && (
             <div>
-              <dt className="text-slate-500">Vendor</dt>
+              <dt className="text-gray-500">Vendor</dt>
               <dd className="font-medium">{asset.vendor}</dd>
             </div>
           )}
           {asset.locationId?.path && (
             <div>
-              <dt className="text-slate-500">Location</dt>
+              <dt className="text-gray-500">Location</dt>
               <dd className="font-medium">{asset.locationId.path}</dd>
             </div>
           )}
           {asset.model && (
             <div>
-              <dt className="text-slate-500">Model</dt>
+              <dt className="text-gray-500">Model</dt>
               <dd className="font-medium">{asset.model}</dd>
             </div>
           )}
           {asset.serialNumber && (
             <div>
-              <dt className="text-slate-500">Serial</dt>
+              <dt className="text-gray-500">Serial</dt>
               <dd className="font-medium">{asset.serialNumber}</dd>
             </div>
           )}
           {asset.warrantyExpiry && (
             <div>
-              <dt className="text-slate-500">Warranty expires</dt>
+              <dt className="text-gray-500">Warranty expires</dt>
               <dd className="font-medium">
                 {new Date(asset.warrantyExpiry).toLocaleDateString()}
               </dd>
@@ -219,7 +219,7 @@ const searchIssue = async () => {
           )}
           {asset.amcExpiry && (
             <div>
-              <dt className="text-slate-500">AMC expires</dt>
+              <dt className="text-gray-500">AMC expires</dt>
               <dd className="font-medium">
                 {new Date(asset.amcExpiry).toLocaleDateString()}
               </dd>
@@ -265,8 +265,8 @@ const searchIssue = async () => {
           {/* Right Column - Issue Search and Previous Issues */}
           <div className="lg:col-span-1 space-y-4">
             {/* Issue Search */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
+            <div className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-5">
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
                 Check Issue Status
               </h2>
               <div className="space-y-3">
@@ -290,13 +290,13 @@ const searchIssue = async () => {
                 </div>
 
                 {issueError && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-red-700 text-sm">{issueError}</p>
+                  <div className="p-3 bg-red-900/20 border border-red-800 rounded-lg">
+                    <p className="text-red-400 text-sm">{issueError}</p>
                   </div>
                 )}
 
                 {issueResult && (
-                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="p-4 bg-green-900/20 border border-green-800 rounded-lg">
                     <div className="space-y-2">
                       <div className="flex justify-between items-start">
                         <h3 className="font-semibold text-green-900">{issueResult.ticketId}</h3>
@@ -304,7 +304,7 @@ const searchIssue = async () => {
                           issueResult.status === 'open' ? 'bg-red-100 text-red-800' :
                           issueResult.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
                           issueResult.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          'bg-gray-100 text-gray-800'
+                          'bg-gray-800 text-gray-800'
                         }`}>
                           {issueResult.status.replace('_', ' ').toUpperCase()}
                         </span>
@@ -312,10 +312,10 @@ const searchIssue = async () => {
 
                       <div>
                         <h4 className="font-medium text-green-900 mb-1">{issueResult.title}</h4>
-                        <p className="text-green-700 text-sm">{issueResult.description}</p>
+                        <p className="text-green-400 text-sm">{issueResult.description}</p>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-xs text-green-700">
+                      <div className="grid grid-cols-2 gap-2 text-xs text-green-400">
                         <div>
                           <span className="font-medium">Priority:</span> {issueResult.priority}
                         </div>
@@ -333,9 +333,9 @@ const searchIssue = async () => {
                       </div>
 
                       {issueResult.resolutionNotes && (
-                        <div className="mt-2 pt-2 border-t border-green-200">
+                        <div className="mt-2 pt-2 border-t border-green-800">
                           <p className="text-sm font-medium text-green-900 mb-1">Resolution:</p>
-                          <p className="text-green-700 text-sm">{issueResult.resolutionNotes}</p>
+                          <p className="text-green-400 text-sm">{issueResult.resolutionNotes}</p>
                         </div>
                       )}
                     </div>
@@ -346,15 +346,15 @@ const searchIssue = async () => {
 
             {/* Previous Issues Section */}
             {asset.previousIssues && asset.previousIssues.length > 0 && (
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+              <div className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-5">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
+                  <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
                     Previous Issues ({sortedIssues.length})
                   </h2>
                   <select
                     value={issueSort}
                     onChange={(e) => setIssueSort(e.target.value as any)}
-                    className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm bg-white"
+                    className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm bg-gray-800"
                   >
                     <option value="all">All ({asset.previousIssues.length})</option>
                     <option value="open">Open ({asset.previousIssues.filter(i => i.status === 'open').length})</option>
@@ -365,26 +365,26 @@ const searchIssue = async () => {
                 </div>
 
                 {sortedIssues.length === 0 ? (
-                  <p className="text-slate-500 text-sm text-center py-4">No issues with this status</p>
+                  <p className="text-gray-500 text-sm text-center py-4">No issues with this status</p>
                 ) : (
                   <div className="space-y-3 max-h-96 overflow-y-auto">
                     {sortedIssues.map((issue) => (
-                      <div key={issue.ticketId} className="border border-slate-200 rounded-lg p-4">
+                      <div key={issue.ticketId} className="border border-gray-700 rounded-lg p-4">
                         <div className="flex justify-between items-start mb-2">
-                          <span className="font-semibold text-slate-900">{issue.ticketId}</span>
+                          <span className="font-semibold text-gray-100">{issue.ticketId}</span>
                           <span
                             className={`px-2 py-1 rounded text-xs font-medium ${
-                              ISSUE_STATUS_CLASSES[issue.status] ?? 'bg-slate-100 text-slate-700'
+                              ISSUE_STATUS_CLASSES[issue.status] ?? 'bg-slate-100 text-gray-300'
                             }`}
                           >
                             {issue.status.replace('_', ' ').toUpperCase()}
                           </span>
                         </div>
-                        <h3 className="font-medium text-slate-900 mb-1">{issue.title}</h3>
+                        <h3 className="font-medium text-gray-100 mb-1">{issue.title}</h3>
                         {issue.description && (
-                          <p className="text-slate-600 text-sm mb-2">{issue.description}</p>
+                          <p className="text-gray-400 text-sm mb-2">{issue.description}</p>
                         )}
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
                           <span>Reported: {new Date(issue.createdAt).toLocaleDateString()}</span>
                           {issue.reports && issue.reports.length > 1 && (
                             <>
@@ -402,7 +402,7 @@ const searchIssue = async () => {
           </div>
         </div>
 
-        <p className="mt-4 text-center text-slate-500 text-sm">
+        <p className="mt-4 text-center text-gray-500 text-sm">
           <Link href="/" className="text-primary hover:underline">
             Resolve
           </Link>
