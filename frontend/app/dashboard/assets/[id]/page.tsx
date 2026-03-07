@@ -337,8 +337,8 @@ export default function AssetDetailPage() {
       <section className="mt-8">
         <h2 className="text-lg font-semibold mb-4">Maintenance History</h2>
 
-        {/* ── Current / live status ── */}
-        {asset.status === 'under_maintenance' ? (
+        {/* Live banner when currently under maintenance */}
+        {asset.status === 'under_maintenance' && (
           <div className="bg-amber-900/20 border border-amber-700 rounded-lg p-4 mb-4 flex items-start gap-3">
             <div className="w-3 h-3 mt-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
             <div>
@@ -353,65 +353,39 @@ export default function AssetDetailPage() {
               )}
             </div>
           </div>
-        ) : asset.maintenanceCompletedDate ? (
-          <div className="bg-green-900/20 border border-green-700 rounded-lg p-4 mb-4 flex items-start gap-3">
-            <div className="w-3 h-3 mt-1.5 rounded-full bg-green-400 shrink-0" />
-            <div>
-              <p className="font-semibold text-green-400">✅ Last Maintenance Completed</p>
-              <p className="text-sm text-gray-300 mt-1">
-                Completed: <span className="font-medium">{new Date(asset.maintenanceCompletedDate).toLocaleString()}</span>
-              </p>
-              {asset.maintenanceStartDate === null && asset.maintenanceHistory && asset.maintenanceHistory.length > 0 && (() => {
-                const last = asset.maintenanceHistory[asset.maintenanceHistory.length - 1];
-                return last?.reason ? (
-                  <p className="text-sm text-gray-400 mt-1">Reason: {last.reason}</p>
-                ) : null;
-              })()}
-            </div>
-          </div>
-        ) : null}
+        )}
 
-        {/* ── Full history from array (if populated) ── */}
         {asset.maintenanceHistory && asset.maintenanceHistory.length > 0 ? (
           <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-            <div className="grid grid-cols-3 divide-x divide-gray-700 border-b border-gray-700">
-              <div className="p-4 text-center">
-                <p className="text-2xl font-bold text-amber-400">{asset.maintenanceHistory.length}</p>
-                <p className="text-xs text-gray-400 mt-1">Total Sessions</p>
-              </div>
-              <div className="p-4 text-center">
-                <p className="text-2xl font-bold text-green-400">
-                  {asset.maintenanceHistory.filter(h => h.endDate).length}
-                </p>
-                <p className="text-xs text-gray-400 mt-1">Completed</p>
-              </div>
-              <div className="p-4 text-center">
-                <p className="text-2xl font-bold text-blue-400">
-                  {asset.maintenanceHistory.filter(h => !h.endDate).length}
-                </p>
-                <p className="text-xs text-gray-400 mt-1">Active</p>
-              </div>
+            {/* Total count */}
+            <div className="px-4 py-3 border-b border-gray-700">
+              <span className="text-sm text-gray-400">Total times under maintenance: </span>
+              <span className="font-bold text-amber-400">{asset.maintenanceHistory.length}</span>
             </div>
+
+            {/* All entries newest-first */}
             <div className="divide-y divide-gray-700">
               {[...asset.maintenanceHistory].reverse().map((entry, i) => {
                 const start = new Date(entry.startDate);
                 const end = entry.endDate ? new Date(entry.endDate) : null;
-                const isActive = !end;
-                const durationMins = entry.durationMinutes ?? (end ? Math.round((end.getTime() - start.getTime()) / 60000) : null);
+                const durationMins = entry.durationMinutes
+                  ?? (end ? Math.round((end.getTime() - start.getTime()) / 60000) : null);
                 const durationLabel = durationMins != null
-                  ? durationMins < 60 ? `${durationMins}m`
-                  : durationMins < 1440 ? `${Math.floor(durationMins / 60)}h ${durationMins % 60}m`
-                  : `${Math.floor(durationMins / 1440)}d ${Math.floor((durationMins % 1440) / 60)}h`
+                  ? durationMins < 60
+                    ? `${durationMins}m`
+                    : durationMins < 1440
+                      ? `${Math.floor(durationMins / 60)}h ${durationMins % 60}m`
+                      : `${Math.floor(durationMins / 1440)}d ${Math.floor((durationMins % 1440) / 60)}h`
                   : null;
                 return (
                   <div key={i} className="p-4 flex items-start gap-3">
                     <div className="mt-1.5 shrink-0">
-                      <div className={`w-3 h-3 rounded-full ${isActive ? 'bg-amber-400 animate-pulse' : 'bg-green-400'}`} />
+                      <div className={`w-2.5 h-2.5 rounded-full ${!end ? 'bg-amber-400 animate-pulse' : 'bg-green-400'}`} />
                     </div>
                     <div className="flex-1">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${isActive ? 'bg-amber-900/30 text-amber-400' : 'bg-green-900/30 text-green-400'}`}>
-                          {isActive ? '🔧 Active' : '✅ Completed'}
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${!end ? 'bg-amber-900/30 text-amber-400' : 'bg-green-900/30 text-green-400'}`}>
+                          {!end ? '🔧 Active' : '✅ Completed'}
                         </span>
                         {durationLabel && <span className="text-xs text-gray-400">⏱ {durationLabel}</span>}
                       </div>
@@ -435,8 +409,7 @@ export default function AssetDetailPage() {
             </div>
           </div>
         ) : (
-          /* No array history yet — show a simple note only if not currently under maintenance */
-          asset.status !== 'under_maintenance' && !asset.maintenanceCompletedDate && (
+          asset.status !== 'under_maintenance' && (
             <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 text-center">
               <p className="text-2xl mb-2">🔧</p>
               <p className="text-gray-400">This asset has never been under maintenance.</p>
