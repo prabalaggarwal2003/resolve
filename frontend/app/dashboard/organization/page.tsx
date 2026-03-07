@@ -39,8 +39,8 @@ const ESTIMATED_ASSETS = [
 ];
 
 const buttonClass = 'px-4 py-2 rounded-lg font-medium transition-colors';
-const inputClass = 'w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500';
-const labelClass = 'block text-sm font-medium text-slate-700 mb-1';
+const inputClass = 'w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-blue-500';
+const labelClass = 'block text-sm font-medium text-gray-300 mb-1';
 
 export default function OrganizationPage() {
   const { user, token } = useAuth();
@@ -112,22 +112,34 @@ export default function OrganizationPage() {
     setSaving(true);
     setError('');
     setSuccess('');
-    
+
     try {
+      // Filter out empty strings for enum fields to avoid validation errors
+      const payload = {
+        name: formData.name,
+        industry: formData.industry || undefined,
+        companySize: formData.companySize || undefined,
+        country: formData.country || undefined,
+        region: formData.region || undefined,
+        primaryGoal: formData.primaryGoal || undefined,
+        estimatedAssets: formData.estimatedAssets || undefined,
+      };
+
       const res = await fetch(apiUrl('/organization'), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
-      
-      if (!res.ok) {
-        throw new Error('Failed to update organization');
-      }
-      
+
       const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to update organization');
+      }
+
       setOrganization(data.organization);
       setSuccess('Organization updated successfully');
       setEditing(false);
@@ -158,29 +170,29 @@ export default function OrganizationPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-slate-600">Loading organization details...</div>
+        <div className="text-gray-400">Loading organization details...</div>
       </div>
     );
   }
 
   if (error && !organization) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+      <div className="bg-red-900/20 border border-red-800 rounded-lg p-6">
         <h3 className="text-red-800 font-medium mb-2">Error</h3>
-        <p className="text-red-600">{error}</p>
+        <p className="text-red-400">{error}</p>
       </div>
     );
   }
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+      <div className="bg-gray-800 rounded-xl shadow-sm border border-gray-700">
         {/* Header */}
-        <div className="p-6 border-b border-slate-200">
+        <div className="p-6 border-b border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">Organization Details</h1>
-              <p className="text-slate-600 mt-1">Manage your organization information and settings</p>
+              <h1 className="text-2xl font-bold text-gray-100">Organization Details</h1>
+              <p className="text-gray-400 mt-1">Manage your organization information and settings</p>
             </div>
             {user?.role === 'super_admin' && (
               <div className="flex gap-2">
@@ -188,14 +200,14 @@ export default function OrganizationPage() {
                   <>
                     <button
                       onClick={handleCancel}
-                      className={`${buttonClass} bg-slate-100 hover:bg-slate-200 text-slate-700`}
+                      className={`${buttonClass} bg-slate-100 hover:bg-slate-200 text-gray-300`}
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSave}
                       disabled={saving}
-                      className={`${buttonClass} bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50`}
+                      className={`${buttonClass} bg-gray-700 hover:bg-gray-700 text-white disabled:opacity-50`}
                     >
                       {saving ? 'Saving...' : 'Save Changes'}
                     </button>
@@ -203,7 +215,7 @@ export default function OrganizationPage() {
                 ) : (
                   <button
                     onClick={() => setEditing(true)}
-                    className={`${buttonClass} bg-blue-600 hover:bg-blue-700 text-white`}
+                    className={`${buttonClass} bg-gray-700 hover:bg-gray-700 text-white`}
                   >
                     Edit Organization
                   </button>
@@ -216,21 +228,21 @@ export default function OrganizationPage() {
         {/* Content */}
         <div className="p-6">
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-600">{error}</p>
+            <div className="mb-6 p-4 bg-red-900/20 border border-red-800 rounded-lg">
+              <p className="text-red-400">{error}</p>
             </div>
           )}
           
           {success && (
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-green-600">{success}</p>
+            <div className="mb-6 p-4 bg-green-900/20 border border-green-800 rounded-lg">
+              <p className="text-green-400">{success}</p>
             </div>
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main Information */}
             <div className="lg:col-span-2">
-              <h2 className="text-lg font-semibold text-slate-900 mb-4">Organization Information</h2>
+              <h2 className="text-lg font-semibold text-gray-100 mb-4">Organization Information</h2>
               
               {editing ? (
                 <form onSubmit={handleSave} className="space-y-4">
@@ -335,40 +347,40 @@ export default function OrganizationPage() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-slate-600">Organization Name</p>
-                      <p className="font-medium text-slate-900">{organization?.name || 'Not set'}</p>
+                      <p className="text-sm text-gray-400">Organization Name</p>
+                      <p className="font-medium text-gray-100">{organization?.name || 'Not set'}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-slate-600">Industry</p>
-                      <p className="font-medium text-slate-900">{organization?.industry || 'Not set'}</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-slate-600">Company Size</p>
-                      <p className="font-medium text-slate-900">{organization?.companySize || 'Not set'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-slate-600">Country</p>
-                      <p className="font-medium text-slate-900">{organization?.country || 'Not set'}</p>
+                      <p className="text-sm text-gray-400">Industry</p>
+                      <p className="font-medium text-gray-100">{organization?.industry || 'Not set'}</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-slate-600">Region/State</p>
-                      <p className="font-medium text-slate-900">{organization?.region || 'Not set'}</p>
+                      <p className="text-sm text-gray-400">Company Size</p>
+                      <p className="font-medium text-gray-100">{organization?.companySize || 'Not set'}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-slate-600">Primary Goal</p>
-                      <p className="font-medium text-slate-900">{organization?.primaryGoal || 'Not set'}</p>
+                      <p className="text-sm text-gray-400">Country</p>
+                      <p className="font-medium text-gray-100">{organization?.country || 'Not set'}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-400">Region/State</p>
+                      <p className="font-medium text-gray-100">{organization?.region || 'Not set'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-400">Primary Goal</p>
+                      <p className="font-medium text-gray-100">{organization?.primaryGoal || 'Not set'}</p>
                     </div>
                   </div>
 
                   <div>
-                    <p className="text-sm text-slate-600">Estimated Assets</p>
-                    <p className="font-medium text-slate-900">{organization?.estimatedAssets || 'Not set'}</p>
+                    <p className="text-sm text-gray-400">Estimated Assets</p>
+                    <p className="font-medium text-gray-100">{organization?.estimatedAssets || 'Not set'}</p>
                   </div>
                 </div>
               )}
@@ -377,25 +389,25 @@ export default function OrganizationPage() {
             {/* Sidebar */}
             <div className="space-y-6">
               {/* Organization ID */}
-              <div className="bg-slate-50 rounded-lg p-4">
-                <h3 className="font-medium text-slate-900 mb-3">Organization ID</h3>
-                <p className="text-sm font-mono text-slate-700 bg-white px-3 py-2 rounded border border-slate-200">
+              <div className="bg-gray-950 rounded-lg p-4">
+                <h3 className="font-medium text-gray-100 mb-3">Organization ID</h3>
+                <p className="text-sm font-mono text-gray-300 bg-gray-800 px-3 py-2 rounded border border-gray-700">
                   {organization?.orgId}
                 </p>
               </div>
 
               {/* Statistics */}
               {statistics && (
-                <div className="bg-slate-50 rounded-lg p-4">
-                  <h3 className="font-medium text-slate-900 mb-3">Statistics</h3>
+                <div className="bg-gray-950 rounded-lg p-4">
+                  <h3 className="font-medium text-gray-100 mb-3">Statistics</h3>
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-sm text-slate-600">Total Users</span>
-                      <span className="text-sm font-medium text-slate-900">{statistics.totalUsers}</span>
+                      <span className="text-sm text-gray-400">Total Users</span>
+                      <span className="text-sm font-medium text-gray-100">{statistics.totalUsers}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-sm text-slate-600">Created</span>
-                      <span className="text-sm font-medium text-slate-900">
+                      <span className="text-sm text-gray-400">Created</span>
+                      <span className="text-sm font-medium text-gray-100">
                         {new Date(statistics.createdAt).toLocaleDateString()}
                       </span>
                     </div>
@@ -404,16 +416,16 @@ export default function OrganizationPage() {
               )}
 
               {/* Quick Actions */}
-              <div className="bg-blue-50 rounded-lg p-4">
+              <div className="bg-blue-900/20 rounded-lg p-4">
                 <h3 className="font-medium text-blue-900 mb-3">Quick Actions</h3>
                 <div className="space-y-2">
-                  <button className="w-full text-left text-sm text-blue-700 hover:text-blue-800">
+                  <button className="w-full text-left text-sm text-blue-400 hover:text-blue-800">
                     → Invite team members
                   </button>
-                  <button className="w-full text-left text-sm text-blue-700 hover:text-blue-800">
+                  <button className="w-full text-left text-sm text-blue-400 hover:text-blue-800">
                     → Export organization data
                   </button>
-                  <button className="w-full text-left text-sm text-blue-700 hover:text-blue-800">
+                  <button className="w-full text-left text-sm text-blue-400 hover:text-blue-800">
                     → View audit logs
                   </button>
                 </div>

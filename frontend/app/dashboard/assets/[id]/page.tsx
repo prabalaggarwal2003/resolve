@@ -45,7 +45,7 @@ const STATUS_CLASSES: Record<string, string> = {
   available: 'bg-green-100 text-green-800',
   in_use: 'bg-blue-100 text-blue-800',
   under_maintenance: 'bg-amber-100 text-amber-800',
-  retired: 'bg-slate-200 text-slate-600',
+  retired: 'bg-slate-200 text-gray-400',
   working: 'bg-green-100 text-green-800',
   needs_repair: 'bg-red-100 text-red-800',
   out_of_service: 'bg-red-100 text-red-800',
@@ -55,7 +55,7 @@ const ISSUE_STATUS_CLASSES: Record<string, string> = {
   open: 'bg-amber-100 text-amber-800',
   in_progress: 'bg-blue-100 text-blue-800',
   completed: 'bg-green-100 text-green-800',
-  cancelled: 'bg-slate-200 text-slate-600',
+  cancelled: 'bg-slate-200 text-gray-400',
 };
 
 function api(path: string) {
@@ -132,11 +132,11 @@ export default function AssetDetailPage() {
     }
   }
 
-  if (loading) return <p className="text-slate-600">Loading…</p>;
+  if (loading) return <p className="text-gray-400">Loading…</p>;
   if (error || !asset) {
     return (
       <div>
-        <p className="text-red-600">{error || 'Asset not found'}</p>
+        <p className="text-red-400">{error || 'Asset not found'}</p>
         <Link href="/dashboard/assets" className="text-primary hover:underline mt-2 inline-block">
           Back to assets
         </Link>
@@ -146,26 +146,26 @@ export default function AssetDetailPage() {
 
   return (
     <div>
-      <Link href="/dashboard/assets" className="inline-block mb-4 text-slate-600 hover:text-slate-900">
+      <Link href="/dashboard/assets" className="inline-block mb-4 text-gray-400 hover:text-gray-100">
         ← Back to assets
       </Link>
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
         <div>
           <h1 className="text-2xl font-bold mb-1">{asset.name}</h1>
-          <p className="text-slate-600">
+          <p className="text-gray-400">
             {asset.assetId} · {asset.category}
             {asset.locationId?.path && ` · ${asset.locationId.path}`}
           </p>
           <span
-            className={`inline-block mt-2 px-3 py-1.5 rounded-lg text-sm font-medium ${STATUS_CLASSES[asset.status] ?? 'bg-slate-100 text-slate-700'}`}
+            className={`inline-block mt-2 px-3 py-1.5 rounded-lg text-sm font-medium ${STATUS_CLASSES[asset.status] ?? 'bg-slate-100 text-gray-300'}`}
           >
             {asset.status?.replace('_', ' ')}
           </span>
         </div>
         {asset.qrCodeUrl && (
-          <div className="p-3 bg-white rounded-lg border border-slate-200 shrink-0">
+          <div className="p-3 bg-gray-800 rounded-lg border border-gray-700 shrink-0">
             <img src={asset.qrCodeUrl} alt="QR" width={80} height={80} />
-            <p className="text-xs text-slate-500 mt-1">Scan for details</p>
+            <p className="text-xs text-gray-500 mt-1">Scan for details</p>
           </div>
         )}
         <div className="flex gap-2">
@@ -174,7 +174,7 @@ export default function AssetDetailPage() {
               const u = JSON.parse(localStorage.getItem('user') || '{}');
               if (['super_admin', 'admin', 'manager'].includes(u.role)) {
                 return (
-                  <Link href={`/dashboard/assets/${params.id}/edit`} className="px-3 py-1.5 text-sm font-medium rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200">Edit</Link>
+                  <Link href={`/dashboard/assets/${params.id}/edit`} className="px-3 py-1.5 text-sm font-medium rounded-lg bg-slate-100 text-gray-300 hover:bg-slate-200">Edit</Link>
                 );
               }
             } catch (_) {}
@@ -185,7 +185,7 @@ export default function AssetDetailPage() {
               const u = JSON.parse(localStorage.getItem('user') || '{}');
               if (['super_admin', 'admin', 'manager'].includes(u.role)) {
                 return (
-                  <button type="button" onClick={handleDelete} disabled={deleting} className="px-3 py-1.5 text-sm font-medium rounded-lg bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50">
+                  <button type="button" onClick={handleDelete} disabled={deleting} className="px-3 py-1.5 text-sm font-medium rounded-lg bg-red-100 text-red-400 hover:bg-red-200 disabled:opacity-50">
                     {deleting ? 'Deleting…' : 'Delete'}
                   </button>
                 );
@@ -202,8 +202,8 @@ export default function AssetDetailPage() {
           <div className="flex flex-wrap gap-3">
             {asset.photos!.map((p, i) => (
               <a key={i} href={p.url} target="_blank" rel="noopener noreferrer" className="block">
-                <img src={p.url} alt={p.caption || `Photo ${i + 1}`} className="h-24 w-24 object-cover rounded-lg border border-slate-200 hover:opacity-90" />
-                {p.caption && <p className="text-xs text-slate-500 mt-1">{p.caption}</p>}
+                <img src={p.url} alt={p.caption || `Photo ${i + 1}`} className="h-24 w-24 object-cover rounded-lg border border-gray-700 hover:opacity-90" />
+                {p.caption && <p className="text-xs text-gray-500 mt-1">{p.caption}</p>}
               </a>
             ))}
           </div>
@@ -227,18 +227,18 @@ export default function AssetDetailPage() {
 
       <section className="mt-8">
         <h2 className="text-lg font-semibold mb-4">Details</h2>
-        <div className="bg-white p-6 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <Item label="Model" value={asset.model} />
           <Item label="Serial" value={asset.serialNumber} />
           <Item label="Assigned to" value={asset.assignedTo?.name} />
           <Item label="Location" value={asset.locationId?.path || asset.locationId?.name} />
           <Item label="Department" value={asset.departmentId?.name} />
           <div>
-            <p className="text-xs text-slate-500">Purchase date</p>
+            <p className="text-xs text-gray-500">Purchase date</p>
             <p className="font-medium">
               {asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString() : '—'}
               {asset.purchaseDate && (
-                <span className="ml-2 text-sm text-slate-600 font-normal">
+                <span className="ml-2 text-sm text-gray-400 font-normal">
                   ({calculateAssetAge(asset.purchaseDate)} old)
                 </span>
               )}
@@ -247,20 +247,20 @@ export default function AssetDetailPage() {
           <Item label="Vendor" value={asset.vendor} />
           <Item label="Cost" value={asset.cost != null ? `₹${asset.cost}` : undefined} />
           <div>
-            <p className="text-xs text-slate-500">Warranty expiry</p>
+            <p className="text-xs text-gray-500">Warranty expiry</p>
             {asset.warrantyExpiry ? (
               <div className="font-medium">
                 <p className={`${
                   new Date(asset.warrantyExpiry) < new Date() 
-                    ? 'text-red-600' 
+                    ? 'text-red-400' 
                     : new Date(asset.warrantyExpiry) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
                     ? 'text-amber-600'
-                    : 'text-slate-900'
+                    : 'text-gray-100'
                 }`}>
                   {new Date(asset.warrantyExpiry).toLocaleDateString()}
                 </p>
                 {new Date(asset.warrantyExpiry) < new Date() && (
-                  <span className="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-700 font-medium">
+                  <span className="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-400 font-medium">
                     Expired
                   </span>
                 )}
@@ -283,21 +283,21 @@ export default function AssetDetailPage() {
       {logs.length > 0 && (
         <section className="mt-8">
           <h2 className="text-lg font-semibold mb-4">Usage log (check-in / check-out)</h2>
-          <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+          <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
             <table className="w-full border-collapse text-sm">
               <thead>
-                <tr className="bg-slate-50 text-left">
-                  <th className="p-3 font-medium text-slate-700">User</th>
-                  <th className="p-3 font-medium text-slate-700">Type</th>
-                  <th className="p-3 font-medium text-slate-700">Date</th>
+                <tr className="bg-gray-950 text-left">
+                  <th className="p-3 font-medium text-gray-300">User</th>
+                  <th className="p-3 font-medium text-gray-300">Type</th>
+                  <th className="p-3 font-medium text-gray-300">Date</th>
                 </tr>
               </thead>
               <tbody>
                 {logs.map((log, i) => (
-                  <tr key={i} className="border-t border-slate-200">
+                  <tr key={i} className="border-t border-gray-700">
                     <td className="p-3">{log.userId?.name ?? '—'}</td>
                     <td className="p-3">{log.type === 'check_in' ? 'Check-in' : 'Check-out'}</td>
-                    <td className="p-3 text-slate-600">{new Date(log.createdAt).toLocaleString()}</td>
+                    <td className="p-3 text-gray-400">{new Date(log.createdAt).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -309,30 +309,30 @@ export default function AssetDetailPage() {
       <section className="mt-8">
         <h2 className="text-lg font-semibold mb-4">Issues</h2>
         {issues.length === 0 ? (
-          <p className="text-slate-600">No issues reported for this asset yet.</p>
+          <p className="text-gray-400">No issues reported for this asset yet.</p>
         ) : (
           <ul className="space-y-3">
             {issues.map((issue) => (
               <li
                 key={issue._id}
-                className="bg-white rounded-lg border border-slate-200 p-4"
+                className="bg-gray-800 rounded-lg border border-gray-700 p-4"
               >
                 <div className="flex flex-wrap items-center gap-2 mb-2">
                   <span className="font-medium">{issue.ticketId}</span>
                   <span
-                    className={`px-2 py-0.5 rounded text-xs font-medium ${ISSUE_STATUS_CLASSES[issue.status] ?? 'bg-slate-100 text-slate-700'}`}
+                    className={`px-2 py-0.5 rounded text-xs font-medium ${ISSUE_STATUS_CLASSES[issue.status] ?? 'bg-slate-100 text-gray-300'}`}
                   >
                     {issue.status.replace('_', ' ')}
                   </span>
-                  <span className="text-slate-500 text-sm">
+                  <span className="text-gray-500 text-sm">
                     {issue.category.replace('_', ' ')}
                   </span>
                 </div>
-                <p className="text-slate-700 text-sm mb-1">{issue.title}</p>
+                <p className="text-gray-300 text-sm mb-1">{issue.title}</p>
                 {issue.description && (
-                  <p className="text-slate-600 text-sm mb-2">{issue.description}</p>
+                  <p className="text-gray-400 text-sm mb-2">{issue.description}</p>
                 )}
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-gray-500">
                   {issue.reporterName ?? issue.reports?.[0]?.reporterName}
                   {issue.reports && issue.reports.length > 1 && (
                     <> · +{issue.reports.length - 1} more report(s)</>
@@ -352,7 +352,7 @@ export default function AssetDetailPage() {
 function Item({ label, value }: { label: string; value?: string | null }) {
   return (
     <div>
-      <p className="text-xs text-slate-500">{label}</p>
+      <p className="text-xs text-gray-500">{label}</p>
       <p className="font-medium">{value ?? '—'}</p>
     </div>
   );

@@ -22,12 +22,12 @@ interface HealthThresholds {
 }
 
 const CONDITION_COLORS = {
-  excellent: 'bg-green-100 text-green-800 border-green-200',
+  excellent: 'bg-green-100 text-green-800 border-green-800',
   good: 'bg-blue-100 text-blue-800 border-blue-200',
-  fair: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  fair: 'bg-yellow-100 text-yellow-400 border-yellow-200',
   poor: 'bg-orange-100 text-orange-800 border-orange-200',
-  critical: 'bg-red-100 text-red-800 border-red-200',
-  under_maintenance: 'bg-gray-100 text-gray-800 border-gray-200'
+  critical: 'bg-red-100 text-red-800 border-red-800',
+  under_maintenance: 'bg-gray-800 text-gray-800 border-gray-700'
 };
 
 const CONDITION_ICONS = {
@@ -111,8 +111,8 @@ export default function AssetHealthPage() {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <p className="text-red-600">{error}</p>
+      <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
+        <p className="text-red-400">{error}</p>
       </div>
     );
   }
@@ -122,15 +122,15 @@ export default function AssetHealthPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Asset Health Monitor</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-2xl font-bold text-gray-100">Asset Health Monitor</h1>
+          <p className="text-gray-400 mt-1">
             Monitor asset conditions and automate maintenance scheduling
           </p>
         </div>
         <button
           onClick={runHealthCheck}
           disabled={runningCheck}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {runningCheck ? (
             <>
@@ -146,10 +146,10 @@ export default function AssetHealthPage() {
       {/* Health Summary Cards */}
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
+          <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
             <div className="text-center">
-              <p className="text-sm text-gray-600 mb-1">Total Assets</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.total}</p>
+              <p className="text-sm text-gray-400 mb-1">Total Assets</p>
+              <p className="text-2xl font-bold text-gray-100">{summary.total}</p>
             </div>
           </div>
 
@@ -170,55 +170,55 @@ export default function AssetHealthPage() {
 
       {/* Health Thresholds */}
       {thresholds && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Health Check Thresholds</h2>
+        <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+          <h2 className="text-lg font-semibold text-gray-100 mb-4">Health Check Thresholds</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <h3 className="font-medium text-gray-900 mb-2">Age Thresholds</h3>
-              <p className="text-sm text-gray-600">Critical: {thresholds.AGE_CRITICAL_YEARS} years</p>
-              <p className="text-sm text-gray-600">Maintenance: {thresholds.AGE_MAINTENANCE_YEARS} years</p>
+            <div className="p-3 bg-gray-900 rounded-lg">
+              <h3 className="font-medium text-gray-100 mb-2">Age Thresholds</h3>
+              <p className="text-sm text-gray-400">Critical: {thresholds.AGE_CRITICAL_YEARS} years</p>
+              <p className="text-sm text-gray-400">Maintenance: {thresholds.AGE_MAINTENANCE_YEARS} years</p>
             </div>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <h3 className="font-medium text-gray-900 mb-2">Open Issues</h3>
-              <p className="text-sm text-gray-600">Warning: {thresholds.OPEN_ISSUES_WARNING} issues</p>
-              <p className="text-sm text-gray-600">Critical: {thresholds.OPEN_ISSUES_CRITICAL} issues</p>
-              <p className="text-sm text-gray-600">Maintenance: {thresholds.OPEN_ISSUES_MAINTENANCE} issues</p>
+            <div className="p-3 bg-gray-900 rounded-lg">
+              <h3 className="font-medium text-gray-100 mb-2">Open Issues</h3>
+              <p className="text-sm text-gray-400">Warning: {thresholds.OPEN_ISSUES_WARNING} issues</p>
+              <p className="text-sm text-gray-400">Critical: {thresholds.OPEN_ISSUES_CRITICAL} issues</p>
+              <p className="text-sm text-gray-400">Maintenance: {thresholds.OPEN_ISSUES_MAINTENANCE} issues</p>
             </div>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <h3 className="font-medium text-gray-900 mb-2">Warranty Alert</h3>
-              <p className="text-sm text-gray-600">Expiry warning: {thresholds.WARRANTY_EXPIRY_DAYS} days</p>
+            <div className="p-3 bg-gray-900 rounded-lg">
+              <h3 className="font-medium text-gray-100 mb-2">Warranty Alert</h3>
+              <p className="text-sm text-gray-400">Expiry warning: {thresholds.WARRANTY_EXPIRY_DAYS} days</p>
             </div>
           </div>
         </div>
       )}
 
       {/* Maintenance Actions */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Automated Actions</h2>
+      <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+        <h2 className="text-lg font-semibold text-gray-100 mb-4">Automated Actions</h2>
         <div className="space-y-3">
-          <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
+          <div className="flex items-center gap-3 p-3 bg-yellow-900/20 rounded-lg">
             <span className="text-xl">🔧</span>
             <div>
-              <p className="font-medium text-gray-900">Automatic Maintenance Mode</p>
-              <p className="text-sm text-gray-600">
+              <p className="font-medium text-gray-100">Automatic Maintenance Mode</p>
+              <p className="text-sm text-gray-400">
                 Assets automatically enter maintenance when they exceed age or issue thresholds
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg">
+          <div className="flex items-center gap-3 p-3 bg-red-900/20 rounded-lg">
             <span className="text-xl">🚫</span>
             <div>
-              <p className="font-medium text-gray-900">Issue Reporting Blocked</p>
-              <p className="text-sm text-gray-600">
+              <p className="font-medium text-gray-100">Issue Reporting Blocked</p>
+              <p className="text-sm text-gray-400">
                 Users cannot report issues for assets under maintenance
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+          <div className="flex items-center gap-3 p-3 bg-blue-900/20 rounded-lg">
             <span className="text-xl">📊</span>
             <div>
-              <p className="font-medium text-gray-900">Health Monitoring</p>
-              <p className="text-sm text-gray-600">
+              <p className="font-medium text-gray-100">Health Monitoring</p>
+              <p className="text-sm text-gray-400">
                 Continuous monitoring of asset age, issues, and warranty status
               </p>
             </div>

@@ -32,7 +32,7 @@ const STATUS_CLASSES: Record<string, string> = {
   open: 'bg-amber-100 text-amber-800',
   in_progress: 'bg-blue-100 text-blue-800',
   completed: 'bg-green-100 text-green-800',
-  cancelled: 'bg-slate-200 text-slate-600',
+  cancelled: 'bg-slate-200 text-gray-400',
 };
 
 function api(path: string) {
@@ -86,7 +86,7 @@ function StatusButtons({
           type="button"
           onClick={() => setStatus(o.value)}
           disabled={loading}
-          className="px-3 py-1.5 text-sm font-medium rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50"
+          className="px-3 py-1.5 text-sm font-medium rounded-lg bg-slate-100 text-gray-300 hover:bg-slate-200 disabled:opacity-50"
         >
           {o.label}
         </button>
@@ -125,11 +125,11 @@ export default function IssueDetailPage() {
     fetchIssue();
   }, [params.id]);
 
-  if (loading) return <p className="text-slate-600">Loading…</p>;
+  if (loading) return <p className="text-gray-400">Loading…</p>;
   if (error || !issue) {
     return (
       <div>
-        <p className="text-red-600">{error || 'Issue not found'}</p>
+        <p className="text-red-400">{error || 'Issue not found'}</p>
         <Link href="/dashboard/issues" className="text-primary hover:underline mt-2 inline-block">
           Back to issues
         </Link>
@@ -159,7 +159,7 @@ export default function IssueDetailPage() {
 
   return (
     <div>
-      <Link href="/dashboard/issues" className="inline-block mb-4 text-slate-600 hover:text-slate-900">
+      <Link href="/dashboard/issues" className="inline-block mb-4 text-gray-400 hover:text-gray-100">
         ← Back to issues
       </Link>
 
@@ -167,11 +167,11 @@ export default function IssueDetailPage() {
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-bold">{issue.ticketId}</h1>
           <span
-            className={`px-3 py-1 rounded-lg text-sm font-medium ${STATUS_CLASSES[issue.status] ?? 'bg-slate-100 text-slate-700'}`}
+            className={`px-3 py-1 rounded-lg text-sm font-medium ${STATUS_CLASSES[issue.status] ?? 'bg-slate-100 text-gray-300'}`}
           >
             {issue.status.replace('_', ' ')}
           </span>
-          <span className="text-slate-500 text-sm">{issue.category.replace('_', ' ')}</span>
+          <span className="text-gray-500 text-sm">{issue.category.replace('_', ' ')}</span>
         </div>
         <StatusButtons
           issueId={issue._id}
@@ -182,7 +182,7 @@ export default function IssueDetailPage() {
 
       {issue.assetId && (
         <div className="mb-4 space-y-1">
-          <p className="text-slate-600">
+          <p className="text-gray-400">
             Asset:{' '}
             <Link
               href={`/dashboard/assets/${issue.assetId._id}`}
@@ -192,44 +192,44 @@ export default function IssueDetailPage() {
             </Link>
           </p>
           {issue.assetId.assignedTo && (
-            <p className="text-slate-600 text-sm">
+            <p className="text-gray-400 text-sm">
               Asset assigned to (custodian): <strong>{issue.assetId.assignedTo.name}</strong>
               {issue.assetId.assignedTo.email && (
-                <span className="text-slate-500"> ({issue.assetId.assignedTo.email})</span>
+                <span className="text-gray-500"> ({issue.assetId.assignedTo.email})</span>
               )}
             </p>
           )}
         </div>
       )}
-      <p className="text-slate-700 mb-6">{issue.title}</p>
+      <p className="text-gray-300 mb-6">{issue.title}</p>
       {issue.description && issue.reports?.length === 0 && (
-        <p className="text-slate-600 mb-6 whitespace-pre-wrap">{issue.description}</p>
+        <p className="text-gray-400 mb-6 whitespace-pre-wrap">{issue.description}</p>
       )}
 
       <section className="mb-6">
-        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
           Reports in this ticket
         </h2>
-        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+        <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
-                <tr className="bg-slate-50 text-left">
-                  <th className="p-3 text-sm font-medium text-slate-700">Name</th>
-                  <th className="p-3 text-sm font-medium text-slate-700">Email</th>
-                  <th className="p-3 text-sm font-medium text-slate-700">Phone</th>
-                  <th className="p-3 text-sm font-medium text-slate-700">Description</th>
-                  <th className="p-3 text-sm font-medium text-slate-700">Reported at</th>
+                <tr className="bg-gray-950 text-left">
+                  <th className="p-3 text-sm font-medium text-gray-300">Name</th>
+                  <th className="p-3 text-sm font-medium text-gray-300">Email</th>
+                  <th className="p-3 text-sm font-medium text-gray-300">Phone</th>
+                  <th className="p-3 text-sm font-medium text-gray-300">Description</th>
+                  <th className="p-3 text-sm font-medium text-gray-300">Reported at</th>
                 </tr>
               </thead>
               <tbody>
                 {reportRows.map((r, i) => (
-                  <tr key={i} className="border-t border-slate-200">
+                  <tr key={i} className="border-t border-gray-700">
                     <td className="p-3 font-medium text-slate-800">{r.reporterName}</td>
-                    <td className="p-3 text-slate-600 text-sm">{r.reporterEmail ?? '—'}</td>
-                    <td className="p-3 text-slate-600 text-sm">{r.reporterPhone ?? '—'}</td>
-                    <td className="p-3 text-slate-700 text-sm max-w-md">{r.description}</td>
-                    <td className="p-3 text-slate-500 text-sm whitespace-nowrap">
+                    <td className="p-3 text-gray-400 text-sm">{r.reporterEmail ?? '—'}</td>
+                    <td className="p-3 text-gray-400 text-sm">{r.reporterPhone ?? '—'}</td>
+                    <td className="p-3 text-gray-300 text-sm max-w-md">{r.description}</td>
+                    <td className="p-3 text-gray-500 text-sm whitespace-nowrap">
                       {new Date(r.createdAt).toLocaleString()}
                     </td>
                   </tr>
@@ -241,7 +241,7 @@ export default function IssueDetailPage() {
       </section>
 
       {issue.assignedTo && (
-        <p className="text-slate-600 text-sm">
+        <p className="text-gray-400 text-sm">
           Assigned to <strong>{issue.assignedTo.name}</strong>
         </p>
       )}

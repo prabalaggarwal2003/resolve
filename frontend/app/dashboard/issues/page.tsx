@@ -22,7 +22,7 @@ const STATUS_CLASSES: Record<string, string> = {
   open: 'bg-amber-100 text-amber-800',
   in_progress: 'bg-blue-100 text-blue-800',
   completed: 'bg-green-100 text-green-800',
-  cancelled: 'bg-slate-200 text-slate-600',
+  cancelled: 'bg-slate-200 text-gray-400',
 };
 
 function api(path: string) {
@@ -66,7 +66,7 @@ function StatusButtons({
     { value: 'cancelled', label: 'Cancelled' },
   ].filter((o) => o.value !== currentStatus);
 
-  if (options.length === 0) return <span className="text-slate-400 dark:text-gray-500 text-sm">—</span>;
+  if (options.length === 0) return <span className="text-slate-400 text-sm">—</span>;
 
   return (
     <div className="flex flex-wrap gap-1">
@@ -76,7 +76,7 @@ function StatusButtons({
           type="button"
           onClick={() => setStatus(o.value)}
           disabled={loading}
-          className="px-2 py-1 text-xs font-medium rounded bg-slate-100 dark:bg-gray-700 text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-gray-600 disabled:opacity-50"
+          className="px-2 py-1 text-xs font-medium rounded bg-slate-100 text-gray-300 hover:bg-slate-200 disabled:opacity-50"
         >
           {o.label}
         </button>
@@ -140,17 +140,17 @@ export default function IssuesPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-gray-100">Issues</h1>
-      <p className="text-slate-600 dark:text-gray-400 mb-6">
+      <h1 className="text-2xl font-bold mb-2 text-gray-100">Issues</h1>
+      <p className="text-gray-400 mb-6">
         Open, in progress, and completed — reported via QR scan or from asset pages
       </p>
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <span className="text-sm font-medium text-slate-700 dark:text-gray-300">Filter:</span>
+        <span className="text-sm font-medium text-gray-300">Filter:</span>
         {user?.role === 'reporter' && (
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={myReportsOnly} onChange={(e) => setMyReportsOnly(e.target.checked)} className="rounded" />
-            <span className="text-sm text-slate-700 dark:text-gray-300">My reports only</span>
+            <span className="text-sm text-gray-300">My reports only</span>
           </label>
         )}
         {['', 'open', 'in_progress', 'completed', 'cancelled'].map((s) => (
@@ -160,8 +160,8 @@ export default function IssuesPage() {
             onClick={() => setStatusFilter(s)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
               statusFilter === s
-                ? 'bg-primary dark:bg-blue-500 text-white'
-                : 'bg-slate-100 dark:bg-gray-700 text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-gray-600'
+                ? 'bg-primary text-white'
+                : 'bg-slate-100 text-gray-300 hover:bg-slate-200'
             }`}
           >
             {s ? s.replace('_', ' ') : 'All'}
@@ -169,53 +169,53 @@ export default function IssuesPage() {
         ))}
       </div>
 
-      {loading && <p className="text-slate-600 dark:text-gray-400">Loading…</p>}
+      {loading && <p className="text-gray-400">Loading…</p>}
       {error && (
-        <p className="p-4 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 text-red-600 dark:text-red-200 rounded-lg text-sm">{error}</p>
+        <p className="p-4 bg-red-900/20 border border-red-800 text-red-400 rounded-lg text-sm">{error}</p>
       )}
 
       {!loading && !error && issues.length === 0 && (
-        <div className="bg-white dark:bg-gray-800 p-12 rounded-lg border border-slate-200 dark:border-gray-700 text-center text-slate-600 dark:text-gray-400">
+        <div className="bg-gray-800 p-12 rounded-lg border border-gray-700 text-center text-gray-400">
           No issues yet. When someone reports via QR or the report form, tickets will appear here.
         </div>
       )}
 
       {!loading && !error && issues.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 overflow-hidden">
+        <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
-                <tr className="bg-slate-50 dark:bg-gray-700 text-left">
-                  <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Ticket</th>
-                  <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Asset</th>
-                  <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Title</th>
-                  <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Status</th>
-                  <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Category</th>
-                  <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Reported by</th>
-                  <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Assigned to (asset)</th>
-                  <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Date</th>
-                  <th className="p-3 text-sm font-medium text-slate-700 dark:text-gray-300">Actions</th>
+                <tr className="bg-gray-950 text-left">
+                  <th className="p-3 text-sm font-medium text-gray-300">Ticket</th>
+                  <th className="p-3 text-sm font-medium text-gray-300">Asset</th>
+                  <th className="p-3 text-sm font-medium text-gray-300">Title</th>
+                  <th className="p-3 text-sm font-medium text-gray-300">Status</th>
+                  <th className="p-3 text-sm font-medium text-gray-300">Category</th>
+                  <th className="p-3 text-sm font-medium text-gray-300">Reported by</th>
+                  <th className="p-3 text-sm font-medium text-gray-300">Assigned to (asset)</th>
+                  <th className="p-3 text-sm font-medium text-gray-300">Date</th>
+                  <th className="p-3 text-sm font-medium text-gray-300">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {issues.map((issue) => (
                   <tr
                     key={issue._id}
-                    className="border-t border-slate-200 dark:border-gray-700 hover:bg-slate-50/50 dark:hover:bg-gray-700/50"
+                    className="border-t border-gray-700 hover:bg-gray-950/50"
                   >
-                    <td className="p-3 font-medium text-gray-900 dark:text-gray-100">
+                    <td className="p-3 font-medium text-gray-100">
                       <Link
                         href={`/dashboard/issues/${issue._id}`}
-                        className="text-primary dark:text-blue-400 hover:underline"
+                        className="text-primary hover:underline"
                       >
                         {issue.ticketId}
                       </Link>
                     </td>
-                    <td className="p-3 text-gray-900 dark:text-gray-100">
+                    <td className="p-3 text-gray-100">
                       {issue.assetId ? (
                         <Link
                           href={`/dashboard/assets/${issue.assetId._id}`}
-                          className="text-primary dark:text-blue-400 hover:underline"
+                          className="text-primary hover:underline"
                         >
                           {issue.assetId.name}
                         </Link>
@@ -223,29 +223,29 @@ export default function IssuesPage() {
                         '—'
                       )}
                     </td>
-                    <td className="p-3 text-slate-700 dark:text-gray-300 max-w-xs truncate" title={issue.title}>
+                    <td className="p-3 text-gray-300 max-w-xs truncate" title={issue.title}>
                       {issue.title}
                     </td>
                     <td className="p-3">
                       <span
-                        className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${STATUS_CLASSES[issue.status] ?? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200'}`}
+                        className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${STATUS_CLASSES[issue.status] ?? 'bg-slate-100 text-gray-300'}`}
                       >
                         {issue.status.replace('_', ' ')}
                       </span>
                     </td>
-                    <td className="p-3 text-slate-600 dark:text-gray-400 text-sm">
+                    <td className="p-3 text-gray-400 text-sm">
                       {issue.category?.replace('_', ' ') ?? '—'}
                     </td>
-                    <td className="p-3 text-sm text-gray-900 dark:text-gray-100">
+                    <td className="p-3 text-sm text-gray-100">
                       {issue.reporterName ?? issue.reports?.[0]?.reporterName ?? '—'}
                       {issue.reports && issue.reports.length > 1 && (
-                        <span className="text-slate-500 dark:text-gray-500"> (+{issue.reports.length - 1})</span>
+                        <span className="text-gray-500"> (+{issue.reports.length - 1})</span>
                       )}
                     </td>
-                    <td className="p-3 text-slate-600 dark:text-gray-400 text-sm">
+                    <td className="p-3 text-gray-400 text-sm">
                       {issue.assetId?.assignedTo?.name ?? '—'}
                     </td>
-                    <td className="p-3 text-slate-600 dark:text-gray-400 text-sm">
+                    <td className="p-3 text-gray-400 text-sm">
                       {new Date(issue.createdAt).toLocaleDateString()}
                     </td>
                     <td className="p-3">
@@ -257,7 +257,7 @@ export default function IssuesPage() {
                         />
                         <Link
                           href={`/dashboard/issues/${issue._id}`}
-                          className="text-primary dark:text-blue-400 text-sm hover:underline"
+                          className="text-primary text-sm hover:underline"
                         >
                           View
                         </Link>
@@ -271,25 +271,25 @@ export default function IssuesPage() {
 
           {/* Pagination */}
           {total > limit && (
-            <div className="p-4 border-t border-slate-200 dark:border-gray-700 flex items-center justify-between">
-              <p className="text-sm text-slate-600 dark:text-gray-400">
+            <div className="p-4 border-t border-gray-700 flex items-center justify-between">
+              <p className="text-sm text-gray-400">
                 Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total} issues
               </p>
               <div className="flex gap-2">
                 <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="px-3 py-1.5 text-sm border border-slate-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-gray-700"
+                  className="px-3 py-1.5 text-sm border border-slate-300 text-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-950"
                 >
                   Previous
                 </button>
-                <span className="px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100">
+                <span className="px-3 py-1.5 text-sm text-gray-100">
                   Page {page} of {Math.ceil(total / limit)}
                 </span>
                 <button
                   onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
                   disabled={page >= Math.ceil(total / limit)}
-                  className="px-3 py-1.5 text-sm border border-slate-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-gray-700"
+                  className="px-3 py-1.5 text-sm border border-slate-300 text-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-950"
                 >
                   Next
                 </button>

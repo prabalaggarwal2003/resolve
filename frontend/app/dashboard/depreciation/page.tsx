@@ -62,11 +62,11 @@ function formatCurrency(amount: number): string {
 }
 
 function getDepreciationColor(percentage: number): string {
-  if (percentage < 20) return 'text-green-600';
-  if (percentage < 40) return 'text-blue-600';
-  if (percentage < 60) return 'text-yellow-600';
+  if (percentage < 20) return 'text-green-400';
+  if (percentage < 40) return 'text-blue-400';
+  if (percentage < 60) return 'text-yellow-400';
   if (percentage < 80) return 'text-orange-600';
-  return 'text-red-600';
+  return 'text-red-400';
 }
 
 export default function DepreciationPage() {
@@ -135,15 +135,15 @@ export default function DepreciationPage() {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-        <span className="ml-3 text-gray-600">Calculating depreciation...</span>
+        <span className="ml-3 text-gray-400">Calculating depreciation...</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <p className="text-red-600">{error}</p>
+      <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
+        <p className="text-red-400">{error}</p>
       </div>
     );
   }
@@ -152,8 +152,8 @@ export default function DepreciationPage() {
     <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">💰 Asset Depreciation</h1>
-        <p className="text-gray-600 mt-1">
+        <h1 className="text-2xl font-bold text-gray-100">💰 Asset Depreciation</h1>
+        <p className="text-gray-400 mt-1">
           Track asset value depreciation based on age, condition, and maintenance history
         </p>
       </div>
@@ -161,20 +161,20 @@ export default function DepreciationPage() {
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-5 rounded-lg border border-gray-200">
-            <p className="text-sm text-gray-600 mb-1">Total Original Value</p>
-            <p className="text-2xl font-bold text-gray-900">{formatCurrency(summary.totalOriginalValue)}</p>
+          <div className="bg-gray-800 p-5 rounded-lg border border-gray-700">
+            <p className="text-sm text-gray-400 mb-1">Total Original Value</p>
+            <p className="text-2xl font-bold text-gray-100">{formatCurrency(summary.totalOriginalValue)}</p>
           </div>
-          <div className="bg-white p-5 rounded-lg border border-gray-200">
-            <p className="text-sm text-gray-600 mb-1">Current Value</p>
-            <p className="text-2xl font-bold text-green-600">{formatCurrency(summary.totalCurrentValue)}</p>
+          <div className="bg-gray-800 p-5 rounded-lg border border-gray-700">
+            <p className="text-sm text-gray-400 mb-1">Current Value</p>
+            <p className="text-2xl font-bold text-green-400">{formatCurrency(summary.totalCurrentValue)}</p>
           </div>
-          <div className="bg-white p-5 rounded-lg border border-gray-200">
-            <p className="text-sm text-gray-600 mb-1">Total Depreciation</p>
-            <p className="text-2xl font-bold text-red-600">{formatCurrency(summary.totalDepreciation)}</p>
+          <div className="bg-gray-800 p-5 rounded-lg border border-gray-700">
+            <p className="text-sm text-gray-400 mb-1">Total Depreciation</p>
+            <p className="text-2xl font-bold text-red-400">{formatCurrency(summary.totalDepreciation)}</p>
           </div>
-          <div className="bg-white p-5 rounded-lg border border-gray-200">
-            <p className="text-sm text-gray-600 mb-1">Avg. Depreciation</p>
+          <div className="bg-gray-800 p-5 rounded-lg border border-gray-700">
+            <p className="text-sm text-gray-400 mb-1">Avg. Depreciation</p>
             <p className={`text-2xl font-bold ${getDepreciationColor(summary.averageDepreciationPercentage)}`}>
               {summary.averageDepreciationPercentage.toFixed(1)}%
             </p>
@@ -188,8 +188,8 @@ export default function DepreciationPage() {
           onClick={() => setView('assets')}
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
             view === 'assets'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-gray-700 text-white'
+              : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
           }`}
         >
           By Assets ({assets.length})
@@ -198,8 +198,8 @@ export default function DepreciationPage() {
           onClick={() => setView('categories')}
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
             view === 'categories'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-gray-700 text-white'
+              : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
           }`}
         >
           By Category ({categories.length})
@@ -214,7 +214,7 @@ export default function DepreciationPage() {
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg"
+              className="px-3 py-2 border border-gray-700 rounded-lg"
             >
               <option value="">All Categories</option>
               {uniqueCategories.map(cat => (
@@ -224,7 +224,7 @@ export default function DepreciationPage() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-3 py-2 border border-gray-300 rounded-lg"
+              className="px-3 py-2 border border-gray-700 rounded-lg"
             >
               <option value="depreciation">Sort by Depreciation Amount</option>
               <option value="percentage">Sort by Depreciation %</option>
@@ -233,10 +233,10 @@ export default function DepreciationPage() {
           </div>
 
           {/* Assets Table */}
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
+                <thead className="bg-gray-900 border-b border-gray-700">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Asset</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
@@ -249,21 +249,21 @@ export default function DepreciationPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {sortedAssets.map((asset) => (
-                    <tr key={asset.assetId} className="hover:bg-gray-50">
+                    <tr key={asset.assetId} className="hover:bg-gray-900">
                       <td className="px-4 py-3">
                         <div>
-                          <div className="font-medium text-gray-900">{asset.name}</div>
+                          <div className="font-medium text-gray-100">{asset.name}</div>
                           <div className="text-sm text-gray-500">{asset.assetIdString}</div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{asset.category}</td>
-                      <td className="px-4 py-3 text-right text-sm font-medium text-gray-900">
+                      <td className="px-4 py-3 text-sm text-gray-400">{asset.category}</td>
+                      <td className="px-4 py-3 text-right text-sm font-medium text-gray-100">
                         {formatCurrency(asset.originalCost)}
                       </td>
-                      <td className="px-4 py-3 text-right text-sm font-medium text-green-600">
+                      <td className="px-4 py-3 text-right text-sm font-medium text-green-400">
                         {formatCurrency(asset.currentValue)}
                       </td>
-                      <td className="px-4 py-3 text-right text-sm font-medium text-red-600">
+                      <td className="px-4 py-3 text-right text-sm font-medium text-red-400">
                         {formatCurrency(asset.depreciation)}
                       </td>
                       <td className={`px-4 py-3 text-right text-sm font-bold ${getDepreciationColor(asset.depreciationPercentage)}`}>
@@ -285,27 +285,27 @@ export default function DepreciationPage() {
       {view === 'categories' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {categories.map((cat) => (
-            <div key={cat.category} className="bg-white rounded-lg border border-gray-200 p-5">
-              <h3 className="font-bold text-lg text-gray-900 mb-3">{cat.category}</h3>
+            <div key={cat.category} className="bg-gray-800 rounded-lg border border-gray-700 p-5">
+              <h3 className="font-bold text-lg text-gray-100 mb-3">{cat.category}</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Assets:</span>
+                  <span className="text-gray-400">Assets:</span>
                   <span className="font-medium">{cat.count}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Original Value:</span>
+                  <span className="text-gray-400">Original Value:</span>
                   <span className="font-medium">{formatCurrency(cat.originalValue)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Current Value:</span>
-                  <span className="font-medium text-green-600">{formatCurrency(cat.currentValue)}</span>
+                  <span className="text-gray-400">Current Value:</span>
+                  <span className="font-medium text-green-400">{formatCurrency(cat.currentValue)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Depreciation:</span>
-                  <span className="font-medium text-red-600">{formatCurrency(cat.depreciation)}</span>
+                  <span className="text-gray-400">Depreciation:</span>
+                  <span className="font-medium text-red-400">{formatCurrency(cat.depreciation)}</span>
                 </div>
                 <div className="flex justify-between pt-2 border-t">
-                  <span className="text-gray-600">Depreciation %:</span>
+                  <span className="text-gray-400">Depreciation %:</span>
                   <span className={`font-bold ${getDepreciationColor(cat.depreciationPercentage)}`}>
                     {cat.depreciationPercentage.toFixed(1)}%
                   </span>
@@ -326,22 +326,22 @@ function DepreciationDetailsModal({ asset }: { asset: AssetDepreciation }) {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200"
+        className="px-3 py-1 bg-blue-100 text-blue-400 rounded-lg text-sm font-medium hover:bg-blue-200"
       >
         View
       </button>
 
       {isOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setIsOpen(false)}>
-          <div className="bg-white rounded-lg max-w-2xl w-full p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-gray-800 rounded-lg max-w-2xl w-full p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">{asset.name}</h3>
-                <p className="text-sm text-gray-600">{asset.assetIdString}</p>
+                <h3 className="text-lg font-bold text-gray-100">{asset.name}</h3>
+                <p className="text-sm text-gray-400">{asset.assetIdString}</p>
               </div>
               <button
                 onClick={() => setIsOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-400"
               >
                 ✕
               </button>
@@ -350,23 +350,23 @@ function DepreciationDetailsModal({ asset }: { asset: AssetDepreciation }) {
             <div className="space-y-4">
               {/* Value Summary */}
               <div className="grid grid-cols-3 gap-4">
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <p className="text-xs text-gray-600 mb-1">Original Cost</p>
+                <div className="bg-gray-900 p-3 rounded-lg">
+                  <p className="text-xs text-gray-400 mb-1">Original Cost</p>
                   <p className="text-lg font-bold">{formatCurrency(asset.originalCost)}</p>
                 </div>
-                <div className="bg-green-50 p-3 rounded-lg">
-                  <p className="text-xs text-gray-600 mb-1">Current Value</p>
-                  <p className="text-lg font-bold text-green-600">{formatCurrency(asset.currentValue)}</p>
+                <div className="bg-green-900/20 p-3 rounded-lg">
+                  <p className="text-xs text-gray-400 mb-1">Current Value</p>
+                  <p className="text-lg font-bold text-green-400">{formatCurrency(asset.currentValue)}</p>
                 </div>
-                <div className="bg-red-50 p-3 rounded-lg">
-                  <p className="text-xs text-gray-600 mb-1">Depreciation</p>
-                  <p className="text-lg font-bold text-red-600">{asset.depreciationPercentage.toFixed(1)}%</p>
+                <div className="bg-red-900/20 p-3 rounded-lg">
+                  <p className="text-xs text-gray-400 mb-1">Depreciation</p>
+                  <p className="text-lg font-bold text-red-400">{asset.depreciationPercentage.toFixed(1)}%</p>
                 </div>
               </div>
 
               {/* Breakdown */}
               <div>
-                <h4 className="font-semibold text-gray-900 mb-2">Depreciation Breakdown</h4>
+                <h4 className="font-semibold text-gray-100 mb-2">Depreciation Breakdown</h4>
                 <div className="space-y-2">
                   <BreakdownItem label="Age Deduction" amount={asset.breakdown.ageDeduction} factor={`${asset.factors.age} years`} />
                   <BreakdownItem label="Warranty Deduction" amount={asset.breakdown.warrantyDeduction} factor={asset.factors.warrantyExpired ? 'Expired' : 'Valid'} />
@@ -380,7 +380,7 @@ function DepreciationDetailsModal({ asset }: { asset: AssetDepreciation }) {
               <div className="pt-4 border-t">
                 <Link
                   href={`/dashboard/assets/${asset.assetId}`}
-                  className="text-blue-600 hover:underline text-sm font-medium"
+                  className="text-blue-400 hover:underline text-sm font-medium"
                 >
                   View Asset Details →
                 </Link>
@@ -399,10 +399,10 @@ function BreakdownItem({ label, amount, factor }: { label: string; amount: numbe
   return (
     <div className="flex justify-between items-center py-2 border-b border-gray-100">
       <div>
-        <span className="text-sm font-medium text-gray-900">{label}</span>
+        <span className="text-sm font-medium text-gray-100">{label}</span>
         <span className="text-xs text-gray-500 ml-2">({factor})</span>
       </div>
-      <span className="text-sm font-semibold text-red-600">-{formatCurrency(amount)}</span>
+      <span className="text-sm font-semibold text-red-400">-{formatCurrency(amount)}</span>
     </div>
   );
 }

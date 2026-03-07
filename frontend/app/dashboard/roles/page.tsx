@@ -180,7 +180,7 @@ export default function RolesPage() {
     return (
       <div>
         <h1 className="text-2xl font-bold mb-2">Users & Roles</h1>
-        <p className="text-slate-600">Loading…</p>
+        <p className="text-gray-400">Loading…</p>
       </div>
     );
   }
@@ -188,18 +188,18 @@ export default function RolesPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-2">Users & Roles</h1>
-      <p className="text-slate-600 mb-6">
+      <p className="text-gray-400 mb-6">
         Add users by school/college email and assign roles: Principal (view all), HOD (department), Teachers & Students (report only), Lab technicians (their labs).
       </p>
 
       {error && (
-        <p className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</p>
+        <p className="mb-4 p-3 bg-red-900/20 text-red-400 rounded-lg text-sm">{error}</p>
       )}
 
       {canManageUsers && (
-        <div className="bg-white p-4 rounded-lg border border-slate-200 mb-6 max-w-md">
-          <h2 className="text-sm font-semibold text-slate-700 mb-2">Add department</h2>
-          <p className="text-xs text-slate-500 mb-2">Create departments here; use them when adding users (HOD) and assets.</p>
+        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 mb-6 max-w-md">
+          <h2 className="text-sm font-semibold text-gray-300 mb-2">Add department</h2>
+          <p className="text-xs text-gray-500 mb-2">Create departments here; use them when adding users (HOD) and assets.</p>
           <div className="flex gap-2">
             <input
               type="text"
@@ -219,7 +219,7 @@ export default function RolesPage() {
             </button>
           </div>
           {departments.length > 0 && (
-            <p className="text-xs text-slate-500 mt-2">Existing: {departments.map((d) => d.name).join(', ')}</p>
+            <p className="text-xs text-gray-500 mt-2">Existing: {departments.map((d) => d.name).join(', ')}</p>
           )}
         </div>
       )}
@@ -241,12 +241,12 @@ export default function RolesPage() {
       )}
 
       {showForm && canManageUsers && (
-        <div className="bg-white p-6 rounded-lg border border-slate-200 mb-6 max-w-lg">
+        <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 mb-6 max-w-lg">
           <h2 className="text-lg font-semibold mb-4">{editing ? 'Edit user' : 'New user'}</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             {!editing && (
               <div>
-                <label className="block mb-1 font-medium text-slate-700">Email (school/college) *</label>
+                <label className="block mb-1 font-medium text-gray-300">Email (school/college) *</label>
                 <input
                   type="email"
                   value={form.email}
@@ -258,7 +258,7 @@ export default function RolesPage() {
               </div>
             )}
             <div>
-              <label className="block mb-1 font-medium text-slate-700">Name *</label>
+              <label className="block mb-1 font-medium text-gray-300">Name *</label>
               <input
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -267,7 +267,7 @@ export default function RolesPage() {
               />
             </div>
             <div>
-              <label className="block mb-1 font-medium text-slate-700">Role *</label>
+              <label className="block mb-1 font-medium text-gray-300">Role *</label>
               <select
                 value={form.role}
                 onChange={(e) => setForm({ ...form, role: e.target.value })}
@@ -280,7 +280,7 @@ export default function RolesPage() {
             </div>
             {!editing && (
               <div>
-                <label className="block mb-1 font-medium text-slate-700">Temporary password *</label>
+                <label className="block mb-1 font-medium text-gray-300">Temporary password *</label>
                 <input
                   type="password"
                   value={form.password}
@@ -290,14 +290,14 @@ export default function RolesPage() {
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg"
                   placeholder="Min 6 characters"
                 />
-                <p className="text-xs text-slate-500 mt-1">User can change after first login</p>
+                <p className="text-xs text-gray-500 mt-1">User can change after first login</p>
               </div>
             )}
             {(form.role === 'hod' || form.role === 'lab_technician') && (
               <>
                 {form.role === 'hod' && (
                   <div>
-                    <label className="block mb-1 font-medium text-slate-700">Department (for HOD)</label>
+                    <label className="block mb-1 font-medium text-gray-300">Department (for HOD)</label>
                     <select
                       value={form.departmentId}
                       onChange={(e) => setForm({ ...form, departmentId: e.target.value })}
@@ -312,7 +312,7 @@ export default function RolesPage() {
                 )}
                 {form.role === 'lab_technician' && (
                   <div>
-                    <label className="block mb-1 font-medium text-slate-700">Assigned labs (locations)</label>
+                    <label className="block mb-1 font-medium text-gray-300">Assigned labs (locations)</label>
                     <select
                       multiple
                       value={form.assignedLocationIds}
@@ -326,7 +326,7 @@ export default function RolesPage() {
                         <option key={l._id} value={l._id}>{l.name} ({l.type})</option>
                       ))}
                     </select>
-                    <p className="text-xs text-slate-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
+                    <p className="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
                   </div>
                 )}
               </>
@@ -342,7 +342,7 @@ export default function RolesPage() {
               <button
                 type="button"
                 onClick={() => { setShowForm(false); setEditing(null); }}
-                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200"
+                className="px-4 py-2 bg-slate-100 text-gray-300 rounded-lg font-medium hover:bg-slate-200"
               >
                 Cancel
               </button>
@@ -351,28 +351,28 @@ export default function RolesPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+      <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
         {users.length === 0 ? (
-          <div className="p-12 text-center text-slate-600">No users yet.</div>
+          <div className="p-12 text-center text-gray-400">No users yet.</div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 text-left">
-                <th className="p-3 font-medium text-slate-700">Name</th>
-                <th className="p-3 font-medium text-slate-700">Email</th>
-                <th className="p-3 font-medium text-slate-700">Role</th>
-                <th className="p-3 font-medium text-slate-700">Department / Labs</th>
-                <th className="p-3 font-medium text-slate-700">Actions</th>
-                <th className="p-3 font-medium text-slate-700"></th>
+              <tr className="bg-gray-950 text-left">
+                <th className="p-3 font-medium text-gray-300">Name</th>
+                <th className="p-3 font-medium text-gray-300">Email</th>
+                <th className="p-3 font-medium text-gray-300">Role</th>
+                <th className="p-3 font-medium text-gray-300">Department / Labs</th>
+                <th className="p-3 font-medium text-gray-300">Actions</th>
+                <th className="p-3 font-medium text-gray-300"></th>
               </tr>
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u._id} className="border-t border-slate-200">
+                <tr key={u._id} className="border-t border-gray-700">
                   <td className="p-3 font-medium">{u.name}</td>
-                  <td className="p-3 text-slate-600">{u.email}</td>
+                  <td className="p-3 text-gray-400">{u.email}</td>
                   <td className="p-3">{roleLabel(u.role)}</td>
-                  <td className="p-3 text-slate-600">
+                  <td className="p-3 text-gray-400">
                     {u.departmentId?.name}
                     {u.assignedLocationIds?.length ? ` · ${u.assignedLocationIds.map((l) => l.name).join(', ')}` : ''}
                   </td>
