@@ -25,7 +25,7 @@ export default function DashboardLayout({
               >
                 resolve
               </Link>
-              <p className="text-xs text-gray-600 mt-0.5">Asset Management</p>
+              {/*<p className="text-xs text-gray-600 mt-0.5">Asset Management</p>*/}
             </div>
 
             {/* Nav */}
@@ -35,7 +35,7 @@ export default function DashboardLayout({
 
             {/* Bottom */}
             <div className="px-4 py-4 border-t border-gray-800/60 space-y-2">
-              <DarkModeToggle />
+              {/*<DarkModeToggle />*/}
               <Link
                 href="/"
                 className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-gray-600 hover:text-gray-300 hover:bg-gray-800/60 transition-all no-underline"
