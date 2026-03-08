@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { User } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
 import { canManageUsers, canViewAll } from '../services/permissions.js';
+import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
 
 const router = express.Router();
 router.use(protect);
@@ -61,6 +62,9 @@ router.post('/', async (req, res) => {
       .populate('departmentId', 'name')
       .populate('assignedLocationIds', 'name type code')
       .lean();
+    await logAudit(req.user._id, AUDIT_ACTIONS.USER_CREATED, AUDIT_RESOURCES.USER, user._id, {
+      resourceName: name.trim(), description: `Created user "${name.trim()}" with role ${role}`, severity: 'medium', ...getRequestMetadata(req)
+    });
     res.status(201).json(populated);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -90,6 +94,9 @@ router.patch('/:id', async (req, res) => {
       .populate('assignedLocationIds', 'name type code')
       .lean();
     if (!user) return res.status(404).json({ message: 'User not found' });
+    await logAudit(req.user._id, AUDIT_ACTIONS.USER_UPDATED, AUDIT_RESOURCES.USER, user._id, {
+      resourceName: user.name, description: `Updated user "${user.name}"${update.role ? ` — role set to ${update.role}` : ''}`, severity: 'medium', ...getRequestMetadata(req)
+    });
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -113,6 +120,9 @@ router.delete('/:id', async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
     await User.findByIdAndUpdate(req.params.id, { isActive: false });
+    await logAudit(req.user._id, AUDIT_ACTIONS.USER_DELETED, AUDIT_RESOURCES.USER, user._id, {
+      resourceName: user.name, description: `Deactivated user "${user.name}" (${user.email})`, severity: 'high', ...getRequestMetadata(req)
+    });
     res.json({ message: 'User deactivated' });
   } catch (err) {
     res.status(500).json({ message: err.message });

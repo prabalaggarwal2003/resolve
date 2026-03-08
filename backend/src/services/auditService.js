@@ -89,7 +89,15 @@ export const AUDIT_ACTIONS = {
   // Authentication
   LOGIN_SUCCESS: 'login_success',
   LOGIN_FAILED: 'login_failed',
-  LOGOUT: 'logout'
+  LOGOUT: 'logout',
+
+  // Reports
+  REPORT_GENERATED: 'generated',
+  REPORT_DOWNLOADED: 'downloaded',
+
+  // Maintenance
+  MAINTENANCE_STARTED: 'maintenance_started',
+  MAINTENANCE_COMPLETED: 'maintenance_completed',
 };
 
 export const AUDIT_RESOURCES = {
@@ -101,7 +109,9 @@ export const AUDIT_RESOURCES = {
   DEPARTMENT: 'department',
   VENDOR: 'vendor',
   INVOICE: 'invoice',
-  AUTH: 'authentication'
+  AUTH: 'authentication',
+  REPORT: 'report',
+  MAINTENANCE: 'maintenance',
 };
 
 export const AUDIT_SEVERITY = {

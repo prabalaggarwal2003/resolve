@@ -32,11 +32,39 @@ function formatDate(dateString: string | undefined): string {
   return new Date(dateString).toLocaleDateString();
 }
 
+function useElapsed(startDate: string | undefined) {
+  const [elapsed, setElapsed] = useState('');
+
+  useEffect(() => {
+    if (!startDate) { setElapsed('—'); return; }
+    const calc = () => {
+      const diff = Math.max(0, Date.now() - new Date(startDate).getTime());
+      const totalSeconds = Math.floor(diff / 1000);
+      const d = Math.floor(totalSeconds / 86400);
+      const h = Math.floor((totalSeconds % 86400) / 3600);
+      const m = Math.floor((totalSeconds % 3600) / 60);
+      const s = totalSeconds % 60;
+      const parts = [];
+      if (d > 0) parts.push(`${d}d`);
+      parts.push(`${String(h).padStart(2, '0')}h`);
+      parts.push(`${String(m).padStart(2, '0')}m`);
+      parts.push(`${String(s).padStart(2, '0')}s`);
+      setElapsed(parts.join(' '));
+    };
+    calc();
+    const id = setInterval(calc, 1000);
+    return () => clearInterval(id);
+  }, [startDate]);
+
+  return elapsed;
+}
+
 function AssetCard({ asset, onCompleteMaintenance }: {
   asset: MaintenanceAsset;
   onCompleteMaintenance: (assetId: string) => void;
 }) {
   const [completing, setCompleting] = useState(false);
+  const elapsed = useElapsed(asset.maintenanceStartDate);
 
   const handleComplete = async () => {
     setCompleting(true);
@@ -63,10 +91,10 @@ function AssetCard({ asset, onCompleteMaintenance }: {
           <p className="text-sm text-gray-400">{asset.assetId} · {asset.category}</p>
         </div>
         <div className="text-right">
-          <div className={`text-lg font-bold ${
-            asset.isOverdue ? 'text-red-400' : 'text-amber-600'
+          <div className={`text-sm font-bold font-mono ${
+            asset.isOverdue ? 'text-red-400' : 'text-amber-400'
           }`}>
-            {asset.daysUnderMaintenance} days
+            {elapsed}
           </div>
           <p className="text-xs text-gray-500">under maintenance</p>
         </div>

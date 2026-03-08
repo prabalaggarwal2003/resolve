@@ -3,6 +3,7 @@ import { Department, Location } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
 import { requireRole } from '../middleware/roles.js';
 import { canManageUsers } from '../services/permissions.js';
+import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
 
 const router = express.Router();
 
@@ -64,6 +65,9 @@ router.post('/', (req, res, next) => {
       description: description?.trim() || undefined,
       organizationId: req.user.organizationId
     });
+    await logAudit(req.user._id, AUDIT_ACTIONS.DEPARTMENT_CREATED, AUDIT_RESOURCES.DEPARTMENT, department._id, {
+      resourceName: name.trim(), description: `Created department "${name.trim()}"`, severity: 'low', ...getRequestMetadata(req)
+    });
     res.status(201).json(department);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -101,6 +105,9 @@ router.patch('/:id', (req, res, next) => {
       { new: true }
     ).lean();
     if (!department) return res.status(404).json({ message: 'Department not found' });
+    await logAudit(req.user._id, AUDIT_ACTIONS.DEPARTMENT_UPDATED, AUDIT_RESOURCES.DEPARTMENT, department._id, {
+      resourceName: department.name, description: `Updated department "${department.name}"`, severity: 'low', ...getRequestMetadata(req)
+    });
     res.json(department);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -119,6 +126,9 @@ router.delete('/:id', (req, res, next) => {
       organizationId: req.user.organizationId 
     });
     if (!department) return res.status(404).json({ message: 'Department not found' });
+    await logAudit(req.user._id, AUDIT_ACTIONS.DEPARTMENT_DELETED, AUDIT_RESOURCES.DEPARTMENT, department._id, {
+      resourceName: department.name, description: `Deleted department "${department.name}"`, severity: 'medium', ...getRequestMetadata(req)
+    });
     res.json({ message: 'Department deleted successfully' });
   } catch (err) {
     res.status(500).json({ message: err.message });

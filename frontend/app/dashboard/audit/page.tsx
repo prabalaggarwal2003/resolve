@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 
 type AuditLog = {
   _id: string;
@@ -33,10 +32,14 @@ const RESOURCE_LABELS: Record<string, string> = {
   asset: 'Asset',
   issue: 'Issue',
   user: 'User',
-  organization: 'Organization',
+  organization: 'Org',
   location: 'Location',
   department: 'Department',
-  authentication: 'Authentication'
+  authentication: 'Auth',
+  vendor: 'Vendor',
+  invoice: 'Invoice',
+  report: 'Report',
+  maintenance: 'Maintenance',
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -49,26 +52,46 @@ const ACTION_LABELS: Record<string, string> = {
   role_changed: 'Role Changed',
   activated: 'Activated',
   deactivated: 'Deactivated',
-  login_success: 'Login Success',
+  login_success: 'Login',
   login_failed: 'Login Failed',
-  logout: 'Logout'
+  logout: 'Logout',
+  generated: 'Generated',
+  downloaded: 'Downloaded',
+  maintenance_started: 'Maint. Started',
+  maintenance_completed: 'Maint. Completed',
 };
 
 const SEVERITY_COLORS: Record<string, string> = {
-  low: 'bg-gray-800 text-gray-800',
-  medium: 'bg-blue-100 text-blue-800',
-  high: 'bg-amber-100 text-amber-800',
-  critical: 'bg-red-100 text-red-800'
+  low: 'text-gray-500',
+  medium: 'text-blue-400',
+  high: 'text-amber-400',
+  critical: 'text-red-400',
+};
+
+const ACTION_COLORS: Record<string, string> = {
+  created: 'text-green-400',
+  deleted: 'text-red-400',
+  updated: 'text-blue-400',
+  status_changed: 'text-amber-400',
+  generated: 'text-purple-400',
+  maintenance_started: 'text-orange-400',
+  maintenance_completed: 'text-green-400',
+  login_success: 'text-gray-400',
+  login_failed: 'text-red-400',
 };
 
 const RESOURCE_ICONS: Record<string, string> = {
-  asset: '🏷️',
+  asset: '📦',
   issue: '🔴',
   user: '👤',
   organization: '🏢',
   location: '📍',
   department: '🏛️',
-  authentication: '🔐'
+  authentication: '🔐',
+  vendor: '🏪',
+  invoice: '🧾',
+  report: '📊',
+  maintenance: '🔧',
 };
 
 function api(path: string) {
@@ -76,60 +99,39 @@ function api(path: string) {
   return base ? `${base}${path}` : path;
 }
 
-function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-  const diffHours = Math.floor(diffMinutes / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMinutes < 1) return 'Just now';
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
-}
-
-function AuditLogCard({ log }: { log: AuditLog }) {
+function AuditLogRow({ log }: { log: AuditLog }) {
   const resourceIcon = RESOURCE_ICONS[log.resource] || '📄';
   const resourceLabel = RESOURCE_LABELS[log.resource] || log.resource;
   const actionLabel = ACTION_LABELS[log.action] || log.action;
-  const severityColor = SEVERITY_COLORS[log.severity] || 'bg-gray-800 text-gray-800';
+  const actionColor = ACTION_COLORS[log.action] || 'text-gray-300';
+  const severityColor = SEVERITY_COLORS[log.severity] || 'text-gray-500';
 
   return (
-    <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 hover:shadow-md transition-shadow">
-      <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-sm">
-          {resourceIcon}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 mb-2">
-            <div className="flex-1">
-              <p className="text-sm font-medium text-gray-100">
-                {log.userId?.name || 'Unknown User'} {actionLabel.toLowerCase()} {resourceLabel.toLowerCase()}
-                {log.resourceName && <span className="font-semibold"> "{log.resourceName}"</span>}
-              </p>
-              {log.description && (
-                <p className="text-sm text-gray-400 mt-1">{log.description}</p>
-              )}
-            </div>
-
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${severityColor}`}>
-              {log.severity}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between text-xs text-gray-500">
-            <div className="flex items-center gap-4">
-              <span>👤 {log.userId?.role || 'Unknown'}</span>
-              {log.ipAddress && <span>🌐 {log.ipAddress}</span>}
-            </div>
-            <span>{formatRelativeTime(log.createdAt)}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <tr className="border-t border-gray-800/60 hover:bg-gray-800/30 transition-colors">
+      <td className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">
+        {new Date(log.createdAt).toLocaleDateString()}{' '}
+        <span className="text-gray-700">{new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+      </td>
+      <td className="px-3 py-2">
+        <span className="text-xs font-medium text-gray-300">{log.userId?.name || 'System'}</span>
+        <span className="ml-1 text-xs text-gray-600">({log.userId?.role || '—'})</span>
+      </td>
+      <td className="px-3 py-2">
+        <span className={`text-xs font-semibold ${actionColor}`}>{actionLabel}</span>
+      </td>
+      <td className="px-3 py-2">
+        <span className="text-xs text-gray-500">{resourceIcon} {resourceLabel}</span>
+        {log.resourceName && (
+          <span className="ml-1 text-xs text-gray-400 font-medium">"{log.resourceName}"</span>
+        )}
+      </td>
+      <td className="px-3 py-2 text-xs text-gray-500 max-w-xs truncate" title={log.description}>
+        {log.description || '—'}
+      </td>
+      <td className="px-3 py-2">
+        <span className={`text-xs font-medium ${severityColor}`}>{log.severity}</span>
+      </td>
+    </tr>
   );
 }
 
@@ -458,11 +460,25 @@ export default function AuditLogsPage() {
             </p>
           </div>
 
-          {/* Audit Logs List */}
-          <div className="space-y-3 mb-6">
-            {logs.map((log) => (
-              <AuditLogCard key={log._id} log={log} />
-            ))}
+          {/* Audit Logs Table */}
+          <div className="bg-gray-900/40 rounded-lg border border-gray-700/60 overflow-hidden mb-6">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-950 text-left">
+                  <th className="px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Time</th>
+                  <th className="px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">User</th>
+                  <th className="px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Action</th>
+                  <th className="px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Resource</th>
+                  <th className="px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Details</th>
+                  <th className="px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Level</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((log) => (
+                  <AuditLogRow key={log._id} log={log} />
+                ))}
+              </tbody>
+            </table>
           </div>
 
           {/* Pagination */}

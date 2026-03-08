@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { User, Organization } from '../models/index.js';
+import { User, Organization, Department } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
 import { env } from '../config/env.js';
 
@@ -23,8 +23,24 @@ router.post('/login', async (req, res) => {
     if (!user.isActive) return res.status(401).json({ message: 'Account inactive' });
     await User.updateOne({ _id: user._id }, { lastLogin: new Date() });
     const token = generateToken(user._id);
+
+    // Fetch department name if user has one
+    let departmentName = null;
+    if (user.departmentId) {
+      const dept = await Department.findById(user.departmentId).select('name').lean();
+      departmentName = dept?.name ?? null;
+    }
+
     res.json({
-      user: { id: user._id, email: user.email, name: user.name, role: user.role },
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        organizationId: user.organizationId,
+        departmentId: user.departmentId ?? null,
+        departmentName,
+      },
       token,
     });
   } catch (err) {
