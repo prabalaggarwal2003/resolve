@@ -474,12 +474,12 @@ async function sendWarningConditionNotification(asset, healthAnalysis) {
 /**
  * Get assets under maintenance for an organization
  */
-export async function getAssetsUnderMaintenance(organizationId) {
+export async function getAssetsUnderMaintenance(organizationId, departmentId) {
   try {
-    const assets = await Asset.find({
-      organizationId,
-      status: 'under_maintenance'
-    })
+    const filter = { organizationId, status: 'under_maintenance' };
+    if (departmentId) filter.departmentId = departmentId;
+
+    const assets = await Asset.find(filter)
       .populate('locationId', 'name path')
       .populate('departmentId', 'name')
       .populate('assignedTo', 'name email')

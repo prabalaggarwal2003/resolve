@@ -94,7 +94,7 @@ function StatusButtons({
   );
 }
 
-const CAN_EDIT_ROLES = ['super_admin', 'admin', 'manager'];
+const CAN_EDIT_ROLES = ['super_admin', 'admin'];
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -102,6 +102,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [canEdit, setCanEdit] = useState(false);
+  const [isManager, setIsManager] = useState(false);
 
   useEffect(() => {
     try {
@@ -109,6 +110,7 @@ export default function DashboardPage() {
       if (u) {
         const parsed = JSON.parse(u);
         setCanEdit(CAN_EDIT_ROLES.includes(parsed?.role ?? ''));
+        setIsManager(parsed?.role === 'manager');
       }
     } catch (_) {}
   }, []);
@@ -120,6 +122,7 @@ export default function DashboardPage() {
       return;
     }
     const headers = { Authorization: `Bearer ${token}` };
+    // For manager the backend already scopes issues to their dept via JWT
     Promise.all([
       fetch(api('/api/dashboard/summary'), { headers }).then((r) => r.json()),
       fetch(api('/api/issues?limit=10&sort=createdAt&order=desc'), { headers }).then((r) => r.json()),
@@ -193,7 +196,7 @@ export default function DashboardPage() {
                     <th className="p-3 text-sm font-medium text-gray-300">Status</th>
                     <th className="p-3 text-sm font-medium text-gray-300">Reported by</th>
                     <th className="p-3 text-sm font-medium text-gray-300">Date</th>
-                    {canEdit && <th className="p-3 text-sm font-medium text-gray-300">Actions</th>}
+                  {canEdit && <th className="p-3 text-sm font-medium text-gray-300">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -203,24 +206,30 @@ export default function DashboardPage() {
                       className="border-t border-gray-700 hover:bg-gray-950/50"
                     >
                       <td className="p-3 font-medium text-gray-100">
-                        <Link
-                          href={`/dashboard/issues/${issue._id}`}
-                          className="text-primary hover:underline"
-                        >
-                          {issue.ticketId}
-                        </Link>
+                        {isManager ? (
+                          <span>{issue.ticketId}</span>
+                        ) : (
+                          <Link
+                            href={`/dashboard/issues/${issue._id}`}
+                            className="text-primary hover:underline"
+                          >
+                            {issue.ticketId}
+                          </Link>
+                        )}
                       </td>
                       <td className="p-3 text-gray-100">
                         {issue.assetId ? (
-                          <Link
-                            href={`/dashboard/assets/${issue.assetId._id}`}
-                            className="text-primary hover:underline text-sm"
-                          >
-                            {issue.assetId.name}
-                          </Link>
-                        ) : (
-                          '—'
-                        )}
+                          isManager ? (
+                            <span className="text-sm text-gray-300">{issue.assetId.name}</span>
+                          ) : (
+                            <Link
+                              href={`/dashboard/assets/${issue.assetId._id}`}
+                              className="text-primary hover:underline text-sm"
+                            >
+                              {issue.assetId.name}
+                            </Link>
+                          )
+                        ) : '—'}
                       </td>
                       <td className="p-3 text-gray-300 text-sm max-w-xs truncate" title={issue.title}>
                         {issue.title}

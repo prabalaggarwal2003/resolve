@@ -47,7 +47,8 @@ router.get('/summary', async (req, res) => {
  */
 router.get('/maintenance', async (req, res) => {
   try {
-    const assets = await getAssetsUnderMaintenance(req.user.organizationId);
+    const deptId = req.user.role === 'manager' ? req.user.departmentId : undefined;
+    const assets = await getAssetsUnderMaintenance(req.user.organizationId, deptId);
     res.json({ assets, total: assets.length });
   } catch (error) {
     res.status(500).json({ message: error.message });

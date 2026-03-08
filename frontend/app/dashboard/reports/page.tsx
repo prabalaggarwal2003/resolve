@@ -76,10 +76,25 @@ function ReportsPage() {
   const [filterType, setFilterType] = useState<'all' | 'daily' | 'weekly' | 'monthly'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const reportsPerPage = 10;
+  const [userRole, setUserRole] = useState('');
+  const [userDeptId, setUserDeptId] = useState('');
+  const [userDeptName, setUserDeptName] = useState('');
+
+  useEffect(() => {
+    try {
+      const u = localStorage.getItem('user');
+      if (u) {
+        const parsed = JSON.parse(u);
+        setUserRole(parsed?.role ?? '');
+        setUserDeptId(parsed?.departmentId ?? '');
+        setUserDeptName(parsed?.departmentName ?? '');
+      }
+    } catch (_) {}
+  }, []);
 
   useEffect(() => {
     fetchReports();
-    setCurrentPage(1); // Reset to page 1 when filter changes
+    setCurrentPage(1);
   }, [filterType]);
 
   const fetchReports = async () => {
@@ -263,7 +278,10 @@ function ReportsPage() {
     if (!token) return;
 
     try {
-      const res = await fetch(api('/api/assets?limit=2000'), {
+      const params = new URLSearchParams({ limit: '2000' });
+      if (userRole === 'manager' && userDeptId) params.set('departmentId', userDeptId);
+
+      const res = await fetch(api(`/api/assets?${params.toString()}`), {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -277,10 +295,7 @@ function ReportsPage() {
       let yPosition = margin;
 
       const addText = (text: string, fontSize: number = 10, isBold: boolean = false) => {
-        if (yPosition > pageHeight - 20) {
-          doc.addPage();
-          yPosition = margin;
-        }
+        if (yPosition > pageHeight - 20) { doc.addPage(); yPosition = margin; }
         doc.setFontSize(fontSize);
         doc.setFont('helvetica', isBold ? 'bold' : 'normal');
         doc.text(text, margin, yPosition);
@@ -288,18 +303,18 @@ function ReportsPage() {
       };
 
       const addLine = () => {
-        if (yPosition > pageHeight - 20) {
-          doc.addPage();
-          yPosition = margin;
-        }
+        if (yPosition > pageHeight - 20) { doc.addPage(); yPosition = margin; }
         doc.setDrawColor(200, 200, 200);
         doc.line(margin, yPosition, pageWidth - margin, yPosition);
         yPosition += 5;
       };
 
-      // Title
+      const title = userRole === 'manager' && userDeptName
+        ? `ASSETS REPORT — ${userDeptName.toUpperCase()} DEPT`
+        : 'ALL ASSETS REPORT';
+
       doc.setTextColor(37, 99, 235);
-      addText('ALL ASSETS REPORT', 20, true);
+      addText(title, 20, true);
       doc.setTextColor(100, 100, 100);
       addText(`Generated: ${new Date().toLocaleString()}`, 10);
       addText(`Total Assets: ${assets.length}`, 10);
@@ -307,13 +322,8 @@ function ReportsPage() {
       yPosition += 5;
       addLine();
 
-      // Assets List
       assets.forEach((asset: any, index: number) => {
-        if (yPosition > pageHeight - 60) {
-          doc.addPage();
-          yPosition = margin;
-        }
-
+        if (yPosition > pageHeight - 60) { doc.addPage(); yPosition = margin; }
         doc.setTextColor(37, 99, 235);
         addText(`${index + 1}. ${asset.name || 'Unnamed'}`, 12, true);
         doc.setTextColor(0, 0, 0);
@@ -329,7 +339,7 @@ function ReportsPage() {
         addLine();
       });
 
-      doc.save(`all-assets-${new Date().toISOString().slice(0, 10)}.pdf`);
+      doc.save(`assets-${userRole === 'manager' && userDeptName ? userDeptName.toLowerCase().replace(/\s+/g, '-') + '-' : ''}${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to download assets');
     }
@@ -340,6 +350,7 @@ function ReportsPage() {
     if (!token) return;
 
     try {
+      // Backend issues route already scopes by dept for manager via JWT
       const res = await fetch(api('/api/issues?limit=2000'), {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -354,32 +365,20 @@ function ReportsPage() {
       let yPosition = margin;
 
       const addText = (text: string, fontSize: number = 10, isBold: boolean = false) => {
-        if (yPosition > pageHeight - 20) {
-          doc.addPage();
-          yPosition = margin;
-        }
+        if (yPosition > pageHeight - 20) { doc.addPage(); yPosition = margin; }
         doc.setFontSize(fontSize);
         doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-
-        // Handle long text wrapping
         const maxWidth = pageWidth - (2 * margin);
         const lines = doc.splitTextToSize(text, maxWidth);
-
         lines.forEach((line: string) => {
-          if (yPosition > pageHeight - 20) {
-            doc.addPage();
-            yPosition = margin;
-          }
+          if (yPosition > pageHeight - 20) { doc.addPage(); yPosition = margin; }
           doc.text(line, margin, yPosition);
           yPosition += fontSize / 2 + 2;
         });
       };
 
       const addLine = () => {
-        if (yPosition > pageHeight - 20) {
-          doc.addPage();
-          yPosition = margin;
-        }
+        if (yPosition > pageHeight - 20) { doc.addPage(); yPosition = margin; }
         doc.setDrawColor(200, 200, 200);
         doc.line(margin, yPosition, pageWidth - margin, yPosition);
         yPosition += 5;
@@ -395,9 +394,12 @@ function ReportsPage() {
         }
       };
 
-      // Title
+      const title = userRole === 'manager' && userDeptName
+        ? `ISSUES REPORT — ${userDeptName.toUpperCase()} DEPT`
+        : 'ALL ISSUES REPORT';
+
       doc.setTextColor(37, 99, 235);
-      addText('ALL ISSUES REPORT', 20, true);
+      addText(title, 20, true);
       doc.setTextColor(100, 100, 100);
       addText(`Generated: ${new Date().toLocaleString()}`, 10);
       addText(`Total Issues: ${issues.length}`, 10);
@@ -405,35 +407,26 @@ function ReportsPage() {
       yPosition += 5;
       addLine();
 
-      // Issues List
       issues.forEach((issue: any, index: number) => {
-        if (yPosition > pageHeight - 80) {
-          doc.addPage();
-          yPosition = margin;
-        }
-
+        if (yPosition > pageHeight - 80) { doc.addPage(); yPosition = margin; }
         doc.setTextColor(37, 99, 235);
         addText(`${index + 1}. ${issue.title || 'Untitled Issue'}`, 12, true);
         doc.setTextColor(0, 0, 0);
         addText(`Ticket ID: ${issue.ticketId || '-'}`, 9);
-
         const statusColor = getStatusColor(issue.status);
         doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
         addText(`Status: ${issue.status?.replace('_', ' ').toUpperCase() || '-'}`, 9, true);
         doc.setTextColor(0, 0, 0);
-
         if (issue.category) addText(`Category: ${issue.category.replace('_', ' ')}`, 9);
         if (issue.assetId?.name) addText(`Asset: ${issue.assetId.name} (${issue.assetId.assetId || ''})`, 9);
         if (issue.reporterName) addText(`Reporter: ${issue.reporterName}`, 9);
         if (issue.createdAt) addText(`Reported: ${new Date(issue.createdAt).toLocaleString()}`, 9);
-        if (issue.description) {
-          addText(`Description: ${issue.description}`, 9);
-        }
+        if (issue.description) addText(`Description: ${issue.description}`, 9);
         yPosition += 3;
         addLine();
       });
 
-      doc.save(`all-issues-${new Date().toISOString().slice(0, 10)}.pdf`);
+      doc.save(`issues-${userRole === 'manager' && userDeptName ? userDeptName.toLowerCase().replace(/\s+/g, '-') + '-' : ''}${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to download issues');
     }
@@ -464,6 +457,11 @@ function ReportsPage() {
         <p className="text-gray-400">
           Daily, weekly, and monthly reports with insights, trends, and performance metrics
         </p>
+        {userRole === 'manager' && userDeptName && (
+          <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-900/20 border border-blue-800/50 text-blue-300 text-sm">
+            🏢 Showing data for <strong>{userDeptName}</strong> department only
+          </div>
+        )}
       </div>
 
       {error && (
@@ -523,7 +521,9 @@ function ReportsPage() {
           </button>
         </div>
         <p className="text-sm text-gray-500 mt-3">
-          📥 Download complete lists of all assets and issues in your organization as PDF files
+          📥 {userRole === 'manager' && userDeptName
+            ? `Downloads are scoped to the ${userDeptName} department`
+            : 'Download complete lists of all assets and issues in your organization as PDF files'}
         </p>
       </div>
 

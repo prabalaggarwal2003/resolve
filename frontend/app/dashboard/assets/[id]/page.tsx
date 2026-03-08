@@ -200,7 +200,7 @@ export default function AssetDetailPage() {
           {typeof window !== 'undefined' && (() => {
             try {
               const u = JSON.parse(localStorage.getItem('user') || '{}');
-              if (['super_admin', 'admin', 'manager'].includes(u.role)) {
+              if (['super_admin', 'admin'].includes(u.role)) {
                 return (
                   <Link href={`/dashboard/assets/${params.id}/edit`} className="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 no-underline">Edit</Link>
                 );
@@ -211,7 +211,7 @@ export default function AssetDetailPage() {
           {typeof window !== 'undefined' && (() => {
             try {
               const u = JSON.parse(localStorage.getItem('user') || '{}');
-              if (['super_admin', 'admin', 'manager'].includes(u.role)) {
+              if (['super_admin', 'admin'].includes(u.role)) {
                 return (
                   <button type="button" onClick={handleDelete} disabled={deleting} className="px-3 py-1.5 text-sm font-medium rounded-lg bg-red-900/30 text-red-400 hover:bg-red-900/50 disabled:opacity-50">
                     {deleting ? 'Deleting…' : 'Delete'}

@@ -2,36 +2,41 @@ import { Report, Issue, Asset } from '../models/index.js';
 
 export class ReportGeneratorService {
 
-  async generateDailyReport(organizationId) {
+  async generateDailyReport(organizationId, departmentId) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-
-    return this.generateReport('daily', organizationId, today, tomorrow);
+    return this.generateReport('daily', organizationId, today, tomorrow, departmentId);
   }
 
-  async generateWeeklyReport(organizationId) {
+  async generateWeeklyReport(organizationId, departmentId) {
     const today = new Date();
     const weekStart = new Date(today);
     weekStart.setDate(today.getDate() - 7);
     weekStart.setHours(0, 0, 0, 0);
-
-    return this.generateReport('weekly', organizationId, weekStart, today);
+    return this.generateReport('weekly', organizationId, weekStart, today, departmentId);
   }
 
-  async generateMonthlyReport(organizationId) {
+  async generateMonthlyReport(organizationId, departmentId) {
     const today = new Date();
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-
-    return this.generateReport('monthly', organizationId, monthStart, today);
+    return this.generateReport('monthly', organizationId, monthStart, today, departmentId);
   }
 
-  async generateReport(type, organizationId, startDate, endDate) {
+  async generateReport(type, organizationId, startDate, endDate, departmentId) {
     try {
-      // Gather data - get issues with basic info
+      // If departmentId supplied, restrict to asset IDs in that dept
+      let assetIdFilter = {};
+      if (departmentId) {
+        const deptAssets = await Asset.find({ departmentId, organizationId }).select('_id').lean();
+        const ids = deptAssets.map(a => a._id);
+        assetIdFilter = { assetId: { $in: ids } };
+      }
+
       const issues = await Issue.find({
         organizationId,
+        ...assetIdFilter,
         createdAt: { $gte: startDate, $lt: endDate }
       }).lean();
 
