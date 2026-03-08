@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 
 // ── Role definitions with privileges ─────────────────────────────────────────
 const ROLES = [
@@ -582,7 +581,7 @@ export default function RolesPage() {
 											<td className="px-5 py-3 text-gray-500 text-xs">
 												{u.departmentId?.name ?? '—'}
 											</td>
-											<td className="px-5 py-3 text-gray-600 text-xs max-w-[180px] truncate">
+											<td className="px-5 py-3 text-gray-600 text-xs">
 												{meta?.scope ?? '—'}
 											</td>
 											{isSuperAdmin && (
@@ -595,12 +594,6 @@ export default function RolesPage() {
 														>
 															Edit
 														</button>
-														<Link
-															href={`/dashboard/assets?assignedTo=${u._id}`}
-															className="text-xs text-gray-400 hover:text-gray-100 transition-colors font-medium no-underline"
-														>
-															Assets
-														</Link>
 														{deleteConfirm === u._id ? (
 															<div className="flex items-center gap-1">
 																<button
