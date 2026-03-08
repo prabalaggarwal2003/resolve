@@ -43,7 +43,7 @@ export default function DashboardNav() {
   const canViewVendors = role === 'super_admin';
   const canViewNotifications = role === 'super_admin';
   const canViewLocations = role === 'super_admin';
-  const canViewReports = role === 'super_admin';
+  const canViewReports = ['super_admin', 'manager'].includes(role);
 
   const is = (href: string) =>
     href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href);
