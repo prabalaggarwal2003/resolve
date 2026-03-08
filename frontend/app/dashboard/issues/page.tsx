@@ -91,7 +91,6 @@ export default function IssuesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
-  const [myReportsOnly, setMyReportsOnly] = useState(false);
   const [user, setUser] = useState<{ role: string } | null>(null);
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
@@ -110,7 +109,6 @@ export default function IssuesPage() {
     }
     const params = new URLSearchParams();
     if (statusFilter) params.set('status', statusFilter);
-    if (myReportsOnly) params.set('myReports', 'true');
     params.set('page', String(page));
     params.set('limit', String(limit));
     const q = params.toString() ? `?${params.toString()}` : '';
@@ -131,12 +129,12 @@ export default function IssuesPage() {
 
   useEffect(() => {
     fetchIssues();
-  }, [statusFilter, myReportsOnly, page, limit]);
+  }, [statusFilter, page, limit]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, myReportsOnly]);
+  }, [statusFilter]);
 
   return (
     <div>
@@ -147,12 +145,6 @@ export default function IssuesPage() {
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <span className="text-sm font-medium text-gray-300">Filter:</span>
-        {user?.role === 'reporter' && (
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={myReportsOnly} onChange={(e) => setMyReportsOnly(e.target.checked)} className="rounded" />
-            <span className="text-sm text-gray-300">My reports only</span>
-          </label>
-        )}
         {['', 'open', 'in_progress', 'completed', 'cancelled'].map((s) => (
           <button
             key={s || 'all'}
@@ -194,7 +186,9 @@ export default function IssuesPage() {
                   <th className="p-3 text-sm font-medium text-gray-300">Reported by</th>
                   <th className="p-3 text-sm font-medium text-gray-300">Assigned to (asset)</th>
                   <th className="p-3 text-sm font-medium text-gray-300">Date</th>
-                  <th className="p-3 text-sm font-medium text-gray-300">Actions</th>
+                  {user?.role !== 'manager' && (
+                    <th className="p-3 text-sm font-medium text-gray-300">Actions</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -204,12 +198,16 @@ export default function IssuesPage() {
                     className="border-t border-gray-700 hover:bg-gray-950/50"
                   >
                     <td className="p-3 font-medium text-gray-100">
-                      <Link
-                        href={`/dashboard/issues/${issue._id}`}
-                        className="text-primary hover:underline"
-                      >
-                        {issue.ticketId}
-                      </Link>
+                      {user?.role !== 'manager' ? (
+                        <Link
+                          href={`/dashboard/issues/${issue._id}`}
+                          className="text-primary hover:underline"
+                        >
+                          {issue.ticketId}
+                        </Link>
+                      ) : (
+                        <span>{issue.ticketId}</span>
+                      )}
                     </td>
                     <td className="p-3 text-gray-100">
                       {issue.assetId ? (
@@ -248,21 +246,23 @@ export default function IssuesPage() {
                     <td className="p-3 text-gray-400 text-sm">
                       {new Date(issue.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="p-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <StatusButtons
-                          issueId={issue._id}
-                          currentStatus={issue.status}
-                          onUpdate={fetchIssues}
-                        />
-                        <Link
-                          href={`/dashboard/issues/${issue._id}`}
-                          className="text-primary text-sm hover:underline"
-                        >
-                          View
-                        </Link>
-                      </div>
-                    </td>
+                    {user?.role !== 'manager' && (
+                      <td className="p-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <StatusButtons
+                            issueId={issue._id}
+                            currentStatus={issue.status}
+                            onUpdate={fetchIssues}
+                          />
+                          <Link
+                            href={`/dashboard/issues/${issue._id}`}
+                            className="text-primary text-sm hover:underline"
+                          >
+                            View
+                          </Link>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

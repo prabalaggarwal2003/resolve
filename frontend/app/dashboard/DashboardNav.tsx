@@ -34,15 +34,16 @@ export default function DashboardNav() {
   }, []);
 
   const role = user?.role ?? '';
-  const canManageUsers = role === 'super_admin' || role === 'admin';
-  const canViewRoles = canManageUsers || role === 'principal';
-  const canViewAudit = ['super_admin', 'admin', 'manager'].includes(role);
-  const canViewAssetHealth = ['super_admin', 'admin', 'manager'].includes(role);
+  const canViewRoles = ['super_admin', 'admin'].includes(role);
+  const canViewAudit = ['super_admin', 'admin'].includes(role);
+  const canViewAssetHealth = role === 'super_admin';
   const canViewMaintenance = ['super_admin', 'admin', 'manager'].includes(role);
-  const canViewDepreciation = ['super_admin', 'admin', 'manager', 'principal'].includes(role);
-  const canViewKPIs = ['super_admin', 'admin', 'manager', 'principal'].includes(role);
-  const canViewVendors = ['super_admin', 'admin', 'manager'].includes(role);
-  const reportOnly = ['teacher', 'student', 'reporter'].includes(role);
+  const canViewDepreciation = ['super_admin', 'admin'].includes(role);
+  const canViewKPIs = ['super_admin', 'admin'].includes(role);
+  const canViewVendors = role === 'super_admin';
+  const canViewNotifications = role === 'super_admin';
+  const canViewLocations = role === 'super_admin';
+  const canViewReports = role === 'super_admin';
 
   const is = (href: string) =>
     href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href);
@@ -55,18 +56,14 @@ export default function DashboardNav() {
       {navItem('/dashboard', '🏠', 'Dashboard', is('/dashboard'))}
       {navItem('/dashboard/assets', '📦', 'Assets', is('/dashboard/assets'))}
       {navItem('/dashboard/issues', '🔔', 'Issues', is('/dashboard/issues'))}
-      <NotificationsLink />
+      {canViewNotifications && <NotificationsLink />}
 
       {/* Manage */}
-      {!reportOnly && (
-        <>
-          <p className="px-3 pt-4 pb-2 text-xs font-semibold text-gray-700 uppercase tracking-widest">Manage</p>
-          {navItem('/dashboard/locations', '📍', 'Locations', is('/dashboard/locations'))}
-          {navItem('/dashboard/maintenance', '🔧', 'Maintenance', is('/dashboard/maintenance'))}
-          {navItem('/dashboard/asset-health', '❤️', 'Asset Health', is('/dashboard/asset-health'))}
-          {navItem('/dashboard/reports', '📄', 'Reports', is('/dashboard/reports'))}
-        </>
-      )}
+      <p className="px-3 pt-4 pb-2 text-xs font-semibold text-gray-700 uppercase tracking-widest">Manage</p>
+      {canViewLocations && navItem('/dashboard/locations', '📍', 'Locations', is('/dashboard/locations'))}
+      {canViewMaintenance && navItem('/dashboard/maintenance', '🔧', 'Maintenance', is('/dashboard/maintenance'))}
+      {canViewAssetHealth && navItem('/dashboard/asset-health', '❤️', 'Asset Health', is('/dashboard/asset-health'))}
+      {canViewReports && navItem('/dashboard/reports', '📄', 'Reports', is('/dashboard/reports'))}
 
       {/* Analytics */}
       {(canViewKPIs || canViewDepreciation) && (

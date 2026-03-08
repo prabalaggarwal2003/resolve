@@ -44,7 +44,8 @@ router.get('/:id', async (req, res) => {
 // Generate daily report manually
 router.post('/generate/daily', async (req, res) => {
   try {
-    const report = await reportGenerator.generateDailyReport(req.user.organizationId);
+    const deptId = req.user.role === 'manager' ? req.user.departmentId : undefined;
+    const report = await reportGenerator.generateDailyReport(req.user.organizationId, deptId);
     res.json({ report, message: 'Daily report generated successfully' });
   } catch (error) {
     console.error('Error generating daily report:', error);
@@ -55,7 +56,8 @@ router.post('/generate/daily', async (req, res) => {
 // Generate weekly report manually
 router.post('/generate/weekly', async (req, res) => {
   try {
-    const report = await reportGenerator.generateWeeklyReport(req.user.organizationId);
+    const deptId = req.user.role === 'manager' ? req.user.departmentId : undefined;
+    const report = await reportGenerator.generateWeeklyReport(req.user.organizationId, deptId);
     res.json({ report, message: 'Weekly report generated successfully' });
   } catch (error) {
     console.error('Error generating weekly report:', error);
@@ -66,7 +68,8 @@ router.post('/generate/weekly', async (req, res) => {
 // Generate monthly report manually
 router.post('/generate/monthly', async (req, res) => {
   try {
-    const report = await reportGenerator.generateMonthlyReport(req.user.organizationId);
+    const deptId = req.user.role === 'manager' ? req.user.departmentId : undefined;
+    const report = await reportGenerator.generateMonthlyReport(req.user.organizationId, deptId);
     res.json({ report, message: 'Monthly report generated successfully' });
   } catch (error) {
     console.error('Error generating monthly report:', error);
