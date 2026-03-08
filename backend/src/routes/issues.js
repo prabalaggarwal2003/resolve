@@ -47,25 +47,14 @@ router.get('/', async (req, res) => {
         { reporterEmail: req.user.email?.toLowerCase() },
       ];
     } else {
-      // ROLE-BASED ACCESS DISABLED - Only organization filtering active
-      // let roleAssetIds = null;
-      // if (isHod(req.user) && req.user.departmentId) {
-      //   const assets = await Asset.find({ 
-      //     departmentId: req.user.departmentId,
-      //     organizationId: req.user.organizationId 
-      //   }).select('_id').lean();
-      //   roleAssetIds = assets.map((a) => a._id);
-      // } else if (isLabTechnician(req.user) && req.user.assignedLocationIds?.length) {
-      //   const assets = await Asset.find({ 
-      //     locationId: { $in: req.user.assignedLocationIds },
-      //     organizationId: req.user.organizationId 
-      //   }).select('_id').lean();
-      //   roleAssetIds = assets.map((a) => a._id);
-      // }
-      // const roleFilter = issueFilterForUser(req.user, roleAssetIds);
-      // if (roleFilter && Object.keys(roleFilter).length) {
-      //   filter = { ...filter, ...roleFilter };
-      // }
+      // Manager: only issues for assets in their department
+      if (req.user.role === 'manager' && req.user.departmentId) {
+        const deptAssets = await Asset.find({
+          departmentId: req.user.departmentId,
+          organizationId: req.user.organizationId,
+        }).select('_id').lean();
+        filter.assetId = { $in: deptAssets.map((a) => a._id) };
+      }
     }
     const skip = (Number(page) - 1) * Number(limit);
     const [issues, total] = await Promise.all([
