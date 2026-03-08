@@ -1,6 +1,7 @@
 import express from 'express';
 import { Organization, User } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
+import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
 
 const router = express.Router();
 
@@ -74,11 +75,10 @@ router.put('/', protect, async (req, res) => {
     if (!organization) {
       return res.status(404).json({ message: 'Organization not found' });
     }
-
-    res.json({
-      message: 'Organization updated successfully',
-      organization
+    await logAudit(req.user._id, AUDIT_ACTIONS.ORG_UPDATED, AUDIT_RESOURCES.ORGANIZATION, organization._id, {
+      resourceName: organization.name, description: `Updated organization details for "${organization.name}"`, severity: 'medium', ...getRequestMetadata(req)
     });
+    res.json({ message: 'Organization updated successfully', organization });
   } catch (err) {
     console.error('Update organization error:', err);
     res.status(500).json({ message: err.message });

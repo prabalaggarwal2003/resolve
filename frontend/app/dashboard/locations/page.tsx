@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 
 const TYPES = ['campus', 'building', 'floor', 'room'];
 
@@ -17,39 +16,38 @@ type Location = {
   parentId?: string | null;
   path?: string;
   code?: string;
+  departmentId?: { _id: string; name: string } | null;
 };
 
 export default function LocationsPage() {
   const [locations, setLocations] = useState<Location[]>([]);
+  const [departments, setDepartments] = useState<{ _id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Location | null>(null);
-  const [form, setForm] = useState({ name: '', type: 'room', parentId: '' as string, code: '' });
+  const [form, setForm] = useState({ name: '', type: 'room', parentId: '' as string, code: '', departmentId: '' });
   const [submitLoading, setSubmitLoading] = useState(false);
   const [filterType, setFilterType] = useState('');
 
   const fetchLocations = () => {
     setError('');
     const token = localStorage.getItem('token');
-    if (!token) {
-      setLoading(false);
-      setError('Not signed in');
-      return;
-    }
-    fetch(api('/api/locations'), { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.locations) setLocations(d.locations);
-        else setError(d.message || 'Failed to load');
+    if (!token) { setLoading(false); setError('Not signed in'); return; }
+    Promise.all([
+      fetch(api('/api/locations'), { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      fetch(api('/api/departments'), { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+    ])
+      .then(([locData, deptData]) => {
+        if (locData.locations) setLocations(locData.locations);
+        else setError(locData.message || 'Failed to load');
+        if (deptData.departments) setDepartments(deptData.departments);
       })
       .catch(() => setError('Failed to load'))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => {
-    fetchLocations();
-  }, []);
+  useEffect(() => { fetchLocations(); }, []);
 
   const getParentName = (parentId: string | null | undefined) => {
     if (!parentId) return '—';
@@ -61,16 +59,14 @@ export default function LocationsPage() {
     e.preventDefault();
     setSubmitLoading(true);
     const token = localStorage.getItem('token');
-    if (!token) {
-      setSubmitLoading(false);
-      return;
-    }
+    if (!token) { setSubmitLoading(false); return; }
     try {
       const body = {
         name: form.name.trim(),
         type: form.type,
         parentId: form.parentId || undefined,
         code: form.code.trim() || undefined,
+        departmentId: form.departmentId || undefined,
       };
       if (editing) {
         const res = await fetch(api(`/api/locations/${editing._id}`), {
@@ -91,7 +87,7 @@ export default function LocationsPage() {
       }
       setShowForm(false);
       setEditing(null);
-      setForm({ name: '', type: 'room', parentId: '', code: '' });
+      setForm({ name: '', type: 'room', parentId: '', code: '', departmentId: '' });
       setError('');
       fetchLocations();
     } catch (err) {
@@ -122,20 +118,16 @@ export default function LocationsPage() {
       type: loc.type,
       parentId: loc.parentId ?? '',
       code: loc.code ?? '',
+      departmentId: loc.departmentId?._id ?? '',
     });
     setShowForm(true);
   };
 
   const filtered = filterType ? locations.filter((l) => l.type === filterType) : locations;
 
-  if (loading) {
-    return (
-      <div>
-        <h1 className="text-2xl font-bold mb-2">Locations</h1>
-        <p className="text-gray-400">Loading…</p>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div><h1 className="text-2xl font-bold mb-2">Locations</h1><p className="text-gray-400">Loading…</p></div>
+  );
 
   return (
     <div>
@@ -144,31 +136,20 @@ export default function LocationsPage() {
         Campus → Building → Floor → Room. Set up once so every asset can be linked to a classroom or lab.
       </p>
 
-      {error && (
-        <p className="mb-4 p-3 bg-red-900/20 text-red-400 rounded-lg text-sm">{error}</p>
-      )}
+      {error && <p className="mb-4 p-3 bg-red-900/20 text-red-400 rounded-lg text-sm">{error}</p>}
 
       <div className="mb-4 flex flex-wrap items-center gap-4">
         <button
           type="button"
-          onClick={() => {
-            setEditing(null);
-            setForm({ name: '', type: 'room', parentId: '', code: '' });
-            setShowForm(true);
-          }}
+          onClick={() => { setEditing(null); setForm({ name: '', type: 'room', parentId: '', code: '', departmentId: '' }); setShowForm(true); }}
           className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary-hover"
         >
           Add location
         </button>
-        <select
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
-          className="px-3 py-2 border border-slate-300 rounded-lg text-sm"
-        >
+        <select value={filterType} onChange={(e) => setFilterType(e.target.value)}
+          className="px-3 py-2 border border-slate-300 rounded-lg text-sm">
           <option value="">All types</option>
-          {TYPES.map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
+          {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
       </div>
 
@@ -178,68 +159,48 @@ export default function LocationsPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block mb-1 font-medium text-gray-300">Name *</label>
-              <input
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                required
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                placeholder="e.g. Room 201"
-              />
+              <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+                required className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-gray-900 text-gray-100"
+                placeholder="e.g. Room 201" />
             </div>
             <div>
               <label className="block mb-1 font-medium text-gray-300">Type *</label>
-              <select
-                value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-              >
-                {TYPES.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
+              <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-gray-900 text-gray-100">
+                {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block mb-1 font-medium text-gray-300">Department</label>
+              <select value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-gray-900 text-gray-100">
+                <option value="">No department</option>
+                {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
               </select>
             </div>
             <div>
               <label className="block mb-1 font-medium text-gray-300">Parent</label>
-              <select
-                value={form.parentId}
-                onChange={(e) => setForm({ ...form, parentId: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-              >
+              <select value={form.parentId} onChange={(e) => setForm({ ...form, parentId: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-gray-900 text-gray-100">
                 <option value="">None (top level)</option>
-                {locations
-                  .filter((l) => !editing || l._id !== editing._id)
-                  .map((l) => (
-                    <option key={l._id} value={l._id}>
-                      {l.name} ({l.type})
-                    </option>
-                  ))}
+                {locations.filter((l) => !editing || l._id !== editing._id).map((l) => (
+                  <option key={l._id} value={l._id}>{l.name} ({l.type})</option>
+                ))}
               </select>
             </div>
             <div>
               <label className="block mb-1 font-medium text-gray-300">Code</label>
-              <input
-                value={form.code}
-                onChange={(e) => setForm({ ...form, code: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                placeholder="e.g. R-201"
-              />
+              <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-gray-900 text-gray-100"
+                placeholder="e.g. R-201" />
             </div>
             <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={submitLoading}
-                className="px-4 py-2 bg-primary text-white rounded-lg font-medium disabled:opacity-60"
-              >
+              <button type="submit" disabled={submitLoading}
+                className="px-4 py-2 bg-primary text-white rounded-lg font-medium disabled:opacity-60">
                 {submitLoading ? 'Saving…' : editing ? 'Save' : 'Add'}
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowForm(false);
-                  setEditing(null);
-                }}
-                className="px-4 py-2 bg-slate-100 text-gray-300 rounded-lg font-medium hover:bg-slate-200"
-              >
+              <button type="button" onClick={() => { setShowForm(false); setEditing(null); }}
+                className="px-4 py-2 bg-slate-100 text-gray-700 rounded-lg font-medium hover:bg-slate-200">
                 Cancel
               </button>
             </div>
@@ -258,6 +219,7 @@ export default function LocationsPage() {
               <tr className="bg-gray-950 text-left">
                 <th className="p-3 font-medium text-gray-300">Name</th>
                 <th className="p-3 font-medium text-gray-300">Type</th>
+                <th className="p-3 font-medium text-gray-300">Department</th>
                 <th className="p-3 font-medium text-gray-300">Code</th>
                 <th className="p-3 font-medium text-gray-300">Parent</th>
                 <th className="p-3 font-medium text-gray-300">Actions</th>
@@ -265,26 +227,17 @@ export default function LocationsPage() {
             </thead>
             <tbody>
               {filtered.map((loc) => (
-                <tr key={loc._id} className="border-t border-gray-700">
-                  <td className="p-3 font-medium">{loc.name}</td>
-                  <td className="p-3 text-gray-400">{loc.type}</td>
+                <tr key={loc._id} className="border-t border-gray-700 hover:bg-gray-900/40">
+                  <td className="p-3 font-medium text-gray-100">{loc.name}</td>
+                  <td className="p-3 text-gray-400 capitalize">{loc.type}</td>
+                  <td className="p-3 text-gray-400">{loc.departmentId?.name ?? '—'}</td>
                   <td className="p-3 text-gray-400">{loc.code ?? '—'}</td>
                   <td className="p-3 text-gray-400">{getParentName(loc.parentId)}</td>
                   <td className="p-3">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(loc)}
-                      className="text-primary hover:underline mr-2"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(loc._id)}
-                      className="text-red-400 hover:underline"
-                    >
-                      Delete
-                    </button>
+                    <button type="button" onClick={() => openEdit(loc)}
+                      className="text-primary hover:underline mr-3">Edit</button>
+                    <button type="button" onClick={() => handleDelete(loc._id)}
+                      className="text-red-400 hover:underline">Delete</button>
                   </td>
                 </tr>
               ))}

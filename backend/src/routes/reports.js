@@ -1,6 +1,7 @@
 import express from 'express';
 import { protect } from '../middleware/auth.js';
 import reportGenerator from '../services/reportGenerator.js';
+import { logAudit, getRequestMetadata, AUDIT_RESOURCES } from '../services/auditService.js';
 
 const router = express.Router();
 
@@ -46,6 +47,9 @@ router.post('/generate/daily', async (req, res) => {
   try {
     const deptId = req.user.role === 'manager' ? req.user.departmentId : undefined;
     const report = await reportGenerator.generateDailyReport(req.user.organizationId, deptId);
+    await logAudit(req.user._id, 'generated', AUDIT_RESOURCES.REPORT || 'report', report._id, {
+      resourceName: 'Daily Report', description: `Generated daily report`, severity: 'low', ...getRequestMetadata(req)
+    });
     res.json({ report, message: 'Daily report generated successfully' });
   } catch (error) {
     console.error('Error generating daily report:', error);
@@ -58,6 +62,9 @@ router.post('/generate/weekly', async (req, res) => {
   try {
     const deptId = req.user.role === 'manager' ? req.user.departmentId : undefined;
     const report = await reportGenerator.generateWeeklyReport(req.user.organizationId, deptId);
+    await logAudit(req.user._id, 'generated', AUDIT_RESOURCES.REPORT || 'report', report._id, {
+      resourceName: 'Weekly Report', description: `Generated weekly report`, severity: 'low', ...getRequestMetadata(req)
+    });
     res.json({ report, message: 'Weekly report generated successfully' });
   } catch (error) {
     console.error('Error generating weekly report:', error);
@@ -70,6 +77,9 @@ router.post('/generate/monthly', async (req, res) => {
   try {
     const deptId = req.user.role === 'manager' ? req.user.departmentId : undefined;
     const report = await reportGenerator.generateMonthlyReport(req.user.organizationId, deptId);
+    await logAudit(req.user._id, 'generated', AUDIT_RESOURCES.REPORT || 'report', report._id, {
+      resourceName: 'Monthly Report', description: `Generated monthly report`, severity: 'low', ...getRequestMetadata(req)
+    });
     res.json({ report, message: 'Monthly report generated successfully' });
   } catch (error) {
     console.error('Error generating monthly report:', error);
