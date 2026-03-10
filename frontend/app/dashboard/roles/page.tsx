@@ -74,7 +74,7 @@ type User = {
 };
 
 const inputClass =
-	'w-full px-4 py-3 rounded-xl bg-gray-800/60 border border-gray-700/60 text-gray-100 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-600 focus:border-transparent transition-all text-sm';
+	'w-full px-3 py-2 border border-slate-300 rounded-lg bg-gray-900 text-gray-100';
 const labelClass =
 	'block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2';
 
@@ -329,7 +329,7 @@ export default function RolesPage() {
 				<div className="flex flex-wrap gap-4 mb-6">
 					{/* Add department */}
 					<div className="flex-1 min-w-[240px] rounded-2xl border border-gray-700/60 bg-gray-900/40 p-4">
-						<p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">
+						<p className="text-md font-semibold text-gray-500 uppercase tracking-widest mb-3">
 							Add Department
 						</p>
 						<div className="flex gap-2">
@@ -351,7 +351,7 @@ export default function RolesPage() {
 							</button>
 						</div>
 						{departments.length > 0 && (
-							<p className="text-xs text-gray-600 mt-2">
+							<p className="text-sm text-gray-600 mt-2">
 								{departments.map((d) => d.name).join(' · ')}
 							</p>
 						)}
@@ -468,9 +468,9 @@ export default function RolesPage() {
 										{showFormPassword ? 'HIDE' : 'SHOW'}
 									</button>
 								</div>
-								<p className="text-xs text-gray-600 mt-1">
-									User can change this after first login.
-								</p>
+								{/*<p className="text-xs text-gray-600 mt-1">*/}
+								{/*	User can change this after first login.*/}
+								{/*</p>*/}
 							</div>
 						)}
 
