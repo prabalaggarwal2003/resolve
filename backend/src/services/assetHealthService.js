@@ -488,15 +488,17 @@ export async function getAssetsUnderMaintenance(organizationId, departmentId) {
 
     // Calculate days under maintenance for each asset
     const now = new Date();
+    const OVERDUE_MS = 2 * 24 * 60 * 60 * 1000;
     return assets.map(asset => {
-      const daysUnderMaintenance = asset.maintenanceStartDate
-        ? Math.floor((now - new Date(asset.maintenanceStartDate)) / (1000 * 60 * 60 * 24))
+      const elapsedMs = asset.maintenanceStartDate
+        ? now - new Date(asset.maintenanceStartDate)
         : 0;
+      const daysUnderMaintenance = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
 
       return {
         ...asset,
         daysUnderMaintenance,
-        isOverdue: daysUnderMaintenance > 2
+        isOverdue: elapsedMs > OVERDUE_MS,
       };
     });
   } catch (error) {
