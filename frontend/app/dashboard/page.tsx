@@ -85,7 +85,7 @@ function StatusButtons({
           type="button"
           onClick={() => setStatus(o.value)}
           disabled={loading}
-          className="px-2 py-1 text-xs font-medium rounded bg-slate-100 text-gray-300 hover:bg-slate-200 disabled:opacity-50"
+          className="px-2 py-1 text-xs font-medium rounded bg-gray-900 text-gray-300 hover:bg-gray-500 disabled:opacity-50"
         >
           {o.label}
         </button>
@@ -144,7 +144,7 @@ export default function DashboardPage() {
     <div>
       <h1 className="text-2xl font-bold mb-2 text-gray-100">Dashboard</h1>
       <p className="text-gray-400 mb-6">
-        Overview of assets and issues for your school or college
+        Overview of assets and issues for your organization
       </p>
 
       {loading && <p className="text-gray-400">Loading…</p>}
@@ -211,7 +211,7 @@ export default function DashboardPage() {
                         ) : (
                           <Link
                             href={`/dashboard/issues/${issue._id}`}
-                            className="text-primary hover:underline"
+                            className="text-primary"
                           >
                             {issue.ticketId}
                           </Link>

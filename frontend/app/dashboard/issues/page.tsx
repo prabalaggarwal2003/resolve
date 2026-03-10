@@ -76,7 +76,7 @@ function StatusButtons({
           type="button"
           onClick={() => setStatus(o.value)}
           disabled={loading}
-          className="px-2 py-1 text-xs font-medium rounded bg-slate-100 text-gray-300 hover:bg-slate-200 disabled:opacity-50"
+          className="px-2 py-1 text-xs font-medium rounded bg-gray-900 text-gray-300 hover:bg-gray-500 disabled:opacity-50"
         >
           {o.label}
         </button>
@@ -140,7 +140,7 @@ export default function IssuesPage() {
     <div>
       <h1 className="text-2xl font-bold mb-2 text-gray-100">Issues</h1>
       <p className="text-gray-400 mb-6">
-        Open, in progress, and completed — reported via QR scan or from asset pages
+        Open, in progress, and completed — reported via QR scan
       </p>
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -153,7 +153,7 @@ export default function IssuesPage() {
             className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
               statusFilter === s
                 ? 'bg-primary text-white'
-                : 'bg-slate-100 text-gray-300 hover:bg-slate-200'
+                : 'bg-gray-800 text-gray-300 hover:bg-gray-500'
             }`}
           >
             {s ? s.replace('_', ' ') : 'All'}

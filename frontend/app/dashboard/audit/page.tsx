@@ -147,7 +147,7 @@ function StatsCard({ title, value, icon, color = 'bg-gray-900' }: {
         <div className="text-2xl">{icon}</div>
         <div>
           <p className="text-sm text-gray-400">{title}</p>
-          <p className="text-xl font-bold text-gray-100">{value}</p>
+          <p className="text-xl font-bold text-gray-400">{value}</p>
         </div>
       </div>
     </div>

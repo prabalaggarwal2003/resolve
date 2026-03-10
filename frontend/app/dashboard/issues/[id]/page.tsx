@@ -86,7 +86,7 @@ function StatusButtons({
           type="button"
           onClick={() => setStatus(o.value)}
           disabled={loading}
-          className="px-3 py-1.5 text-sm font-medium rounded-lg bg-slate-100 text-gray-300 hover:bg-slate-200 disabled:opacity-50"
+          className="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-500 disabled:opacity-50"
         >
           {o.label}
         </button>
@@ -171,7 +171,7 @@ export default function IssueDetailPage() {
           >
             {issue.status.replace('_', ' ')}
           </span>
-          <span className="text-gray-500 text-sm">{issue.category.replace('_', ' ')}</span>
+            <span className="text-gray-500 text-md ml-4">Category: {issue.category.replace('_', ' ')}</span>
         </div>
         <StatusButtons
           issueId={issue._id}
@@ -193,7 +193,7 @@ export default function IssueDetailPage() {
           </p>
           {issue.assetId.assignedTo && (
             <p className="text-gray-400 text-sm">
-              Asset assigned to (custodian): <strong>{issue.assetId.assignedTo.name}</strong>
+              Asset assigned to: <strong>{issue.assetId.assignedTo.name}</strong>
               {issue.assetId.assignedTo.email && (
                 <span className="text-gray-500"> ({issue.assetId.assignedTo.email})</span>
               )}
@@ -201,12 +201,12 @@ export default function IssueDetailPage() {
           )}
         </div>
       )}
-      <p className="text-gray-300 mb-6">{issue.title}</p>
-      {issue.description && issue.reports?.length === 0 && (
-        <p className="text-gray-400 mb-6 whitespace-pre-wrap">{issue.description}</p>
-      )}
+      {/*<p className="text-gray-300 mb-6">{issue.title}</p>*/}
+      {/*{issue.description && issue.reports?.length === 0 && (*/}
+      {/*  <p className="text-gray-400 mb-6 whitespace-pre-wrap">{issue.description}</p>*/}
+      {/*)}*/}
 
-      <section className="mb-6">
+      <section className="mb-6 mt-8">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
           Reports in this ticket
         </h2>
@@ -225,7 +225,7 @@ export default function IssueDetailPage() {
               <tbody>
                 {reportRows.map((r, i) => (
                   <tr key={i} className="border-t border-gray-700">
-                    <td className="p-3 font-medium text-slate-800">{r.reporterName}</td>
+                    <td className="p-3 font-medium text-gray-300">{r.reporterName}</td>
                     <td className="p-3 text-gray-400 text-sm">{r.reporterEmail ?? '—'}</td>
                     <td className="p-3 text-gray-400 text-sm">{r.reporterPhone ?? '—'}</td>
                     <td className="p-3 text-gray-300 text-sm max-w-md">{r.description}</td>
