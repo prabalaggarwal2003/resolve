@@ -19,7 +19,7 @@ const CATEGORIES = [
 const STATUSES = ['available', 'in_use', 'under_maintenance', 'retired', 'working', 'needs_repair', 'out_of_service'];
 
 const inputClassName =
-  'w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent';
+  'w-full px-3 py-2 border border-slate-300 rounded-lg bg-gray-900 text-gray-100';
 
 export default function NewAssetPage() {
   const router = useRouter();
@@ -436,7 +436,7 @@ export default function NewAssetPage() {
                 }
               }}
               placeholder="Add new category..."
-              className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-gray-900 text-gray-100"
             />
             <button
               type="button"

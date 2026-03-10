@@ -27,7 +27,7 @@ const CONDITION_COLORS = {
   fair: 'bg-yellow-100 text-yellow-400 border-yellow-200',
   poor: 'bg-orange-100 text-orange-800 border-orange-200',
   critical: 'bg-red-100 text-red-800 border-red-800',
-  under_maintenance: 'bg-gray-800 text-gray-800 border-gray-700'
+  under_maintenance: 'bg-gray-800 text-gray-300 border-gray-700'
 };
 
 const CONDITION_ICONS = {
