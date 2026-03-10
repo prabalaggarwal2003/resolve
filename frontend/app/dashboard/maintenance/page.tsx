@@ -32,6 +32,24 @@ function formatDate(dateString: string | undefined): string {
   return new Date(dateString).toLocaleDateString();
 }
 
+const OVERDUE_MS = 2 * 24 * 60 * 60 * 1000; // 2 days in ms
+
+/** Returns true if startDate has passed the 2-day overdue threshold, updated live every 30s */
+function useIsOverdue(startDate: string | undefined): boolean {
+  const calc = () =>
+    startDate ? Date.now() - new Date(startDate).getTime() > OVERDUE_MS : false;
+
+  const [overdue, setOverdue] = useState(calc);
+
+  useEffect(() => {
+    setOverdue(calc());
+    const id = setInterval(() => setOverdue(calc()), 30_000);
+    return () => clearInterval(id);
+  }, [startDate]);
+
+  return overdue;
+}
+
 function useElapsed(startDate: string | undefined) {
   const [elapsed, setElapsed] = useState('');
 
@@ -65,6 +83,7 @@ function AssetCard({ asset, onCompleteMaintenance }: {
 }) {
   const [completing, setCompleting] = useState(false);
   const elapsed = useElapsed(asset.maintenanceStartDate);
+  const isOverdue = useIsOverdue(asset.maintenanceStartDate);
 
   const handleComplete = async () => {
     setCompleting(true);
@@ -74,15 +93,15 @@ function AssetCard({ asset, onCompleteMaintenance }: {
 
   return (
     <div className={`bg-gray-800 rounded-lg border p-5 ${
-      asset.isOverdue 
-        ? 'border-red-300 bg-red-900/20' 
+      isOverdue
+        ? 'border-red-300 bg-red-900/20'
         : 'border-gray-700'
     }`}>
       <div className="flex items-start justify-between mb-3">
         <div>
           <div className="flex items-center gap-2">
             <h3 className="font-semibold text-gray-100">{asset.name}</h3>
-            {asset.isOverdue && (
+            {isOverdue && (
               <span className="px-2 py-0.5 bg-red-100 text-red-400 text-xs rounded-full font-medium">
                 ⚠️ Overdue
               </span>
@@ -92,7 +111,7 @@ function AssetCard({ asset, onCompleteMaintenance }: {
         </div>
         <div className="text-right">
           <div className={`text-sm font-bold font-mono ${
-            asset.isOverdue ? 'text-red-400' : 'text-amber-400'
+            isOverdue ? 'text-red-400' : 'text-amber-400'
           }`}>
             {elapsed}
           </div>
@@ -173,6 +192,13 @@ export default function MaintenancePage() {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<'all' | 'overdue'>('all');
   const [role, setRole] = useState('');
+  // Tick every 30s so overdueCount / filter update live
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     try {
@@ -236,11 +262,16 @@ export default function MaintenancePage() {
     }
   };
 
+  const isAssetOverdue = (a: MaintenanceAsset) =>
+    a.maintenanceStartDate
+      ? Date.now() - new Date(a.maintenanceStartDate).getTime() > OVERDUE_MS
+      : false;
+
   const filteredAssets = filter === 'overdue'
-    ? assets.filter(a => a.isOverdue)
+    ? assets.filter(isAssetOverdue)
     : assets;
 
-  const overdueCount = assets.filter(a => a.isOverdue).length;
+  const overdueCount = assets.filter(isAssetOverdue).length;
 
   if (loading) {
     return (
