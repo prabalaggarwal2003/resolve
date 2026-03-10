@@ -53,9 +53,9 @@ function api(path: string) {
 }
 
 function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('en-IN', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'INR',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
   }).format(amount);
@@ -78,6 +78,8 @@ export default function DepreciationPage() {
   const [view, setView] = useState<'assets' | 'categories'>('assets');
   const [sortBy, setSortBy] = useState<'depreciation' | 'percentage' | 'value'>('depreciation');
   const [filterCategory, setFilterCategory] = useState('');
+  const [assetsPage, setAssetsPage] = useState(1);
+  const ASSETS_PER_PAGE = 10;
 
   useEffect(() => {
     fetchDepreciationData();
@@ -128,6 +130,12 @@ export default function DepreciationPage() {
       if (sortBy === 'percentage') return b.depreciationPercentage - a.depreciationPercentage;
       return b.currentValue - a.currentValue;
     });
+
+  const totalAssetPages = Math.ceil(sortedAssets.length / ASSETS_PER_PAGE);
+  const paginatedAssets = sortedAssets.slice(
+    (assetsPage - 1) * ASSETS_PER_PAGE,
+    assetsPage * ASSETS_PER_PAGE
+  );
 
   const uniqueCategories = Array.from(new Set(assets.map(a => a.category).filter(Boolean)));
 
@@ -213,8 +221,8 @@ export default function DepreciationPage() {
           <div className="flex flex-wrap gap-3 mb-4">
             <select
               value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="px-3 py-2 border border-gray-700 rounded-lg"
+              onChange={(e) => { setFilterCategory(e.target.value); setAssetsPage(1); }}
+              className="px-3 py-2 border border-gray-700 rounded-lg bg-gray-800 text-gray-300"
             >
               <option value="">All Categories</option>
               {uniqueCategories.map(cat => (
@@ -223,8 +231,8 @@ export default function DepreciationPage() {
             </select>
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-3 py-2 border border-gray-700 rounded-lg"
+              onChange={(e) => { setSortBy(e.target.value as any); setAssetsPage(1); }}
+              className="px-3 py-2 border border-gray-700 rounded-lg bg-gray-800 text-gray-300"
             >
               <option value="depreciation">Sort by Depreciation Amount</option>
               <option value="percentage">Sort by Depreciation %</option>
@@ -247,8 +255,8 @@ export default function DepreciationPage() {
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Details</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {sortedAssets.map((asset) => (
+                <tbody className="divide-y divide-gray-700">
+                  {paginatedAssets.map((asset) => (
                     <tr key={asset.assetId} className="hover:bg-gray-900">
                       <td className="px-4 py-3">
                         <div>
@@ -278,6 +286,28 @@ export default function DepreciationPage() {
               </table>
             </div>
           </div>
+
+          {/* Pagination */}
+          {totalAssetPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-xs text-gray-500">
+                Showing {(assetsPage - 1) * ASSETS_PER_PAGE + 1}–{Math.min(assetsPage * ASSETS_PER_PAGE, sortedAssets.length)} of {sortedAssets.length} assets
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setAssetsPage(p => Math.max(1, p - 1))}
+                  disabled={assetsPage === 1}
+                  className="px-3 py-1.5 text-xs bg-gray-800 border border-gray-700 text-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-700"
+                >← Prev</button>
+                <span className="px-3 py-1.5 text-xs text-gray-400">Page {assetsPage} / {totalAssetPages}</span>
+                <button
+                  onClick={() => setAssetsPage(p => Math.min(totalAssetPages, p + 1))}
+                  disabled={assetsPage === totalAssetPages}
+                  className="px-3 py-1.5 text-xs bg-gray-800 border border-gray-700 text-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-700"
+                >Next →</button>
+              </div>
+            </div>
+          )}
         </>
       )}
 
