@@ -29,6 +29,9 @@ export default function LocationsPage() {
   const [form, setForm] = useState({ name: '', type: 'room', parentId: '' as string, code: '', departmentId: '' });
   const [submitLoading, setSubmitLoading] = useState(false);
   const [filterType, setFilterType] = useState('');
+  const [newDeptName, setNewDeptName] = useState('');
+  const [addingDept, setAddingDept] = useState(false);
+  const [deletingDept, setDeletingDept] = useState<string | null>(null);
 
   const fetchLocations = () => {
     setError('');
@@ -53,6 +56,49 @@ export default function LocationsPage() {
     if (!parentId) return '—';
     const p = locations.find((l) => l._id === parentId);
     return p ? p.name : parentId;
+  };
+
+  const addDepartment = async () => {
+    const name = newDeptName.trim();
+    if (!name) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    setAddingDept(true);
+    try {
+      const res = await fetch(api('/api/departments'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed');
+      setNewDeptName('');
+      fetchLocations();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add department');
+    } finally {
+      setAddingDept(false);
+    }
+  };
+
+  const deleteDepartment = async (id: string) => {
+    if (!confirm('Delete this department? This cannot be undone.')) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    setDeletingDept(id);
+    try {
+      const res = await fetch(api(`/api/departments/${id}`), {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Delete failed');
+      fetchLocations();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Delete failed');
+    } finally {
+      setDeletingDept(null);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -207,6 +253,49 @@ export default function LocationsPage() {
           </form>
         </div>
       )}
+
+      {/* ── Departments ── */}
+      <div className="bg-gray-800 rounded-lg border border-gray-700 p-5 mb-6">
+        <h2 className="text-base font-semibold text-gray-300 mb-3">Departments</h2>
+        <div className="flex gap-2 mb-4">
+          <input
+            type="text"
+            value={newDeptName}
+            onChange={(e) => setNewDeptName(e.target.value)}
+            placeholder="e.g. Computer Science"
+            className="flex-1 px-3 py-2 border border-gray-700 rounded-lg bg-gray-900 text-gray-100 text-sm focus:outline-none focus:border-gray-500"
+            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addDepartment())}
+          />
+          <button
+            type="button"
+            onClick={addDepartment}
+            disabled={addingDept || !newDeptName.trim()}
+            className="px-4 py-2 bg-gray-700 text-gray-100 rounded-lg text-sm font-medium hover:bg-gray-600 disabled:opacity-40 shrink-0"
+          >
+            {addingDept ? '…' : '+ Add'}
+          </button>
+        </div>
+        {departments.length === 0 ? (
+          <p className="text-sm text-gray-600">No departments yet.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {departments.map((d) => (
+              <span key={d._id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-900/60 border border-gray-700 rounded-full text-sm text-gray-300">
+                {d.name}
+                <button
+                  type="button"
+                  onClick={() => deleteDepartment(d._id)}
+                  disabled={deletingDept === d._id}
+                  className="text-gray-600 hover:text-red-400 transition-colors leading-none disabled:opacity-40"
+                  title="Delete department"
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
         {filtered.length === 0 ? (

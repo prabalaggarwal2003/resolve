@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 
 interface DepreciationSummary {
@@ -351,74 +352,80 @@ export default function DepreciationPage() {
 
 function DepreciationDetailsModal({ asset }: { asset: AssetDepreciation }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  const modal = isOpen && mounted ? createPortal(
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[9999]"
+      onClick={() => setIsOpen(false)}
+    >
+      <div
+        className="bg-gray-800 rounded-lg max-w-2xl w-full p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-gray-100">{asset.name}</h3>
+            <p className="text-sm text-gray-400">{asset.assetIdString}</p>
+          </div>
+          <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-gray-200 text-xl leading-none">✕</button>
+        </div>
+
+        <div className="space-y-4">
+          {/* Value Summary */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-gray-900 p-3 rounded-lg">
+              <p className="text-xs text-gray-400 mb-1">Original Cost</p>
+              <p className="text-lg font-bold text-gray-100">{formatCurrency(asset.originalCost)}</p>
+            </div>
+            <div className="bg-green-900/20 p-3 rounded-lg">
+              <p className="text-xs text-gray-400 mb-1">Current Value</p>
+              <p className="text-lg font-bold text-green-400">{formatCurrency(asset.currentValue)}</p>
+            </div>
+            <div className="bg-red-900/20 p-3 rounded-lg">
+              <p className="text-xs text-gray-400 mb-1">Depreciation</p>
+              <p className="text-lg font-bold text-red-400">{asset.depreciationPercentage.toFixed(1)}%</p>
+            </div>
+          </div>
+
+          {/* Breakdown */}
+          <div>
+            <h4 className="font-semibold text-gray-100 mb-2">Depreciation Breakdown</h4>
+            <div className="space-y-2">
+              <BreakdownItem label="Age Deduction" amount={asset.breakdown.ageDeduction} factor={`${asset.factors.age} years`} />
+              <BreakdownItem label="Warranty Deduction" amount={asset.breakdown.warrantyDeduction} factor={asset.factors.warrantyExpired ? 'Expired' : 'Valid'} />
+              <BreakdownItem label="Maintenance Deduction" amount={asset.breakdown.maintenanceDeduction} factor={`${asset.factors.maintenanceCount} times`} />
+              <BreakdownItem label="Issues Deduction" amount={asset.breakdown.issuesDeduction} factor={`${asset.factors.issueCount} reports`} />
+              <BreakdownItem label="Status Deduction" amount={asset.breakdown.statusDeduction} factor={asset.factors.status} />
+              <BreakdownItem label="Condition Deduction" amount={asset.breakdown.conditionDeduction} factor={asset.factors.condition} />
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-gray-700">
+            <Link
+              href={`/dashboard/assets/${asset.assetId}`}
+              className="text-blue-400 hover:underline text-sm font-medium"
+            >
+              View Asset Details →
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  ) : null;
 
   return (
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="px-3 py-1 bg-blue-100 text-blue-400 rounded-lg text-sm font-medium hover:bg-blue-200"
+        className="px-3 py-1 bg-blue-900/30 text-blue-400 rounded-lg text-sm font-medium hover:bg-blue-900/50"
       >
         View
       </button>
-
-      {isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setIsOpen(false)}>
-          <div className="bg-gray-800 rounded-lg max-w-2xl w-full p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="text-lg font-bold text-gray-100">{asset.name}</h3>
-                <p className="text-sm text-gray-400">{asset.assetIdString}</p>
-              </div>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="text-gray-400 hover:text-gray-400"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {/* Value Summary */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-gray-900 p-3 rounded-lg">
-                  <p className="text-xs text-gray-400 mb-1">Original Cost</p>
-                  <p className="text-lg font-bold">{formatCurrency(asset.originalCost)}</p>
-                </div>
-                <div className="bg-green-900/20 p-3 rounded-lg">
-                  <p className="text-xs text-gray-400 mb-1">Current Value</p>
-                  <p className="text-lg font-bold text-green-400">{formatCurrency(asset.currentValue)}</p>
-                </div>
-                <div className="bg-red-900/20 p-3 rounded-lg">
-                  <p className="text-xs text-gray-400 mb-1">Depreciation</p>
-                  <p className="text-lg font-bold text-red-400">{asset.depreciationPercentage.toFixed(1)}%</p>
-                </div>
-              </div>
-
-              {/* Breakdown */}
-              <div>
-                <h4 className="font-semibold text-gray-100 mb-2">Depreciation Breakdown</h4>
-                <div className="space-y-2">
-                  <BreakdownItem label="Age Deduction" amount={asset.breakdown.ageDeduction} factor={`${asset.factors.age} years`} />
-                  <BreakdownItem label="Warranty Deduction" amount={asset.breakdown.warrantyDeduction} factor={asset.factors.warrantyExpired ? 'Expired' : 'Valid'} />
-                  <BreakdownItem label="Maintenance Deduction" amount={asset.breakdown.maintenanceDeduction} factor={`${asset.factors.maintenanceCount} times`} />
-                  <BreakdownItem label="Issues Deduction" amount={asset.breakdown.issuesDeduction} factor={`${asset.factors.issueCount} reports`} />
-                  <BreakdownItem label="Status Deduction" amount={asset.breakdown.statusDeduction} factor={asset.factors.status} />
-                  <BreakdownItem label="Condition Deduction" amount={asset.breakdown.conditionDeduction} factor={asset.factors.condition} />
-                </div>
-              </div>
-
-              <div className="pt-4 border-t">
-                <Link
-                  href={`/dashboard/assets/${asset.assetId}`}
-                  className="text-blue-400 hover:underline text-sm font-medium"
-                >
-                  View Asset Details →
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {modal}
     </>
   );
 }
