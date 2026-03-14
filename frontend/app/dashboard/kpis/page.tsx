@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { UpgradePrompt } from '@/lib/subscriptionUtils';
 
 interface KPIData {
   overview: {
@@ -105,10 +106,29 @@ export default function KPIPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [view, setView] = useState<'overview' | 'detailed'>('overview');
+  const [tier, setTier] = useState<string>('free');
+  const [isExpired, setIsExpired] = useState(false);
 
   useEffect(() => {
+    fetchSubscription();
     fetchKPIs();
   }, []);
+
+  const fetchSubscription = async () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) return;
+
+    try {
+      const res = await fetch(api('/api/payments/subscription-status'), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTier(data.tier);
+        setIsExpired(data.isExpired || false);
+      }
+    } catch (_) { }
+  };
 
   const fetchKPIs = async () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -148,6 +168,21 @@ export default function KPIPage() {
     return (
       <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
         <p className="text-red-400">{error || 'No data available'}</p>
+      </div>
+    );
+  }
+
+  if (tier === 'free' || isExpired) {
+    return (
+      <div>
+        <h1 className="text-2xl font-bold text-gray-100 mb-6">📊 KPIs & Metrics</h1>
+        {isExpired && (
+          <div className="bg-red-900/20 border border-red-800 rounded-lg p-4 mb-6">
+            <p className="text-red-400 font-medium">⚠️ Your subscription has expired</p>
+            <p className="text-red-300 text-sm mt-1">Renew your subscription to access KPIs & Metrics</p>
+          </div>
+        )}
+        <UpgradePrompt feature={isExpired ? 'KPIs & Metrics (Renew subscription to unlock)' : 'KPIs & Metrics Dashboard'} />
       </div>
     );
   }

@@ -30,6 +30,21 @@ const organizationSchema = new mongoose.Schema(
       enum: ['1-50', '51-200', '201-500', '501-1000', '1000+'],
     },
     logo: String,
+    subscriptionTier: {
+      type: String,
+      enum: ['free', 'pro', 'premium'],
+      default: 'free',
+      index: true,
+    },
+    subscriptionPlan: {
+      type: String,
+      enum: ['monthly', 'annual'],
+      default: 'monthly',
+    },
+    razorpaySubscriptionId: String,
+    subscriptionStartDate: Date,
+    subscriptionEndDate: Date,
+    trialEndsAt: Date,
   },
   { timestamps: true }
 );

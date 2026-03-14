@@ -1,6 +1,6 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
-import { User } from '../models/index.js';
+import { User, Organization } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
 import { canManageUsers, canViewAll } from '../services/permissions.js';
 import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
@@ -36,6 +36,35 @@ router.post('/', async (req, res) => {
     if (!canManageUsers(req.user)) {
       return res.status(403).json({ message: 'Only Super Admin can add users' });
     }
+
+    // Check subscription limits
+    const org = await Organization.findById(req.user.organizationId);
+    if (!org) return res.status(404).json({ message: 'Organization not found' });
+
+    const now = new Date();
+    const isExpired = org.subscriptionEndDate && org.subscriptionEndDate < now;
+
+    const TIER_LIMITS = {
+      free: 5,
+      pro: 10,
+      premium: 20,
+    };
+
+    // Treat expired as free
+    const tier = isExpired ? 'free' : (org.subscriptionTier || 'free');
+    const limit = TIER_LIMITS[tier] || 5;
+    const userCount = await User.countDocuments({
+      organizationId: req.user.organizationId,
+      isActive: true,
+    });
+
+    if (userCount >= limit) {
+      const message = isExpired
+        ? 'Subscription expired. Renew to add more users.'
+        : `User limit reached for ${tier} plan (${limit} users). Upgrade to add more.`;
+      return res.status(403).json({ message });
+    }
+
     const { email, name, role, password, departmentId, assignedLocationIds } = req.body;
     if (!email || !name || !role || !password)
       return res.status(400).json({ message: 'Email, name, role and password are required' });

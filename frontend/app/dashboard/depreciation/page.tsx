@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { UpgradePrompt } from '@/lib/subscriptionUtils';
 import Link from 'next/link';
 
 interface DepreciationSummary {
@@ -80,11 +81,30 @@ export default function DepreciationPage() {
   const [sortBy, setSortBy] = useState<'depreciation' | 'percentage' | 'value'>('depreciation');
   const [filterCategory, setFilterCategory] = useState('');
   const [assetsPage, setAssetsPage] = useState(1);
+  const reportsPerPage = 10;
   const ASSETS_PER_PAGE = 10;
-
+  const [tier, setTier] = useState<string>('free');
+  const [isExpired, setIsExpired] = useState(false);
   useEffect(() => {
+    fetchSubscription();
     fetchDepreciationData();
   }, []);
+
+  const fetchSubscription = async () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) return;
+
+    try {
+      const res = await fetch(api('/api/payments/subscription-status'), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTier(data.tier);
+        setIsExpired(data.isExpired || false);
+      }
+    } catch (_) { }
+  };
 
   const fetchDepreciationData = async () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -153,6 +173,21 @@ export default function DepreciationPage() {
     return (
       <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
         <p className="text-red-400">{error}</p>
+      </div>
+    );
+  }
+
+  if (tier === 'free' || isExpired) {
+    return (
+      <div>
+        <h1 className="text-2xl font-bold text-gray-100 mb-6">💰 Asset Depreciation</h1>
+        {isExpired && (
+          <div className="bg-red-900/20 border border-red-800 rounded-lg p-4 mb-6">
+            <p className="text-red-400 font-medium">⚠️ Your subscription has expired</p>
+            <p className="text-red-300 text-sm mt-1">Renew your subscription to access Depreciation Tracking</p>
+          </div>
+        )}
+        <UpgradePrompt feature={isExpired ? 'Depreciation Tracking (Renew subscription to unlock)' : 'Depreciation Tracking'} />
       </div>
     );
   }

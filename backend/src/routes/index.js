@@ -20,5 +20,7 @@ import kpis from './kpis.js';
 import vendors from './vendors.js';
 import invoices from './invoices.js';
 import reports from './reports.js';
+import payments from './payments.js';
+import testPayments from './test-payments.js';
 
-export { auth, signup, health, assets, issues, dashboard, notifications, users, locations, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth, testNotifications, qrPdf, depreciation, kpis, vendors, invoices, reports };
+export { auth, signup, health, assets, issues, dashboard, notifications, users, locations, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth, testNotifications, qrPdf, depreciation, kpis, vendors, invoices, reports, payments, testPayments };

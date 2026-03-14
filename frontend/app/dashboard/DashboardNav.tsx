@@ -84,6 +84,10 @@ export default function DashboardNav() {
           {role === 'super_admin' && navItem('/dashboard/organization', '⚙️', 'Organization', is('/dashboard/organization'))}
         </>
       )}
+
+      {/* Settings */}
+      <p className="px-3 pt-4 pb-2 text-xs font-semibold text-gray-700 uppercase tracking-widest">Settings</p>
+      {navItem('/dashboard/subscriptions', '💳', 'Subscriptions', is('/dashboard/subscriptions'))}
     </nav>
   );
 }
