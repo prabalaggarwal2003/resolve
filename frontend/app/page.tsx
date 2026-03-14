@@ -1,9 +1,315 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect, useRef } from 'react';
+
+// ════════════════════════════════════════════════════════════════════════════════════
+// COMMENTED OUT: Plus Sign Pattern with Sweeping Highlight Animation
+// ════════════════════════════════════════════════════════════════════════════════════
+// This animation displayed a grid of + signs with a horizontal sweeping light effect
+// that illuminated the signs as it moved across. Kept for reference if needed.
+/*
+function AnimatedBackground() {
+	const canvasRef = useRef<HTMLCanvasElement>(null);
+
+	useEffect(() => {
+		if (!canvasRef.current) return;
+
+		const canvas = canvasRef.current;
+		const ctx = canvas.getContext('2d');
+		if (!ctx) return;
+
+		// Set canvas size
+		const setCanvasSize = () => {
+			canvas.width = window.innerWidth;
+			canvas.height = window.innerHeight;
+		};
+		setCanvasSize();
+
+		// Animation loop
+		let animationId: number;
+		let time = 0;
+
+		const animate = () => {
+			animationId = requestAnimationFrame(animate);
+
+			// Clear canvas
+			ctx.fillStyle = 'rgba(15, 23, 42, 1)';
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+			// Draw + signs pattern
+			const gridSize = 160;
+			const plusSize = 12;
+			const baseOpacity = 0.15;
+
+			ctx.strokeStyle = `rgba(100, 116, 139, ${baseOpacity})`;
+			ctx.lineWidth = 2.5;
+
+			// Draw + signs at grid intersections
+			for (let x = 0; x < canvas.width; x += gridSize) {
+				for (let y = 0; y < canvas.height; y += gridSize) {
+					ctx.beginPath();
+					ctx.moveTo(x - plusSize, y);
+					ctx.lineTo(x + plusSize, y);
+					ctx.stroke();
+
+					ctx.beginPath();
+					ctx.moveTo(x, y - plusSize);
+					ctx.lineTo(x, y + plusSize);
+					ctx.stroke();
+				}
+			}
+
+			// Sweeping light effect
+			const sweepWidth = canvas.width * 0.25;
+			const sweepPos = (time) % (canvas.width + sweepWidth);
+			const sweepX = sweepPos - sweepWidth;
+
+			for (let x = 0; x < canvas.width; x += gridSize) {
+				for (let y = 0; y < canvas.height; y += gridSize) {
+					const distFromSweep = Math.abs(x - sweepX - sweepWidth / 2);
+					const sweepIntensity = Math.max(0, 1 - distFromSweep / (sweepWidth / 2));
+
+					if (sweepIntensity > 0.01) {
+						const glowAlpha = sweepIntensity * 0.6;
+						const glowRadius = 20;
+						const grad = ctx.createRadialGradient(x, y, 0, x, y, glowRadius);
+						grad.addColorStop(0, `rgba(255, 255, 255, ${glowAlpha * 0.8})`);
+						grad.addColorStop(0.5, `rgba(255, 255, 255, ${glowAlpha * 0.3})`);
+						grad.addColorStop(1, `rgba(255, 255, 255, 0)`);
+
+						ctx.fillStyle = grad;
+						ctx.fillRect(x - glowRadius, y - glowRadius, glowRadius * 2, glowRadius * 2);
+
+						ctx.strokeStyle = `rgba(255, 255, 200, ${sweepIntensity * 0.4})`;
+						ctx.lineWidth = 2.5;
+
+						ctx.beginPath();
+						ctx.moveTo(x - plusSize, y);
+						ctx.lineTo(x + plusSize, y);
+						ctx.stroke();
+
+						ctx.beginPath();
+						ctx.moveTo(x, y - plusSize);
+						ctx.lineTo(x, y + plusSize);
+						ctx.stroke();
+					}
+				}
+			}
+
+			time++;
+		};
+
+		animate();
+
+		const handleResize = () => {
+			setCanvasSize();
+		};
+
+		window.addEventListener('resize', handleResize);
+
+		return () => {
+			window.removeEventListener('resize', handleResize);
+			cancelAnimationFrame(animationId);
+		};
+	}, []);
+
+	return <canvas ref={canvasRef} className="absolute inset-0" />;
+}
+*/
+// ════════════════════════════════════════════════════════════════════════════════════
+
+// Dots and Lines Network Animation - Appearing and disappearing network clusters
+function AnimatedBackground() {
+	const canvasRef = useRef<HTMLCanvasElement>(null);
+
+	useEffect(() => {
+		if (!canvasRef.current) return;
+
+		const canvas = canvasRef.current;
+		const ctx = canvas.getContext('2d');
+		if (!ctx) return;
+
+		const setCanvasSize = () => {
+			canvas.width = window.innerWidth;
+			canvas.height = window.innerHeight;
+		};
+		setCanvasSize();
+
+		let animationId: number;
+		let time = 0;
+
+		// Define network clusters
+		interface Dot {
+			x: number;
+			y: number;
+			baseOpacity: number;
+			id: string;
+		}
+
+		interface Cluster {
+			dots: Dot[];
+			lines: Array<{ from: number; to: number }>;
+			startTime: number;
+			duration: number;
+			x: number;
+			y: number;
+			globalAlpha: number;
+		}
+
+		const clusters: Cluster[] = [];
+
+		// Create a new cluster
+		const createCluster = () => {
+			const numDots = Math.random() < 0.4 ? 5 : 6; // Increased from 3-4 to 5-6
+			const clusterX = Math.random() * canvas.width;
+			const clusterY = Math.random() * canvas.height;
+			const spacing = 50 + Math.random() * 50; // Adjusted spacing
+
+			const dots: Dot[] = [];
+			for (let i = 0; i < numDots; i++) {
+				dots.push({
+					x: clusterX + (Math.random() - 0.5) * spacing * 2.5,
+					y: clusterY + (Math.random() - 0.5) * spacing * 2.5,
+					baseOpacity: 0.6 + Math.random() * 0.3,
+					id: `${clusterX}-${clusterY}-${i}`,
+				});
+			}
+
+			// Create more connections - increased lines
+			const lines: Array<{ from: number; to: number }> = [];
+			for (let i = 0; i < numDots; i++) {
+				const connectionCount = Math.floor(Math.random() * 3) + 2; // Increased from 1-2 to 2-3 connections per dot
+				for (let j = 0; j < connectionCount; j++) {
+					const targetIndex = Math.floor(Math.random() * numDots);
+					if (targetIndex !== i && !lines.some(l => (l.from === i && l.to === targetIndex) || (l.from === targetIndex && l.to === i))) {
+						lines.push({ from: i, to: targetIndex });
+					}
+				}
+			}
+
+			clusters.push({
+				dots,
+				lines,
+				startTime: time,
+				duration: 500 + Math.random() * 400, // Decreased from 800-1400 to 500-900 milliseconds
+				x: clusterX,
+				y: clusterY,
+				globalAlpha: 0,
+			});
+		};
+
+		// Spawn initial clusters
+		for (let i = 0; i < 4; i++) { // Increased initial spawn from 3 to 4
+			createCluster();
+		}
+
+		const animate = () => {
+			animationId = requestAnimationFrame(animate);
+
+			// Clear canvas
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+			// Update and draw clusters
+			for (let i = clusters.length - 1; i >= 0; i--) {
+				const cluster = clusters[i];
+				const elapsed = time - cluster.startTime;
+				const progress = elapsed / cluster.duration;
+
+				if (progress > 1) {
+					// Remove finished cluster
+					clusters.splice(i, 1);
+					continue;
+				}
+
+				// Calculate opacity based on lifecycle
+				// Fade in first 15%, stay visible in middle 70%, fade out last 15%
+				let alpha: number;
+				if (progress < 0.15) {
+					alpha = progress / 0.15; // Fade in faster
+				} else if (progress > 0.85) {
+					alpha = 1 - (progress - 0.85) / 0.15; // Fade out faster
+				} else {
+					alpha = 1;
+				}
+
+				// Pulse effect
+				const pulsePhase = (elapsed % 400) / 400;
+				const pulseAmount = Math.sin(pulsePhase * Math.PI * 2) * 0.15;
+				alpha = Math.max(0.2, alpha * (0.85 + pulseAmount));
+
+				cluster.globalAlpha = alpha;
+
+				// Draw lines
+				ctx.strokeStyle = `rgba(100, 116, 139, ${alpha * 0.4})`;
+				ctx.lineWidth = 1;
+
+				cluster.lines.forEach(line => {
+					const fromDot = cluster.dots[line.from];
+					const toDot = cluster.dots[line.to];
+
+					ctx.beginPath();
+					ctx.moveTo(fromDot.x, fromDot.y);
+					ctx.lineTo(toDot.x, toDot.y);
+					ctx.stroke();
+				});
+
+				// Draw dots
+				cluster.dots.forEach(dot => {
+					const dotAlpha = alpha * dot.baseOpacity;
+
+					// Dot glow
+					const gradient = ctx.createRadialGradient(
+						dot.x,
+						dot.y,
+						0,
+						dot.x,
+						dot.y,
+						8
+					);
+					gradient.addColorStop(0, `rgba(100, 116, 139, ${dotAlpha * 0.8})`);
+					gradient.addColorStop(1, `rgba(100, 116, 139, 0)`);
+
+					ctx.fillStyle = gradient;
+					ctx.fillRect(dot.x - 8, dot.y - 8, 16, 16);
+
+					// Solid dot center
+					ctx.fillStyle = `rgba(148, 163, 184, ${dotAlpha})`;
+					ctx.beginPath();
+					ctx.arc(dot.x, dot.y, 2.5, 0, Math.PI * 2);
+					ctx.fill();
+				});
+			}
+
+			// Spawn new clusters periodically
+			if (Math.random() < 0.035 && clusters.length < 8) { // Increased spawn chance from 0.02 to 0.035, max from 6 to 8
+				createCluster();
+			}
+
+			time++;
+		};
+
+		animate();
+
+		const handleResize = () => {
+			setCanvasSize();
+		};
+
+		window.addEventListener('resize', handleResize);
+
+		return () => {
+			window.removeEventListener('resize', handleResize);
+			cancelAnimationFrame(animationId);
+		};
+	}, []);
+
+	return <canvas ref={canvasRef} className="absolute inset-0" />;
+}
 
 const features = [
 	{ icon: '📦', label: 'Asset Tracking', desc: 'Full lifecycle from purchase to retirement' },
 	{ icon: '🔔', label: 'Issue Reporting', desc: 'QR-based reporting, no login needed' },
-	{ icon: '🔧', label: 'Maintenance', desc: 'Auto-schedule, history & health scoring' },
+	{ icon: '🔧', label: 'Maintenance', desc: 'Schedule, history & health scoring' },
 	{ icon: '📊', label: 'Analytics & KPIs', desc: 'Depreciation, utilisation & metrics' },
 	{ icon: '📋', label: 'Audit Logs', desc: 'Every action tracked and downloadable' },
 	{ icon: '🏢', label: 'Multi-role', desc: 'Admin, manager, reporter — all in one' },
@@ -23,7 +329,7 @@ const overview = [
 	{
 		step: '03',
 		title: 'Manage & maintain',
-		desc: 'Assets are automatically flagged for maintenance based on age and open issues. Complete maintenance cycles and track full history.',
+		desc: 'Assets can be flagged for maintenance based on age and open issues. Complete maintenance cycles and track full history.',
 	},
 	{
 		step: '04',
@@ -39,11 +345,13 @@ const plans = [
 		period: 'forever',
 		desc: 'Perfect for small institutions getting started.',
 		features: [
-			'Up to 100 assets',
+			'Up to 50 assets',
 			'Issue reporting via QR',
-			'Basic audit logs',
-			'3 user roles',
-			'Email notifications',
+			'5 user roles',
+			'Audit logs',
+			'Vendor & Invoice management',
+			'PDF reports & exports',
+			'Notifications & Maintenance',
 		],
 		cta: 'Get started',
 		href: '/signup',
@@ -51,35 +359,34 @@ const plans = [
 	},
 	{
 		name: 'Pro',
-		price: '₹999',
+		price: '₹499',
 		period: 'per month',
 		desc: 'For growing organisations that need more control.',
 		features: [
-			'Unlimited assets',
+			'Everything in Free',
+			'Up to 200 assets',
 			'Advanced analytics & KPIs',
 			'Depreciation tracking',
-			'Vendor & invoice management',
-			'PDF reports & exports',
 			'Priority support',
 		],
-		cta: 'Start free trial',
+		cta: 'Sign up today',
 		href: '/signup',
 		highlight: true,
 	},
 	{
-		name: 'Enterprise',
-		price: 'Custom',
-		period: '',
-		desc: 'For large institutions with custom needs.',
+		name: 'Premium',
+		price: '₹899',
+		period: 'per month',
+		desc: 'For large institutions with more needs.',
 		features: [
 			'Everything in Pro',
+			'Up to 1000 assets',
+			'20 user roles',
 			'Custom integrations',
-			'Dedicated onboarding',
-			'SLA guarantee',
-			'On-premise option',
+
 		],
-		cta: 'Contact us',
-		href: 'mailto:contact@resolve.app',
+		cta: 'Start your journey',
+		href: '/signup',
 		highlight: false,
 	},
 ];
@@ -90,13 +397,21 @@ export default function HomePage() {
 			className="min-h-screen bg-gray-950 flex flex-col relative overflow-hidden"
 			style={{ fontFamily: 'var(--font-manrope, Manrope, sans-serif)' }}
 		>
-			{/* Ambient blobs */}
-			<div className="absolute top-[-180px] left-[-180px] w-[500px] h-[500px] rounded-full bg-gray-700/20 blur-[140px] pointer-events-none" />
-			<div className="absolute top-[40%] right-[-200px] w-[460px] h-[460px] rounded-full bg-gray-600/10 blur-[120px] pointer-events-none" />
+		{/* Ambient blobs */}
+		<div className="absolute top-[-180px] left-[-180px] w-[500px] h-[500px] rounded-full bg-gray-700/20 blur-[140px] pointer-events-none" />
+		<div className="absolute top-[40%] right-[-200px] w-[460px] h-[460px] rounded-full bg-gray-600/10 blur-[120px] pointer-events-none" />
+
+		{/* Three.js Animated Background */}
+		<div className="absolute inset-0 top-0 h-[800px] opacity-40 pointer-events-none">
+			<AnimatedBackground />
+		</div>
 
 			{/* ── Nav ── */}
 			<header className="relative z-10 w-full max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
-				<span className="text-gray-100 font-extrabold text-2xl tracking-tight">resolve</span>
+				<div className="flex items-center gap-3">
+					<img src="/favicon.svg" alt="resolve logo" className="h-12 w-12 -mr-2" />
+					<span className="text-gray-100 font-extrabold text-2xl tracking-tight">resolve</span>
+				</div>
 				<div className="flex items-center gap-3">
 					<Link href="/login" className="text-sm text-gray-400 hover:text-gray-100 transition-colors no-underline font-medium">Sign in</Link>
 					<Link href="/signup" className="text-sm bg-gray-100 text-gray-950 px-4 py-2 rounded-lg font-bold hover:bg-white transition-all no-underline">Get started →</Link>
@@ -146,18 +461,51 @@ export default function HomePage() {
 					</a>
 				</div>
 
-				{/* Feature pills */}
-				<div className="flex flex-wrap justify-center gap-2">
-					{features.map(({ icon, label }) => (
-						<span
+				{/* 3D Animated Impact Stats */}
+				<div className="mt-20 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto">
+					{[
+						{ value: '50K+', label: 'Assets Tracked', delay: '0ms' },
+						{ value: '99.9%', label: 'Uptime SLA', delay: '100ms' },
+						{ value: '10s', label: 'Avg Report Time', delay: '200ms' },
+					].map(({ value, label, delay }) => (
+						<div
 							key={label}
-							className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-900/60 border border-gray-800/80 text-xs text-gray-400 font-medium backdrop-blur-sm"
+							className="relative group"
+							style={{
+								animation: `fadeInUp 0.6s ease-out forwards`,
+								animationDelay: delay,
+								opacity: 0,
+							}}
 						>
-							<span>{icon}</span>
-							{label}
-						</span>
+							{/* Animated glow background */}
+							<div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-gray-700/20 to-gray-800/20 blur-xl group-hover:blur-2xl transition-all duration-300 opacity-0 group-hover:opacity-100" />
+
+							{/* Card */}
+							<div className="relative rounded-2xl border border-gray-700/50 bg-gray-900/60 backdrop-blur-md p-8 text-center hover:border-gray-600/60 transition-all duration-300 transform group-hover:scale-105 group-hover:-translate-y-1">
+								<div className="text-5xl font-extrabold bg-gradient-to-r from-gray-200 to-gray-400 bg-clip-text text-transparent mb-2">
+									{value}
+								</div>
+								<div className="text-sm text-gray-500 font-medium">{label}</div>
+
+								{/* Animated underline */}
+								<div className="h-1 w-0 group-hover:w-full bg-gradient-to-r from-gray-600 to-gray-400 rounded-full mx-auto mt-4 transition-all duration-300" />
+							</div>
+						</div>
 					))}
 				</div>
+
+				<style jsx>{`
+					@keyframes fadeInUp {
+						from {
+							opacity: 0;
+							transform: translateY(30px);
+						}
+						to {
+							opacity: 1;
+							transform: translateY(0);
+						}
+					}
+				`}</style>
 			</section>
 
 			{/* ── Product Overview ── */}
