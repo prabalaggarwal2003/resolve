@@ -89,6 +89,10 @@ export default function VendorDetailPage() {
   const [stats, setStats] = useState<VendorStats | null>(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [uploadingInvoice, setUploadingInvoice] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [invoicePage, setInvoicePage] = useState(1);
+  const [assetsPage, setAssetsPage] = useState(1);
+  const itemsPerPage = 10;
 
   const [invoiceForm, setInvoiceForm] = useState({
     invoiceNumber: '',
@@ -168,8 +172,11 @@ export default function VendorDetailPage() {
         invoiceFileUrl: invoiceFileUrl || undefined
       };
 
-      const res = await fetch(api('/api/invoices'), {
-        method: 'POST',
+      const url = editingInvoice ? api(`/api/invoices/${editingInvoice._id}`) : api('/api/invoices');
+      const method = editingInvoice ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
@@ -180,17 +187,57 @@ export default function VendorDetailPage() {
       const data = await res.json();
 
       if (res.ok) {
-        alert('Invoice uploaded successfully!');
+        alert(editingInvoice ? 'Invoice updated successfully!' : 'Invoice uploaded successfully!');
         setShowInvoiceModal(false);
         resetInvoiceForm();
         fetchVendorDetails();
       } else {
-        alert(data.message || 'Failed to upload invoice');
+        alert(data.message || 'Failed to save invoice');
       }
     } catch (err) {
-      alert('Failed to upload invoice');
+      alert('Failed to save invoice');
     } finally {
       setUploadingInvoice(false);
+    }
+  };
+
+  const handleEditInvoice = (invoice: Invoice) => {
+    setEditingInvoice(invoice);
+    setInvoiceForm({
+      invoiceNumber: invoice.invoiceNumber,
+      purchaseDate: invoice.purchaseDate,
+      dueDate: invoice.dueDate || '',
+      totalAmount: invoice.totalAmount.toString(),
+      paidAmount: invoice.paidAmount.toString(),
+      status: invoice.status,
+      paymentMethod: 'Bank Transfer',
+      notes: '',
+      invoiceFile: null
+    });
+    setShowInvoiceModal(true);
+  };
+
+  const handleDeleteInvoice = async (invoiceId: string) => {
+    if (!confirm('Delete this invoice? This cannot be undone.')) return;
+
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) return;
+
+    try {
+      const res = await fetch(api(`/api/invoices/${invoiceId}`), {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert('Invoice deleted successfully!');
+        fetchVendorDetails();
+      } else {
+        alert(data.message || 'Failed to delete invoice');
+      }
+    } catch (err) {
+      alert('Failed to delete invoice');
     }
   };
 
@@ -206,6 +253,7 @@ export default function VendorDetailPage() {
       notes: '',
       invoiceFile: null
     });
+    setEditingInvoice(null);
   };
 
   if (loading) {
@@ -294,38 +342,72 @@ export default function VendorDetailPage() {
           <button onClick={() => setShowInvoiceModal(true)} className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 font-medium text-sm">+ Upload Invoice</button>
         </div>
         {invoices.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-900 border-b border-gray-700">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Invoice #</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Purchase Date</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Amount</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Paid</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Balance</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase">Status</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase">File</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-700">
-                {invoices.map((invoice) => (
-                  <tr key={invoice._id} className="hover:bg-gray-700/50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-100">{invoice.invoiceNumber}</td>
-                    <td className="px-4 py-3 text-sm text-gray-400">{formatDate(invoice.purchaseDate)}</td>
-                    <td className="px-4 py-3 text-sm text-right font-medium text-gray-100">{formatCurrency(invoice.totalAmount)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-green-400">{formatCurrency(invoice.paidAmount)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-orange-400 font-medium">{formatCurrency(invoice.totalAmount - invoice.paidAmount)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${invoice.status === 'Paid' ? 'bg-green-900/30 text-green-400' : invoice.status === 'Overdue' ? 'bg-red-900/30 text-red-400' : 'bg-yellow-900/30 text-yellow-400'}`}>{invoice.status}</span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {invoice.invoiceFileUrl ? <a href={invoice.invoiceFileUrl} target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-white text-sm no-underline">View</a> : <span className="text-gray-500 text-sm">-</span>}
-                    </td>
+          <>
+            <div className="overflow-x-auto mb-4">
+              <table className="w-full">
+                <thead className="bg-gray-900 border-b border-gray-700">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Invoice #</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Purchase Date</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Amount</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Paid</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Balance</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase">Status</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase">File</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {invoices
+                    .slice((invoicePage - 1) * itemsPerPage, invoicePage * itemsPerPage)
+                    .map((invoice) => (
+                      <tr key={invoice._id} className="hover:bg-gray-700/50">
+                        <td className="px-4 py-3 text-sm font-medium text-gray-100">{invoice.invoiceNumber}</td>
+                        <td className="px-4 py-3 text-sm text-gray-400">{formatDate(invoice.purchaseDate)}</td>
+                        <td className="px-4 py-3 text-sm text-right font-medium text-gray-100">{formatCurrency(invoice.totalAmount)}</td>
+                        <td className="px-4 py-3 text-sm text-right text-green-400">{formatCurrency(invoice.paidAmount)}</td>
+                        <td className="px-4 py-3 text-sm text-right text-orange-400 font-medium">{formatCurrency(invoice.totalAmount - invoice.paidAmount)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${invoice.status === 'Paid' ? 'bg-green-900/30 text-green-400' : invoice.status === 'Overdue' ? 'bg-red-900/30 text-red-400' : 'bg-yellow-900/30 text-yellow-400'}`}>{invoice.status}</span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {invoice.invoiceFileUrl ? <a href={invoice.invoiceFileUrl} target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-white text-sm no-underline">View</a> : <span className="text-gray-500 text-sm">-</span>}
+                        </td>
+                        <td className="px-4 py-3 text-center flex gap-2 justify-center">
+                          <button onClick={() => handleEditInvoice(invoice)} className="px-2 py-1 bg-gray-700 text-gray-200 rounded text-xs hover:bg-gray-600 font-medium">Edit</button>
+                          <button onClick={() => handleDeleteInvoice(invoice._id)} className="px-2 py-1 bg-red-900/30 text-red-400 rounded text-xs hover:bg-red-900/50 font-medium">Delete</button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+            {/* Pagination */}
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-400">
+                Showing {(invoicePage - 1) * itemsPerPage + 1} to {Math.min(invoicePage * itemsPerPage, invoices.length)} of {invoices.length}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setInvoicePage(p => Math.max(1, p - 1))}
+                  disabled={invoicePage === 1}
+                  className="px-3 py-1.5 text-sm border border-gray-700 text-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-900"
+                >
+                  Previous
+                </button>
+                <span className="px-3 py-1.5 text-sm text-gray-100">
+                  Page {invoicePage} of {Math.ceil(invoices.length / itemsPerPage)}
+                </span>
+                <button
+                  onClick={() => setInvoicePage(p => Math.min(Math.ceil(invoices.length / itemsPerPage), p + 1))}
+                  disabled={invoicePage >= Math.ceil(invoices.length / itemsPerPage)}
+                  className="px-3 py-1.5 text-sm border border-gray-700 text-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-900"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </>
         ) : (
           <div className="text-center py-8">
             <p className="text-gray-400 mb-4">No invoices uploaded yet</p>
@@ -337,32 +419,61 @@ export default function VendorDetailPage() {
       <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
         <h2 className="text-xl font-semibold text-gray-100 mb-4">Assets from this Vendor ({assets.length})</h2>
         {assets.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-900 border-b border-gray-700">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Asset ID</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Category</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Cost</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Purchase Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-700">
-                {assets.map((asset) => (
-                  <tr key={asset._id} className="hover:bg-gray-700/50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-100"><Link href={`/dashboard/assets/${asset._id}`} className="text-gray-300 hover:text-white no-underline">{asset.assetId}</Link></td>
-                    <td className="px-4 py-3 text-sm text-gray-100">{asset.name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-400">{asset.category}</td>
-                    <td className="px-4 py-3 text-sm text-right font-medium text-gray-100">{formatCurrency(asset.cost)}</td>
-                    <td className="px-4 py-3 text-center"><span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-900/30 text-blue-400">{asset.status}</span></td>
-                    <td className="px-4 py-3 text-sm text-gray-400">{asset.purchaseDate ? formatDate(asset.purchaseDate) : '-'}</td>
+          <>
+            <div className="overflow-x-auto mb-4">
+              <table className="w-full">
+                <thead className="bg-gray-900 border-b border-gray-700">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Asset ID</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Category</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Cost</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Purchase Date</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {assets
+                    .slice((assetsPage - 1) * itemsPerPage, assetsPage * itemsPerPage)
+                    .map((asset) => (
+                      <tr key={asset._id} className="hover:bg-gray-700/50">
+                        <td className="px-4 py-3 text-sm font-medium text-gray-100"><Link href={`/dashboard/assets/${asset._id}`} className="text-gray-300 hover:text-white no-underline">{asset.assetId}</Link></td>
+                        <td className="px-4 py-3 text-sm text-gray-100">{asset.name}</td>
+                        <td className="px-4 py-3 text-sm text-gray-400">{asset.category}</td>
+                        <td className="px-4 py-3 text-sm text-right font-medium text-gray-100">{formatCurrency(asset.cost)}</td>
+                        <td className="px-4 py-3 text-center"><span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-900/30 text-blue-400">{asset.status}</span></td>
+                        <td className="px-4 py-3 text-sm text-gray-400">{asset.purchaseDate ? formatDate(asset.purchaseDate) : '-'}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+            {/* Pagination */}
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-400">
+                Showing {(assetsPage - 1) * itemsPerPage + 1} to {Math.min(assetsPage * itemsPerPage, assets.length)} of {assets.length}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setAssetsPage(p => Math.max(1, p - 1))}
+                  disabled={assetsPage === 1}
+                  className="px-3 py-1.5 text-sm border border-gray-700 text-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-900"
+                >
+                  Previous
+                </button>
+                <span className="px-3 py-1.5 text-sm text-gray-100">
+                  Page {assetsPage} of {Math.ceil(assets.length / itemsPerPage)}
+                </span>
+                <button
+                  onClick={() => setAssetsPage(p => Math.min(Math.ceil(assets.length / itemsPerPage), p + 1))}
+                  disabled={assetsPage >= Math.ceil(assets.length / itemsPerPage)}
+                  className="px-3 py-1.5 text-sm border border-gray-700 text-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-900"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </>
         ) : (
           <div className="text-center py-8"><p className="text-gray-400">No assets purchased from this vendor yet</p></div>
         )}
@@ -372,7 +483,7 @@ export default function VendorDetailPage() {
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50" onClick={() => { setShowInvoiceModal(false); resetInvoiceForm(); }}>
           <div className="bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-700" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
-              <h2 className="text-xl font-bold text-gray-100 mb-4">Upload Invoice</h2>
+              <h2 className="text-xl font-bold text-gray-100 mb-4">{editingInvoice ? 'Edit Invoice' : 'Upload Invoice'}</h2>
               <form onSubmit={handleInvoiceSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -429,7 +540,7 @@ export default function VendorDetailPage() {
                   <textarea value={invoiceForm.notes} onChange={(e) => setInvoiceForm({ ...invoiceForm, notes: e.target.value })} rows={3} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent" />
                 </div>
                 <div className="flex gap-3 pt-4">
-                  <button type="submit" disabled={uploadingInvoice} className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 font-medium disabled:opacity-50">{uploadingInvoice ? 'Uploading...' : 'Upload Invoice'}</button>
+                  <button type="submit" disabled={uploadingInvoice} className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 font-medium disabled:opacity-50">{uploadingInvoice ? (editingInvoice ? 'Updating...' : 'Uploading...') : (editingInvoice ? 'Update Invoice' : 'Upload Invoice')}</button>
                   <button type="button" onClick={() => { setShowInvoiceModal(false); resetInvoiceForm(); }} className="px-4 py-2 bg-gray-900 text-gray-300 rounded-lg hover:bg-gray-800 font-medium">Cancel</button>
                 </div>
               </form>

@@ -140,7 +140,7 @@ export default function IssuesPage() {
     <div>
       <h1 className="text-2xl font-bold mb-2 text-gray-100">Issues</h1>
       <p className="text-gray-400 mb-6">
-        Open, in progress, and completed — reported via QR scan
+        View all issues reported by users, along with their status and details. Click on a ticket to see more information. Use the filters to find specific issues or track progress.
       </p>
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
