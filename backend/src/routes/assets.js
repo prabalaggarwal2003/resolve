@@ -1,5 +1,5 @@
 import express from 'express';
-import { Asset, AssetLog, User } from '../models/index.js';
+import { Asset, AssetLog, User, Organization } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
 import { generateQrDataUrl, getAssetPublicUrl } from '../services/qrService.js';
 import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
@@ -103,7 +103,32 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', requireCanEdit, async (req, res) => {
   try {
-    const body = { 
+    // Check subscription limits
+    const org = await Organization.findById(req.user.organizationId);
+    if (!org) return res.status(404).json({ message: 'Organization not found' });
+
+    const now = new Date();
+    const isExpired = org.subscriptionEndDate && org.subscriptionEndDate < now;
+
+    const TIER_LIMITS = {
+      free: 50,
+      pro: 200,
+      premium: 1000,
+    };
+
+    // Treat expired as free
+    const tier = isExpired ? 'free' : (org.subscriptionTier || 'free');
+    const limit = TIER_LIMITS[tier] || 50;
+    const assetCount = await Asset.countDocuments({ organizationId: req.user.organizationId });
+
+    if (assetCount >= limit) {
+      const message = isExpired
+        ? 'Subscription expired. Renew to add more assets.'
+        : `Asset limit reached for ${tier} plan (${limit} assets). Upgrade to add more.`;
+      return res.status(403).json({ message });
+    }
+
+    const body = {
       ...req.body, 
       createdBy: req.user._id, 
       updatedBy: req.user._id,
