@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import SubscriptionBanner from '@/components/SubscriptionBanner';
 
 type Issue = {
   _id: string;
@@ -151,6 +152,8 @@ export default function DashboardPage() {
       {error && (
         <p className="p-4 bg-red-900/20 border border-red-800 text-red-400 rounded-lg text-sm mb-4">{error}</p>
       )}
+
+      <SubscriptionBanner />
 
       {summary && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
