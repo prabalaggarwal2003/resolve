@@ -244,7 +244,7 @@ export default function SubscriptionsPage() {
     <div className="max-w-7xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-100 mb-2">Plans & Pricing</h1>
-        <p className="text-gray-400">Choose the perfect plan for your organization</p>
+        <p className="text-gray-400">Choose the perfect plan for your organization.</p>
       </div>
 
       {error && <p className="mb-6 p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-400">{error}</p>}
@@ -470,7 +470,7 @@ export default function SubscriptionsPage() {
       <div className="mt-12 bg-gray-800/50 rounded-lg border border-gray-700 p-6">
         <h3 className="text-lg font-semibold text-gray-100 mb-4">Need help choosing?</h3>
         <p className="text-gray-400 mb-4">
-          Start with Free and upgrade anytime as your organization grows. All plans include core features like asset tracking, issue management, and team collaboration.
+          Start with Free and upgrade anytime as your organization grows. All plans include core features like asset tracking, issue management and team collaboration.
         </p>
         <Link href="/dashboard" className="text-blue-400 hover:underline">
           Go to Dashboard →

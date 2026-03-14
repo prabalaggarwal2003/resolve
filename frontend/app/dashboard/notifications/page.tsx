@@ -331,9 +331,9 @@ export default function NotificationsPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-100">Notifications</h1>
-          <p className="text-gray-400 mt-2">
-            Stay updated with your assets, issues, and warranty alerts
-          </p>
+          {/*<p className="text-gray-400 mt-2">*/}
+          {/*  Stay updated with your assets, issues, and warranty alerts*/}
+          {/*</p>*/}
         </div>
 
         {unreadCount > 0 && (

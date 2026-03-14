@@ -242,7 +242,7 @@ export default function RolesPage() {
 				<h1 className="text-2xl font-bold text-gray-100 mb-1">Users & Roles</h1>
 				<p className="text-gray-500 text-sm">
 					{isSuperAdmin
-						? 'As Super Admin, you are the only one who can create, edit and delete users.'
+						? 'Create users and assign roles.'
 						: 'Contact your Super Admin to manage users and roles.'}
 				</p>
 			</div>

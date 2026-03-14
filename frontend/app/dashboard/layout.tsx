@@ -62,9 +62,17 @@ export default function DashboardLayout({
         </aside>
 
         {/* ── Main content ── */}
-        <main className="flex-1 p-4 overflow-auto">
-          <div className="rounded-2xl border border-gray-800/60 bg-gray-900/40 backdrop-blur-sm min-h-full p-6">
-            {children}
+        <main className="flex-1 p-3 flex flex-col sticky top-0 h-screen">
+          <div className="flex-1 flex flex-col rounded-2xl border border-gray-700/60 bg-gray-900/60 backdrop-blur-xl shadow-2xl overflow-hidden">
+            {/* Header area - can add title if needed */}
+            {/* <div className="px-6 py-4 border-b border-gray-800/60">
+              <h1 className="text-xl font-bold text-gray-100">Dashboard</h1>
+            </div> */}
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {children}
+            </div>
           </div>
         </main>
       </div>

@@ -453,9 +453,9 @@ function ReportsPage() {
     <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-100 mb-2">📊 Automated Reports</h1>
+        <h1 className="text-2xl font-bold text-gray-100 mb-2">Automated Reports</h1>
         <p className="text-gray-400">
-          Daily, weekly, and monthly reports with insights, trends, and performance metrics
+          Daily, weekly and monthly reports you can generate on demand. Get insights into issue trends, asset performance and more.
         </p>
         {userRole === 'manager' && userDeptName && (
           <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-900/20 border border-blue-800/50 text-blue-300 text-sm">
@@ -496,9 +496,9 @@ function ReportsPage() {
             {generating === 'monthly' ? 'Generating...' : '📊 Generate Monthly Report'}
           </button>
         </div>
-        <p className="text-sm text-gray-500 mt-3">
-          💡 Reports are automatically generated daily at 11:59 PM, weekly on Sundays, and monthly on the last day of each month
-        </p>
+        {/*<p className="text-sm text-gray-500 mt-3">*/}
+        {/*  💡 Reports are automatically generated daily at 11:59 PM, weekly on Sundays, and monthly on the last day of each month*/}
+        {/*</p>*/}
       </div>
 
       {/* Download All Data Section */}

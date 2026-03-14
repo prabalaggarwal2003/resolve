@@ -144,7 +144,7 @@ export default function EditAssetPage() {
     <div>
       <Link href={`/dashboard/assets/${params.id}`} className="inline-block mb-4 text-gray-400 hover:text-gray-100">← Back to asset</Link>
       <h1 className="text-2xl font-bold mb-2">Edit asset</h1>
-      <form onSubmit={handleSubmit} className="max-w-lg bg-gray-800 p-6 rounded-lg border border-gray-700">
+      <form onSubmit={handleSubmit} className="bg-gray-800 p-6 rounded-lg border border-gray-700 grid grid-cols-1 md:grid-cols-2 gap-6">
         {error && <p className="mb-4 p-3 bg-red-900/20 text-red-400 rounded-lg text-sm">{error}</p>}
         <Field label="Name" required><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className={inputClassName} /></Field>
         <Field label="Category"><select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className={inputClassName}><option value="">Select</option>{CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></Field>
@@ -157,42 +157,42 @@ export default function EditAssetPage() {
         <Field label="Purchase date"><input type="date" value={form.purchaseDate} onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })} className={inputClassName} /></Field>
         <Field label="Vendor"><select value={form.vendorId} onChange={(e) => setForm({ ...form, vendorId: e.target.value })} className={inputClassName}><option value="">None</option>{vendors.map((v) => <option key={v._id} value={v._id}>{v.vendorId} - {v.name}</option>)}</select></Field>
         <Field label="Cost (₹)"><input type="number" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} className={inputClassName} /></Field>
-        <Field label="Photos">
-          <div className="space-y-2">
-            <input type="file" accept="image/*" onChange={addPhoto} className="text-sm text-gray-400" />
-            {photos.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {photos.map((p, i) => (
-                  <div key={i} className="relative">
-                    <img src={p.url} alt="" className="h-20 w-20 object-cover rounded border border-gray-700" />
-                    <button type="button" onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs leading-none">×</button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </Field>
-        <Field label="Documents">
-          <div className="space-y-2">
-            <input type="file" accept=".pdf,.doc,.docx,image/*" onChange={addDocument} className="text-sm text-gray-400" />
-            {documents.length > 0 && (
-              <ul className="text-sm text-gray-400 mt-2 space-y-1">
-                {documents.map((d, i) => (
-                  <li key={i} className="flex items-center gap-2">
-                    <span>{d.name}</span>
-                    <button type="button" onClick={() => setDocuments((prev) => prev.filter((_, j) => j !== i))} className="text-red-400 hover:underline">Remove</button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </Field>
-        <button type="submit" disabled={loading} className="mt-4 px-6 py-3 bg-primary text-white rounded-lg font-semibold disabled:opacity-60 hover:bg-primary-hover">{loading ? 'Saving…' : 'Save'}</button>
+        {/*<Field label="Photos">*/}
+        {/*  <div className="space-y-2">*/}
+        {/*    <input type="file" accept="image/*" onChange={addPhoto} className="text-sm text-gray-400" />*/}
+        {/*    {photos.length > 0 && (*/}
+        {/*      <div className="flex flex-wrap gap-2 mt-2">*/}
+        {/*        {photos.map((p, i) => (*/}
+        {/*          <div key={i} className="relative">*/}
+        {/*            <img src={p.url} alt="" className="h-20 w-20 object-cover rounded border border-gray-700" />*/}
+        {/*            <button type="button" onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs leading-none">×</button>*/}
+        {/*          </div>*/}
+        {/*        ))}*/}
+        {/*      </div>*/}
+        {/*    )}*/}
+        {/*  </div>*/}
+        {/*</Field>*/}
+        {/*<Field label="Documents">*/}
+        {/*  <div className="space-y-2">*/}
+        {/*    <input type="file" accept=".pdf,.doc,.docx,image/*" onChange={addDocument} className="text-sm text-gray-400" />*/}
+        {/*    {documents.length > 0 && (*/}
+        {/*      <ul className="text-sm text-gray-400 mt-2 space-y-1">*/}
+        {/*        {documents.map((d, i) => (*/}
+        {/*          <li key={i} className="flex items-center gap-2">*/}
+        {/*            <span>{d.name}</span>*/}
+        {/*            <button type="button" onClick={() => setDocuments((prev) => prev.filter((_, j) => j !== i))} className="text-red-400 hover:underline">Remove</button>*/}
+        {/*          </li>*/}
+        {/*        ))}*/}
+        {/*      </ul>*/}
+        {/*    )}*/}
+        {/*  </div>*/}
+        {/*</Field>*/}
+        <button type="submit" disabled={loading} className="w-32 mt-4 px-6 py-3 bg-primary text-white rounded-lg font-semibold disabled:opacity-60 hover:bg-primary-hover md:col-span-2">{loading ? 'Saving…' : 'Save'}</button>
       </form>
     </div>
   );
 }
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return <div className="mb-4"><label className="block mb-1.5 font-medium text-gray-300">{label} {required && '*'}</label>{children}</div>;
+  return <div><label className="block mb-1.5 font-medium text-gray-300">{label} {required && '*'}</label>{children}</div>;
 }
