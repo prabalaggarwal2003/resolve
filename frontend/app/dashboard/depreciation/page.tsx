@@ -198,7 +198,7 @@ export default function DepreciationPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-100">💰 Asset Depreciation</h1>
         <p className="text-gray-400 mt-1">
-          Track asset value depreciation based on age, condition, and maintenance history
+          Track asset value depreciation based on age, condition and maintenance history.
         </p>
       </div>
 

@@ -8,6 +8,8 @@ interface SubscriptionStatus {
   plan: 'monthly' | 'annual';
   limits: { assets: number; users: number };
   canUpgrade: boolean;
+  subscriptionStartDate?: string;
+  subscriptionEndDate?: string;
 }
 
 declare global {
@@ -71,6 +73,7 @@ export default function SubscriptionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [planType, setPlanType] = useState<'monthly' | 'annual'>('monthly');
+  const [selectedTier, setSelectedTier] = useState<'pro' | 'premium'>('pro');
   const [upgrading, setUpgrading] = useState<string | null>(null);
 
   useEffect(() => {
@@ -110,13 +113,14 @@ export default function SubscriptionsPage() {
     }
   };
 
-  const handleUpgrade = async (tier: 'pro' | 'premium') => {
+  const handleUpgrade = async (tier?: 'pro' | 'premium') => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
-    setUpgrading(tier);
+    const tierToUpgrade = tier || selectedTier;
+    setUpgrading(tierToUpgrade);
     try {
-      console.log('[UPGRADE] Starting upgrade flow for:', { tier, planType });
+      console.log('[UPGRADE] Starting upgrade flow for:', { tier: tierToUpgrade, planType });
 
       // Step 1: Create order on backend
       const orderRes = await fetch(api('/api/payments/create-order'), {
@@ -125,7 +129,7 @@ export default function SubscriptionsPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ tier, planType }),
+        body: JSON.stringify({ tier: tierToUpgrade, planType }),
       });
 
       console.log('[UPGRADE] Order response status:', orderRes.status);
@@ -149,7 +153,7 @@ export default function SubscriptionsPage() {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         order_id: orderData.orderId,
         name: 'Resolve',
-        description: `${tier.toUpperCase()} Plan - ${planType}`,
+        description: `${tierToUpgrade.toUpperCase()} Plan - ${planType}`,
         image: 'https://resolve.com/logo.png',
         handler: async (response: any) => {
           // Step 3: Verify payment on backend
@@ -164,7 +168,7 @@ export default function SubscriptionsPage() {
                 orderId: orderData.orderId,
                 paymentId: response.razorpay_payment_id,
                 signature: response.razorpay_signature,
-                tier,
+                tier: tierToUpgrade,
                 planType,
               }),
             });
@@ -172,7 +176,7 @@ export default function SubscriptionsPage() {
             const verifyData = await verifyRes.json();
             if (!verifyRes.ok) throw new Error(verifyData.message || 'Payment verification failed');
 
-            alert(`Successfully upgraded to ${tier} plan!`);
+            alert(`Successfully upgraded to ${tierToUpgrade} plan!`);
             fetchSubscription();
           } catch (err) {
             alert(err instanceof Error ? err.message : 'Payment verification failed');
@@ -240,30 +244,122 @@ export default function SubscriptionsPage() {
     <div className="max-w-7xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-100 mb-2">Plans & Pricing</h1>
-        <p className="text-gray-400">Choose the perfect plan for your organization</p>
+        <p className="text-gray-400">Choose the perfect plan for your organization.</p>
       </div>
 
       {error && <p className="mb-6 p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-400">{error}</p>}
 
-      {/* Current Plan */}
+      {/* Current Plan - Detailed */}
       {subscription && (
         <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-8">
-          <p className="text-sm text-gray-400">Current Plan</p>
-          <div className="flex items-center justify-between mt-2">
+          <div className="flex items-start justify-between mb-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-100">
+              <p className="text-sm text-gray-400 mb-2">Current Plan</p>
+              <h2 className="text-3xl font-bold text-gray-100 capitalize">
                 {PLAN_DETAILS[subscription.tier].name}
               </h2>
-              <p className="text-sm text-gray-400 mt-1">
-                {subscription.limits.assets} assets • {subscription.limits.users} users
+            </div>
+            <div className="text-right">
+              <div
+                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${
+                  subscription.tier === 'free'
+                    ? 'bg-gray-700/50 border-gray-600 text-gray-300'
+                    : 'bg-green-900/30 border-green-700 text-green-400'
+                }`}
+              >
+                {subscription.tier === 'free' ? '○ Free' : '✓ Active'}
+              </div>
+            </div>
+          </div>
+
+          {/* Limits & Details Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 pb-6 border-b border-gray-700">
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Assets Limit</p>
+              <p className="text-2xl font-bold text-gray-100">{subscription.limits.assets}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Users Limit</p>
+              <p className="text-2xl font-bold text-gray-100">{subscription.limits.users}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Plan Type</p>
+              <p className="text-lg font-semibold text-gray-100 capitalize">{subscription.plan}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Status</p>
+              <p
+                className={`text-lg font-semibold ${
+                  subscription.tier === 'free'
+                    ? 'text-gray-400'
+                    : 'text-green-400'
+                }`}
+              >
+                {subscription.tier === 'free' ? 'Forever' : 'Active'}
               </p>
             </div>
+          </div>
+
+          {/* Dates & Days Remaining */}
+          {subscription.tier !== 'free' && subscription.subscriptionStartDate && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-400">Subscription Started</span>
+                <span className="text-sm font-medium text-gray-100">
+                  {new Date(subscription.subscriptionStartDate).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                  })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-400">Expires On</span>
+                <span className="text-sm font-medium text-gray-100">
+                  {subscription.subscriptionEndDate
+                    ? new Date(subscription.subscriptionEndDate).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      })
+                    : '—'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pt-3 border-t border-gray-700">
+                <span className="text-sm text-gray-400">Time Remaining</span>
+                <span className="text-sm font-bold text-green-400">
+                  {(() => {
+                    if (!subscription.subscriptionEndDate) return '—';
+                    const now = new Date();
+                    const end = new Date(subscription.subscriptionEndDate);
+                    const diff = end.getTime() - now.getTime();
+                    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+                    if (days < 0) return 'Expired';
+                    if (days === 0) return 'Expires Today';
+                    if (days === 1) return '1 day left';
+                    return `${days} days left`;
+                  })()}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="mt-6 flex gap-3">
             {subscription.tier !== 'free' && (
               <button
                 onClick={handleDowngrade}
-                className="px-4 py-2 text-sm bg-red-900/20 text-red-400 rounded-lg hover:bg-red-900/30 border border-red-800"
+                className="flex-1 px-4 py-2 text-sm bg-red-900/20 text-red-400 rounded-lg hover:bg-red-900/30 border border-red-800 font-medium transition-colors"
               >
                 Downgrade to Free
+              </button>
+            )}
+            {subscription.tier !== 'premium' && subscription.tier !== 'free' && (
+              <button
+                onClick={() => { setSelectedTier('premium'); setPlanType(subscription.plan as any); }}
+                className="flex-1 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+              >
+                Upgrade to Premium
               </button>
             )}
           </div>
@@ -374,7 +470,7 @@ export default function SubscriptionsPage() {
       <div className="mt-12 bg-gray-800/50 rounded-lg border border-gray-700 p-6">
         <h3 className="text-lg font-semibold text-gray-100 mb-4">Need help choosing?</h3>
         <p className="text-gray-400 mb-4">
-          Start with Free and upgrade anytime as your organization grows. All plans include core features like asset tracking, issue management, and team collaboration.
+          Start with Free and upgrade anytime as your organization grows. All plans include core features like asset tracking, issue management and team collaboration.
         </p>
         <Link href="/dashboard" className="text-blue-400 hover:underline">
           Go to Dashboard →
