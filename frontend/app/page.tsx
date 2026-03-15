@@ -424,8 +424,8 @@ export default function HomePage() {
 					className="select-none font-extrabold tracking-tighter text-gray-800 leading-none"
 					style={{
 						fontSize: 'clamp(140px, 24vw, 280px)',
-						WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 80%, transparent 100%)',
-						maskImage: 'linear-gradient(to bottom, black 0%, black 80%, transparent 100%)',
+						WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%)',
+						maskImage: 'linear-gradient(to bottom, black 0%, black 60%, transparent 100%)',
 						lineHeight: 1,
 					}}
 				>
@@ -459,6 +459,83 @@ export default function HomePage() {
 					>
 						See how it works
 					</a>
+				</div>
+
+
+
+				{/* ── Platform Capabilities Showcase ── */}
+				<div className="mt-24 w-full max-w-4xl mx-auto px-0">
+					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+						{[
+							{
+								icon: '⚡',
+								title: 'Instant Setup',
+								desc: 'No complex configurations. Start tracking in minutes.',
+								delay: '0ms',
+								color: 'from-gray-700/30 to-gray-800/30',
+							},
+							{
+								icon: '🔒',
+								title: 'Enterprise Security',
+								desc: 'Multiple layer security. Your data is protected.',
+								delay: '100ms',
+								color: 'from-gray-700/30 to-gray-800/30',
+							},
+							{
+								icon: '♻️',
+								title: 'Lifecycle Tracking',
+								desc: 'From purchase to retirement. Complete asset history.',
+								delay: '200ms',
+								color: 'from-gray-700/30 to-gray-800/30',
+							},
+							{
+								icon: '📡',
+								title: 'Real-time Monitoring',
+								desc: 'Live dashboards, health scoring & instant alerts.',
+								delay: '300ms',
+								color: 'from-gray-700/30 to-gray-800/30',
+							},
+						].map(({ icon, title, desc, delay, color }) => (
+							<div
+								key={title}
+								className="group"
+								style={{
+									animation: `slideInUp 0.7s ease-out forwards`,
+									animationDelay: delay,
+									opacity: 0,
+								}}
+							>
+								<div
+									className={`relative rounded-xl border border-gray-700/40 bg-gradient-to-br ${color} backdrop-blur-md p-5 h-full transition-all duration-300 hover:border-gray-600/60 hover:bg-gradient-to-br hover:from-gray-700/40 hover:to-gray-800/40`}
+								>
+									{/* Animated top accent */}
+									<div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-1 bg-gradient-to-r from-transparent via-gray-400 to-transparent group-hover:w-full transition-all duration-300" />
+
+									{/* Icon */}
+									<div className="text-3xl mb-3 transform group-hover:scale-110 group-hover:rotate-12 transition-all duration-300">
+										{icon}
+									</div>
+
+									{/* Title */}
+									<p className="text-sm font-bold text-gray-200 mb-2 group-hover:text-gray-100 transition-colors">
+										{title}
+									</p>
+
+									{/* Description */}
+									<p className="text-xs text-gray-500 leading-relaxed group-hover:text-gray-400 transition-colors">
+										{desc}
+									</p>
+
+									{/* Hover bottom accent */}
+									<div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-gray-600 to-transparent opacity-0 group-hover:opacity-100 rounded-b-xl transition-opacity duration-300" />
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+				{/* Horizontal divider */}
+				<div className="mt-20 w-full max-w-4xl mx-auto">
+					<div className="h-px bg-gradient-to-r from-transparent via-gray-700/60 to-transparent" />
 				</div>
 
 				{/* 3D Animated Impact Stats */}
@@ -499,6 +576,16 @@ export default function HomePage() {
 						from {
 							opacity: 0;
 							transform: translateY(30px);
+						}
+						to {
+							opacity: 1;
+							transform: translateY(0);
+						}
+					}
+					@keyframes slideInUp {
+						from {
+							opacity: 0;
+							transform: translateY(25px);
 						}
 						to {
 							opacity: 1;
