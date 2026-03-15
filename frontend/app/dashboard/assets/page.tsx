@@ -179,8 +179,8 @@ function AssetsPageContent() {
               ? `Assets — ${users.find(u => u._id === assignedToFilter)?.name ?? 'User'}`
               : 'Assets'}
           </h1>
-          <p className="text-gray-400">
-            Search by ID, name, serial; filter by status, type; sort by date or value
+          <p className="text-gray-400 ">
+            Search, Sort and Filter assets. Click on an asset to view details and edit.
           </p>
         </div>
         <div className="flex gap-2">
@@ -225,12 +225,12 @@ function AssetsPageContent() {
           placeholder="Search (ID, name, serial…)"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="px-3 py-2 bg-gray-800 border border-slate-300 text-gray-100 rounded-lg w-56 focus:outline-none focus:ring-2 focus:ring-primary"
+          className="px-3 py-2 bg-gray-800 border border-gray-700 text-gray-100 placeholder-gray-500 rounded-lg w-60 focus:outline-none focus:ring-2 focus:ring-primary"
         />
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-2 bg-gray-800 border border-slate-300 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-56 px-3 py-2 bg-gray-800 border border-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
         >
           <option value="">All statuses</option>
           <option value="available">Available</option>
@@ -244,7 +244,7 @@ function AssetsPageContent() {
           <select
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="px-3 py-2 bg-gray-800 border border-slate-300 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-56 px-3 py-2 bg-gray-800 border border-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="">All departments</option>
             {departments.map((d) => (
@@ -256,7 +256,7 @@ function AssetsPageContent() {
           <select
             value={assignedToFilter}
             onChange={(e) => setAssignedToFilter(e.target.value)}
-            className="px-3 py-2 bg-gray-800 border border-slate-300 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-[264px] px-3 py-2 bg-gray-800 border border-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="">All assigned</option>
             {users.map((u) => (
@@ -267,7 +267,7 @@ function AssetsPageContent() {
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="px-3 py-2 bg-gray-800 border border-slate-300 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-28 px-3 py-2 bg-gray-800 border border-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
         >
           <option value="">All types</option>
           {categories.map((cat) => (
@@ -281,7 +281,7 @@ function AssetsPageContent() {
             setSort(s);
             setOrder(o);
           }}
-          className="px-3 py-2 bg-gray-800 border border-slate-300 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          className="px-3 py-2 bg-gray-800 border border-gray-700 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
         >
           <option value="createdAt-desc">Newest first</option>
           <option value="createdAt-asc">Oldest first</option>
@@ -365,7 +365,7 @@ function AssetsPageContent() {
                 <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="px-3 py-1.5 text-sm border border-slate-300 text-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-950"
+                  className="px-3 py-1.5 text-sm border border-gray-700 text-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-900"
                 >
                   Previous
                 </button>
@@ -375,7 +375,7 @@ function AssetsPageContent() {
                 <button
                   onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
                   disabled={page >= Math.ceil(total / limit)}
-                  className="px-3 py-1.5 text-sm border border-slate-300 text-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-950"
+                  className="px-3 py-1.5 text-sm border border-gray-700 text-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-900"
                 >
                   Next
                 </button>

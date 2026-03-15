@@ -361,12 +361,12 @@ export default function NewAssetPage() {
       </Link>
       <h1 className="text-2xl font-bold mb-2">Add asset</h1>
       <p className="text-gray-400 mb-6">
-        Classroom, lab, or office — add one asset at a time. You can add location & department later.
+        Add new assets to your inventory. You can add a single asset or multiple identical assets at once. Asset IDs are auto-generated based on your organization name and selected category.
       </p>
 
       <form
         onSubmit={handleSubmit}
-        className="max-w-lg bg-gray-800 p-6 rounded-lg border border-gray-700"
+        className="bg-gray-800 p-6 rounded-lg border border-gray-700 grid grid-cols-1 md:grid-cols-2 gap-6"
       >
         {error && (
           <p className="mb-4 p-3 bg-red-900/20 text-red-400 rounded-lg text-sm">{error}</p>
@@ -377,11 +377,11 @@ export default function NewAssetPage() {
             readOnly
             required
             placeholder="Generating..."
-            className="w-full px-3 py-2.5 border border-slate-300 rounded-lg bg-gray-950 text-gray-300 cursor-not-allowed"
+            className="w-full px-3 py-2.5 border border-slate-300 rounded-lg bg-gray-900 text-gray-300 cursor-not-allowed"
             title="Auto-generated based on your organization name and asset category"
           />
           <p className="text-xs text-gray-500 mt-1">
-            Format: [ORG]-[CATEGORY]-[NUMBER] (e.g., ABC-PRO-001 for ABC School, Projector)
+            Format: [ORG]-[CATEGORY]-[NUMBER]
           </p>
         </Field>
         <Field label="Quantity (How many identical assets?)" required>
@@ -541,7 +541,7 @@ export default function NewAssetPage() {
               </option>
             ))}
           </select>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-sm text-gray-500 mt-1">
             <Link href="/dashboard/vendors" className="text-blue-400 hover:underline">
               Manage vendors
             </Link> to add new vendors
@@ -556,40 +556,40 @@ export default function NewAssetPage() {
             className={inputClassName}
           />
         </Field>
-        <Field label="Photos (optional)">
-          <div className="space-y-2">
-            <input type="file" accept="image/*" onChange={addPhoto} className="text-sm text-gray-400" />
-            {photos.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {photos.map((p, i) => (
-                  <div key={i} className="relative">
-                    <img src={p.url} alt="" className="h-20 w-20 object-cover rounded border border-gray-700" />
-                    <button type="button" onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs leading-none">×</button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </Field>
-        <Field label="Documents (optional)">
-          <div className="space-y-2">
-            <input type="file" accept=".pdf,.doc,.docx,image/*" onChange={addDocument} className="text-sm text-gray-400" />
-            {documents.length > 0 && (
-              <ul className="text-sm text-gray-400 mt-2 space-y-1">
-                {documents.map((d, i) => (
-                  <li key={i} className="flex items-center gap-2">
-                    <span>{d.name}</span>
-                    <button type="button" onClick={() => setDocuments((prev) => prev.filter((_, j) => j !== i))} className="text-red-400 hover:underline">Remove</button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </Field>
+        {/*<Field label="Photos (optional)">*/}
+        {/*  <div className="space-y-2">*/}
+        {/*    <input type="file" accept="image/*" onChange={addPhoto} className="text-sm text-gray-400" />*/}
+        {/*    {photos.length > 0 && (*/}
+        {/*      <div className="flex flex-wrap gap-2 mt-2">*/}
+        {/*        {photos.map((p, i) => (*/}
+        {/*          <div key={i} className="relative">*/}
+        {/*            <img src={p.url} alt="" className="h-20 w-20 object-cover rounded border border-gray-700" />*/}
+        {/*            <button type="button" onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs leading-none">×</button>*/}
+        {/*          </div>*/}
+        {/*        ))}*/}
+        {/*      </div>*/}
+        {/*    )}*/}
+        {/*  </div>*/}
+        {/*</Field>*/}
+        {/*<Field label="Documents (optional)">*/}
+        {/*  <div className="space-y-2">*/}
+        {/*    <input type="file" accept=".pdf,.doc,.docx,image/*" onChange={addDocument} className="text-sm text-gray-400" />*/}
+        {/*    {documents.length > 0 && (*/}
+        {/*      <ul className="text-sm text-gray-400 mt-2 space-y-1">*/}
+        {/*        {documents.map((d, i) => (*/}
+        {/*          <li key={i} className="flex items-center gap-2">*/}
+        {/*            <span>{d.name}</span>*/}
+        {/*            <button type="button" onClick={() => setDocuments((prev) => prev.filter((_, j) => j !== i))} className="text-red-400 hover:underline">Remove</button>*/}
+        {/*          </li>*/}
+        {/*        ))}*/}
+        {/*      </ul>*/}
+        {/*    )}*/}
+        {/*  </div>*/}
+        {/*</Field>*/}
         <button
           type="submit"
           disabled={loading || bulkCreating || generatingAssetId}
-          className="mt-4 px-6 py-3 bg-primary text-white rounded-lg font-semibold disabled:opacity-60 hover:bg-primary-hover"
+          className="w-32 mt-4 px-6 py-3 bg-primary text-white rounded-lg font-semibold disabled:opacity-60 hover:bg-primary-hover md:col-span-2"
         >
           {bulkCreating
             ? `Creating ${bulkProgress.current} of ${bulkProgress.total}...`
@@ -603,7 +603,7 @@ export default function NewAssetPage() {
         </button>
 
         {bulkCreating && (
-          <div className="mt-4">
+          <div className="mt-4 md:col-span-2">
             <div className="w-full bg-slate-200 rounded-full h-2.5">
               <div
                 className="bg-primary h-2.5 rounded-full transition-all duration-300"
@@ -622,7 +622,7 @@ export default function NewAssetPage() {
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
-    <div className="mb-4">
+    <div>
       <label className="block mb-1.5 font-medium text-gray-300">
         {label} {required && '*'}
       </label>

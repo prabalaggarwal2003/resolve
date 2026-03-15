@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiUrl } from '@/lib/api';
 
@@ -192,7 +193,7 @@ export default function OrganizationPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-100">Organization Details</h1>
-              <p className="text-gray-400 mt-1">Manage your organization information and settings</p>
+              <p className="text-gray-400 mt-1">Manage your organization information and settings.</p>
             </div>
             {user?.role === 'super_admin' && (
               <div className="flex gap-2">
@@ -416,18 +417,27 @@ export default function OrganizationPage() {
               )}
 
               {/* Quick Actions */}
-              <div className="bg-blue-900/20 rounded-lg p-4">
-                <h3 className="font-medium text-blue-900 mb-3">Quick Actions</h3>
+              <div className="bg-blue-900/20 rounded-lg p-4 border border-blue-800">
+                <h3 className="font-medium text-white mb-3">Quick Actions</h3>
                 <div className="space-y-2">
-                  <button className="w-full text-left text-sm text-blue-400 hover:text-blue-800">
-                    → Invite team members
-                  </button>
-                  <button className="w-full text-left text-sm text-blue-400 hover:text-blue-800">
-                    → Export organization data
-                  </button>
-                  <button className="w-full text-left text-sm text-blue-400 hover:text-blue-800">
+                  <Link
+                    href="/dashboard/roles"
+                    className="w-full block text-left text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-900/20 px-3 py-2 rounded transition-colors no-underline"
+                  >
+                    → Add new user
+                  </Link>
+                  <Link
+                    href="/dashboard/subscriptions"
+                    className="w-full block text-left text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-900/20 px-3 py-2 rounded transition-colors no-underline"
+                  >
+                    → Manage subscriptions
+                  </Link>
+                  <Link
+                    href="/dashboard/audit"
+                    className="w-full block text-left text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-900/20 px-3 py-2 rounded transition-colors no-underline"
+                  >
                     → View audit logs
-                  </button>
+                  </Link>
                 </div>
               </div>
             </div>
