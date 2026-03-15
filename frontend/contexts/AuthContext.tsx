@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check for existing auth on mount
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-    
+
     if (storedToken && storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
