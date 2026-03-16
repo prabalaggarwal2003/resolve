@@ -727,8 +727,8 @@ export default function HomePage() {
 
 			{/* ── Footer ── */}
 			<footer className="relative z-10 w-full border-t border-gray-800/60 bg-gray-900/40 backdrop-blur-sm py-12 px-6">
-				<div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-8 mb-10">
-					<div className="col-span-2 sm:col-span-1">
+			<div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-5 gap-8 mb-10">
+				<div className="col-span-2 sm:col-span-1">
 						<p className="text-gray-100 font-extrabold text-lg tracking-tight mb-2">
 							resolve
 						</p>
@@ -790,29 +790,60 @@ export default function HomePage() {
 							</li>
 						</ul>
 					</div>
-					<div>
-						<p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
-							Contact
-						</p>
-						<ul className="space-y-2 text-sm text-gray-500">
-							<li>
-								<a
-									href="mailto:resolveishere@gmail.com"
-									className="hover:text-gray-300 transition-colors no-underline"
-								>
-									resolveishere@gmail.com
-								</a>
-							</li>
-							<li>
-								<a
-									href="tel:+911234567890"
-									className="hover:text-gray-300 transition-colors no-underline"
-								>
-									+91 1234567890
-								</a>
-							</li>
-						</ul>
-					</div>
+				<div>
+					<p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
+						Contact
+					</p>
+					<ul className="space-y-2 text-sm text-gray-500">
+						<li>
+							<a
+								href="mailto:resolveishere@gmail.com"
+								className="hover:text-gray-300 transition-colors no-underline"
+							>
+								resolveishere@gmail.com
+							</a>
+						</li>
+						<li>
+							<a
+								href="tel:+911234567890"
+								className="hover:text-gray-300 transition-colors no-underline"
+							>
+								+91 1234567890
+							</a>
+						</li>
+					</ul>
+				</div>
+				<div>
+					<p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
+						Legal
+					</p>
+					<ul className="space-y-2 text-sm text-gray-500">
+						<li>
+							<Link
+								href="/legal"
+								className="hover:text-gray-300 transition-colors no-underline"
+							>
+								Terms of Service
+							</Link>
+						</li>
+						<li>
+							<Link
+								href="/legal#privacy"
+								className="hover:text-gray-300 transition-colors no-underline"
+							>
+								Privacy Policy
+							</Link>
+						</li>
+						<li>
+							<Link
+								href="/legal#copyright"
+								className="hover:text-gray-300 transition-colors no-underline"
+							>
+								Copyright & IP
+							</Link>
+						</li>
+					</ul>
+				</div>
 				</div>
 				<div className="border-t border-gray-800/60 pt-6 text-center">
 					<p className="text-xs text-gray-700">
