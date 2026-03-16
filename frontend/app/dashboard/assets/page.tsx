@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import UpgradeNudges from '@/components/UpgradeNudges';
 
 const CATEGORIES = [
   'Projector',
@@ -48,6 +49,8 @@ function AssetsPageContent() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [subscriptionTier, setSubscriptionTier] = useState<'free' | 'pro' | 'premium'>('free');
+  const [dismissedNudges, setDismissedNudges] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -83,6 +86,30 @@ function AssetsPageContent() {
         // If parsing fails, keep default categories
       }
     }
+
+    // Load dismissed nudges from localStorage
+    const savedNudges = localStorage.getItem('dismissedNudges');
+    if (savedNudges) setDismissedNudges(JSON.parse(savedNudges));
+  }, []);
+
+  // Fetch subscription details
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      if (!token) return;
+
+      try {
+        const res = await fetch(api('/api/payments/subscription-status'), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setSubscriptionTier(data.tier || 'free');
+        }
+      } catch (_) {}
+    };
+
+    fetchSubscription();
   }, []);
 
   useEffect(() => {
@@ -202,6 +229,20 @@ function AssetsPageContent() {
           )}
         </div>
       </div>
+
+      {/* Upgrade Nudges for Free Tier Users */}
+      <UpgradeNudges
+        userTier={subscriptionTier}
+        assetCount={total}
+        dismissedNudges={dismissedNudges}
+        onDismiss={(nudgeId) => {
+          const updated = [...dismissedNudges, nudgeId];
+          setDismissedNudges(updated);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('dismissedNudges', JSON.stringify(updated));
+          }
+        }}
+      />
 
       <div className="flex flex-wrap gap-3 mb-4">
         {/* Assigned-to banner */}

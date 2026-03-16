@@ -57,13 +57,13 @@ export default function DashboardNav() {
       {navItem('/dashboard', '🏠', 'Dashboard', is('/dashboard'))}
       {navItem('/dashboard/assets', '📦', 'Assets', is('/dashboard/assets'))}
       {navItem('/dashboard/issues', '🔔', 'Issues', is('/dashboard/issues'))}
-      {canViewNotifications && <NotificationsLink />}
+      {/*{canViewNotifications && <NotificationsLink />}*/}
 
       {/* Manage */}
       <p className="px-3 pt-4 pb-2 text-xs font-semibold text-gray-700 uppercase tracking-widest">Manage</p>
       {canViewLocations && navItem('/dashboard/locations', '📍', 'Locations', is('/dashboard/locations'))}
       {canViewMaintenance && navItem('/dashboard/maintenance', '🔧', 'Maintenance', is('/dashboard/maintenance'))}
-      {canViewAssetHealth && navItem('/dashboard/asset-health', '❤️', 'Asset Health', is('/dashboard/asset-health'))}
+      {/*{canViewAssetHealth && navItem('/dashboard/asset-health', '❤️', 'Asset Health', is('/dashboard/asset-health'))}*/}
       {canViewReports && navItem('/dashboard/reports', '📄', 'Reports', is('/dashboard/reports'))}
 
       {/* Analytics */}
