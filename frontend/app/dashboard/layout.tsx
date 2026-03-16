@@ -18,10 +18,11 @@ export default function DashboardLayout({
         <aside className="w-64 shrink-0 p-3 flex flex-col sticky top-0 h-screen">
           <div className="flex-1 flex flex-col rounded-2xl border border-gray-700/60 bg-gray-900/60 backdrop-blur-xl shadow-2xl overflow-hidden">
             {/* Logo */}
-            <div className="px-5 pt-6 pb-4 border-b border-gray-800/60">
+            <div className="px-5 pt-6 pb-4 border-b border-gray-800/60 flex flex-row gap-3">
+              <img src="/favicon.svg" alt="resolve logo" className="h-12 w-12 -mr-2" />
               <Link
                 href="/dashboard"
-                className="font-extrabold text-xl text-gray-100 tracking-tight no-underline"
+                className="font-extrabold text-xl text-gray-100 tracking-tight no-underline mt-[10px] -ml-[5px]"
               >
                 resolve
               </Link>

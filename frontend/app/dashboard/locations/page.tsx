@@ -32,6 +32,8 @@ export default function LocationsPage() {
   const [newDeptName, setNewDeptName] = useState('');
   const [addingDept, setAddingDept] = useState(false);
   const [deletingDept, setDeletingDept] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const fetchLocations = () => {
     setError('');
@@ -170,6 +172,15 @@ export default function LocationsPage() {
   };
 
   const filtered = filterType ? locations.filter((l) => l.type === filterType) : locations;
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const startIdx = (currentPage - 1) * itemsPerPage;
+  const endIdx = startIdx + itemsPerPage;
+  const paginatedLocations = filtered.slice(startIdx, endIdx);
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterType]);
 
   if (loading) return (
     <div><h1 className="text-2xl font-bold mb-2">Locations</h1><p className="text-gray-400">Loading…</p></div>
@@ -303,35 +314,77 @@ export default function LocationsPage() {
             No locations yet. Add a campus, building, floor, or room to get started.
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-950 text-left">
-                <th className="p-3 font-medium text-gray-300">Name</th>
-                <th className="p-3 font-medium text-gray-300">Type</th>
-                <th className="p-3 font-medium text-gray-300">Department</th>
-                <th className="p-3 font-medium text-gray-300">Code</th>
-                <th className="p-3 font-medium text-gray-300">Parent</th>
-                <th className="p-3 font-medium text-gray-300">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((loc) => (
-                <tr key={loc._id} className="border-t border-gray-700 hover:bg-gray-900/40">
-                  <td className="p-3 font-medium text-gray-100">{loc.name}</td>
-                  <td className="p-3 text-gray-400 capitalize">{loc.type}</td>
-                  <td className="p-3 text-gray-400">{loc.departmentId?.name ?? '—'}</td>
-                  <td className="p-3 text-gray-400">{loc.code ?? '—'}</td>
-                  <td className="p-3 text-gray-400">{getParentName(loc.parentId)}</td>
-                  <td className="p-3">
-                    <button type="button" onClick={() => openEdit(loc)}
-                      className="text-primary hover:underline mr-3">Edit</button>
-                    <button type="button" onClick={() => handleDelete(loc._id)}
-                      className="text-red-400 hover:underline">Delete</button>
-                  </td>
+          <>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-950 text-left">
+                  <th className="p-3 font-medium text-gray-300">Name</th>
+                  <th className="p-3 font-medium text-gray-300">Type</th>
+                  <th className="p-3 font-medium text-gray-300">Department</th>
+                  <th className="p-3 font-medium text-gray-300">Code</th>
+                  <th className="p-3 font-medium text-gray-300">Parent</th>
+                  <th className="p-3 font-medium text-gray-300">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {paginatedLocations.map((loc) => (
+                  <tr key={loc._id} className="border-t border-gray-700 hover:bg-gray-900/40">
+                    <td className="p-3 font-medium text-gray-100">{loc.name}</td>
+                    <td className="p-3 text-gray-400 capitalize">{loc.type}</td>
+                    <td className="p-3 text-gray-400">{loc.departmentId?.name ?? '—'}</td>
+                    <td className="p-3 text-gray-400">{loc.code ?? '—'}</td>
+                    <td className="p-3 text-gray-400">{getParentName(loc.parentId)}</td>
+                    <td className="p-3">
+                      <button type="button" onClick={() => openEdit(loc)}
+                        className="text-primary hover:underline mr-3">Edit</button>
+                      <button type="button" onClick={() => handleDelete(loc._id)}
+                        className="text-red-400 hover:underline">Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-700 bg-gray-900/50">
+                <div className="text-sm text-gray-400">
+                  Showing {startIdx + 1}–{Math.min(endIdx, filtered.length)} of {filtered.length}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    ← Previous
+                  </button>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-2.5 py-1 text-sm rounded transition-colors ${
+                          currentPage === page
+                            ? 'bg-primary text-white font-medium'
+                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

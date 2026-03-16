@@ -44,6 +44,7 @@ export default function DashboardNav() {
   const canViewNotifications = role === 'super_admin';
   const canViewLocations = role === 'super_admin';
   const canViewReports = ['super_admin', 'manager'].includes(role);
+  const canViewSubscriptions = ['super_admin', 'admin'].includes(role);
 
   const is = (href: string) =>
     href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href);
@@ -86,8 +87,12 @@ export default function DashboardNav() {
       )}
 
       {/* Settings */}
-      <p className="px-3 pt-4 pb-2 text-xs font-semibold text-gray-700 uppercase tracking-widest">Settings</p>
-      {navItem('/dashboard/subscriptions', '💳', 'Subscriptions', is('/dashboard/subscriptions'))}
+      {canViewSubscriptions && (
+        <>
+          <p className="px-3 pt-4 pb-2 text-xs font-semibold text-gray-700 uppercase tracking-widest">Settings</p>
+          {navItem('/dashboard/subscriptions', '💳', 'Subscriptions', is('/dashboard/subscriptions'))}
+        </>
+      )}
     </nav>
   );
 }
