@@ -131,7 +131,7 @@ function ReportContent() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-950 p-4 pb-8">
+    <main className="min-h-screen bg-gray-950 p-4">
       <div className="max-w-2xl mx-auto">
         <div className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-6">
           <h1 className="text-xl font-bold mb-1 text-gray-100">Report an issue</h1>
@@ -207,16 +207,16 @@ function ReportContent() {
                     placeholder="Describe the issue in a few lines..." />
                 </div>
                 <div>
-                  <label className="block mb-1.5 font-medium text-gray-300">Photo (optional)</label>
-                  <input type="file" accept="image/*" onChange={handlePhotoChange}
-                    className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-gray-700 file:text-gray-200 hover:file:bg-gray-600" />
-                  {photoDataUrl && (
-                    <div className="mt-2 relative inline-block">
-                      <img src={photoDataUrl} alt="Attached" className="h-20 w-20 object-cover rounded-lg border border-gray-700" />
-                      <button type="button" onClick={() => setPhotoDataUrl(null)}
-                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-500">×</button>
-                    </div>
-                  )}
+                  {/*<label className="block mb-1.5 font-medium text-gray-300">Photo (optional)</label>*/}
+                  {/*<input type="file" accept="image/*" onChange={handlePhotoChange}*/}
+                  {/*  className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-gray-700 file:text-gray-200 hover:file:bg-gray-600" />*/}
+                  {/*{photoDataUrl && (*/}
+                  {/*  <div className="mt-2 relative inline-block">*/}
+                  {/*    <img src={photoDataUrl} alt="Attached" className="h-20 w-20 object-cover rounded-lg border border-gray-700" />*/}
+                  {/*    <button type="button" onClick={() => setPhotoDataUrl(null)}*/}
+                  {/*      className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-500">×</button>*/}
+                  {/*  </div>*/}
+                  {/*)}*/}
                 </div>
             <button type="submit" disabled={loading || !assetId}
               className="w-full py-3 bg-gray-700 text-white rounded-lg font-semibold disabled:opacity-60 hover:bg-gray-600">

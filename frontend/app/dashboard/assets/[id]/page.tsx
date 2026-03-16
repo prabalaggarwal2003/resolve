@@ -200,7 +200,7 @@ export default function AssetDetailPage() {
         {asset.qrCodeUrl && (
           <div className="p-3 bg-gray-800 rounded-lg border border-gray-700 shrink-0 mr-80 -mt-8">
             <img src={asset.qrCodeUrl} alt="QR" width={100} height={100} />
-            <p className="text-xs text-gray-500 mt-1">Scan for details</p>
+            <p className="text-xs text-gray-500 mt-1 text-center">Scan for details</p>
           </div>
         )}
         <div className="flex gap-2 items-start flex-wrap">
