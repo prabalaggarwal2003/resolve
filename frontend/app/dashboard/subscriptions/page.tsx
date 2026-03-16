@@ -75,10 +75,20 @@ export default function SubscriptionsPage() {
   const [planType, setPlanType] = useState<'monthly' | 'annual'>('monthly');
   const [selectedTier, setSelectedTier] = useState<'pro' | 'premium'>('pro');
   const [upgrading, setUpgrading] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSubscription();
     loadRazorpayScript();
+
+    // Get user role from localStorage
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        setUserRole(user.role || null);
+      }
+    } catch (_) {}
   }, []);
 
   const loadRazorpayScript = () => {
@@ -231,6 +241,7 @@ export default function SubscriptionsPage() {
     }
   };
 
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -346,7 +357,7 @@ export default function SubscriptionsPage() {
 
           {/* Action Buttons */}
           <div className="mt-6 flex gap-3">
-            {subscription.tier !== 'free' && (
+            {subscription.tier !== 'free' && userRole === 'super_admin' && (
               <button
                 onClick={handleDowngrade}
                 className="flex-1 px-4 py-2 text-sm bg-red-900/20 text-red-400 rounded-lg hover:bg-red-900/30 border border-red-800 font-medium transition-colors"
@@ -354,7 +365,7 @@ export default function SubscriptionsPage() {
                 Downgrade to Free
               </button>
             )}
-            {subscription.tier !== 'premium' && subscription.tier !== 'free' && (
+            {subscription.tier !== 'premium' && subscription.tier !== 'free' && userRole === 'super_admin' && (
               <button
                 onClick={() => { setSelectedTier('premium'); setPlanType(subscription.plan as any); }}
                 className="flex-1 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
@@ -447,7 +458,7 @@ export default function SubscriptionsPage() {
                 ))}
               </ul>
 
-              {!isCurrent && tier !== 'free' && (
+              {!isCurrent && tier !== 'free' && userRole === 'super_admin' && (
                 <button
                   onClick={() => handleUpgrade(tier)}
                   disabled={upgrading === tier}

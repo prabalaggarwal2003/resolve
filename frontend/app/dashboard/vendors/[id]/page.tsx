@@ -530,11 +530,11 @@ export default function VendorDetailPage() {
                   <label className="block text-sm font-medium text-gray-300 mb-1">Due Date</label>
                   <input type="date" value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent" />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Invoice File (PDF/Image)</label>
-                  <input type="file" accept=".pdf,image/*" onChange={(e) => setInvoiceForm({ ...invoiceForm, invoiceFile: e.target.files?.[0] || null })} className="w-full text-sm text-gray-400" />
-                  {invoiceForm.invoiceFile && <p className="text-sm text-gray-400 mt-1">Selected: {invoiceForm.invoiceFile.name}</p>}
-                </div>
+                {/*<div>*/}
+                {/*  <label className="block text-sm font-medium text-gray-300 mb-1">Invoice File (PDF/Image)</label>*/}
+                {/*  <input type="file" accept=".pdf,image/*" onChange={(e) => setInvoiceForm({ ...invoiceForm, invoiceFile: e.target.files?.[0] || null })} className="w-full text-sm text-gray-400" />*/}
+                {/*  {invoiceForm.invoiceFile && <p className="text-sm text-gray-400 mt-1">Selected: {invoiceForm.invoiceFile.name}</p>}*/}
+                {/*</div>*/}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">Notes</label>
                   <textarea value={invoiceForm.notes} onChange={(e) => setInvoiceForm({ ...invoiceForm, notes: e.target.value })} rows={3} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent" />
