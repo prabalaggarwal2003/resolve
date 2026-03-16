@@ -175,6 +175,13 @@ router.get('/subscription-status', protect, async (req, res) => {
     const now = new Date();
     const isExpired = org.subscriptionEndDate && org.subscriptionEndDate < now;
 
+    // Calculate days remaining
+    let daysRemaining = null;
+    if (org.subscriptionEndDate && !isExpired) {
+      const diff = org.subscriptionEndDate.getTime() - now.getTime();
+      daysRemaining = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    }
+
     // Treat expired subscriptions as free
     const tier = isExpired ? 'free' : (org.subscriptionTier || 'free');
     const limits = TIER_LIMITS[tier];
@@ -186,6 +193,7 @@ router.get('/subscription-status', protect, async (req, res) => {
       subscriptionStartDate: org.subscriptionStartDate,
       subscriptionEndDate: org.subscriptionEndDate,
       isExpired,
+      daysRemaining,
       limits,
       canUpgrade: tier !== 'premium',
     });

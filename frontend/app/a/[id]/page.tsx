@@ -157,7 +157,7 @@ const searchIssue = async () => {
                 {asset.assetId} · {asset.category}
               </p>
               <span
-                className={`inline-block px-3 py-1 rounded-lg text-sm font-medium ${STATUS_CLASSES[asset.status] ?? 'bg-slate-100 text-gray-300'}`}
+                className={`inline-block px-3 py-1 rounded-lg text-sm font-medium ${STATUS_CLASSES[asset.status] ?? 'bg-gray-500 text-gray-300'}`}
               >
                 {STATUS_LABELS[asset.status] ?? asset.status}
               </span>
@@ -255,7 +255,7 @@ const searchIssue = async () => {
             ) : (
               <Link
                 href={`/report?assetId=${asset._id}&assetName=${encodeURIComponent(asset.name)}`}
-                className="block w-full py-4 bg-primary text-white text-center font-semibold rounded-xl hover:bg-primary-hover shadow-sm"
+                className="block ml-72 w-[25%] py-4 bg-primary text-white text-center font-semibold rounded-xl hover:bg-primary-hover shadow-sm"
               >
                 Report an issue
               </Link>
@@ -299,21 +299,22 @@ const searchIssue = async () => {
                   <div className="p-4 bg-green-900/20 border border-green-800 rounded-lg">
                     <div className="space-y-2">
                       <div className="flex justify-between items-start">
-                        <h3 className="font-semibold text-green-900">{issueResult.ticketId}</h3>
+                        <h3 className="font-semibold text-green-400">{issueResult.ticketId}</h3>
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
                           issueResult.status === 'open' ? 'bg-red-100 text-red-800' :
                           issueResult.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
                           issueResult.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          'bg-gray-800 text-gray-800'
+                          'bg-gray-500 text-gray-800'
                         }`}>
                           {issueResult.status.replace('_', ' ').toUpperCase()}
                         </span>
                       </div>
 
                       <div>
-                        <h4 className="font-medium text-green-900 mb-1">{issueResult.title}</h4>
+                        <h4 className="font-medium text-green-400 mb-1">{issueResult.title}</h4>
                         <p className="text-green-400 text-sm">{issueResult.description}</p>
                       </div>
+                      <div className="border-t border-green-800 mt-2" />
 
                       <div className="grid grid-cols-2 gap-2 text-xs text-green-400">
                         <div>
@@ -402,12 +403,12 @@ const searchIssue = async () => {
           </div>
         </div>
 
-        <p className="mt-4 text-center text-gray-500 text-sm">
-          <Link href="/" className="text-primary hover:underline">
-            Resolve
-          </Link>
-          {' · Asset management'}
-        </p>
+        {/*<p className="mt-4 text-center text-gray-500 text-sm">*/}
+        {/*  <Link href="/" className="text-primary hover:underline">*/}
+        {/*    Resolve*/}
+        {/*  </Link>*/}
+        {/*  {' · Asset management'}*/}
+        {/*</p>*/}
       </div>
     </main>
   );
