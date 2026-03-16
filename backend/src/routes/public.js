@@ -130,12 +130,14 @@ router.post('/report', async (req, res) => {
     };
 
     // Find issue for same asset + same category + same date (group by day)
+    // IMPORTANT: Filter by organizationId to prevent cross-org leaks
     const today = new Date();
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
     
     const existing = await Issue.findOne({
       assetId,
+      organizationId: asset.organizationId, // Filter by organization
       category,
       createdAt: { $gte: todayStart, $lt: todayEnd }
     }).lean();

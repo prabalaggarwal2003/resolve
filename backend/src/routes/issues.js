@@ -102,6 +102,11 @@ router.get('/:id', async (req, res) => {
       .lean();
     if (!issue) return res.status(404).json({ message: 'Issue not found' });
     
+    // Verify issue belongs to user's organization
+    if (issue.organizationId?.toString() !== req.user.organizationId?.toString()) {
+      return res.status(403).json({ message: 'You do not have access to this issue' });
+    }
+
     // Check access permissions
     if (!canViewAll(req.user)) {
       // HOD: can only view issues from their department
@@ -165,6 +170,12 @@ router.patch('/:id', (req, res, next) => {
     }
     const prev = await Issue.findById(req.params.id).lean();
     if (!prev) return res.status(404).json({ message: 'Issue not found' });
+
+    // Verify the issue belongs to the user's organization
+    if (prev.organizationId?.toString() !== req.user.organizationId?.toString()) {
+      return res.status(403).json({ message: 'You do not have permission to update this issue' });
+    }
+
     const update = { status };
     if (status === 'completed') {
       update.resolvedAt = new Date();
@@ -198,7 +209,12 @@ router.patch('/:id', (req, res, next) => {
       ...getRequestMetadata(req)
     });
 
-    const managers = await User.find({ role: { $in: ['super_admin', 'admin', 'manager', 'principal'] }, isActive: true }).limit(50).select('_id').lean();
+    // Notify managers in the same organization using issue.organizationId
+    const managers = await User.find({
+      role: { $in: ['super_admin', 'admin', 'manager', 'principal'] },
+      isActive: true,
+      organizationId: issue.organizationId // Use issue's organizationId directly
+    }).limit(50).select('_id').lean();
     const notif = {
       type: status === 'completed' ? 'report_resolved' : 'report_updated',
       title: status === 'completed' ? 'Report resolved' : 'Report updated',
