@@ -99,6 +99,7 @@ function StatusButtons({
 const CAN_EDIT_ROLES = ['super_admin', 'admin'];
 
 export default function DashboardPage() {
+  // ...existing code...
   const [summary, setSummary] = useState<Summary | null>(null);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,6 +108,7 @@ export default function DashboardPage() {
   const [isManager, setIsManager] = useState(false);
   const [subscriptionTier, setSubscriptionTier] = useState<'free' | 'pro' | 'premium'>('free');
   const [dismissedNudges, setDismissedNudges] = useState<string[]>([]);
+
 
   useEffect(() => {
     try {

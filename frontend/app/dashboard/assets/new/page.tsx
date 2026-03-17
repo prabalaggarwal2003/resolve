@@ -19,7 +19,7 @@ const CATEGORIES = [
 const STATUSES = ['available', 'in_use', 'under_maintenance', 'retired', 'working', 'needs_repair', 'out_of_service'];
 
 const inputClassName =
-  'w-full px-3 py-2 border border-slate-300 rounded-lg bg-gray-900 text-gray-100';
+  'w-full px-3 py-2 border border-gray-700 rounded-lg bg-gray-800 text-gray-100';
 
 export default function NewAssetPage() {
   const router = useRouter();
@@ -524,9 +524,9 @@ export default function NewAssetPage() {
             onChange={(e) => setForm({ ...form, warrantyExpiry: e.target.value })}
             className="w-full px-3 py-2.5 border border-slate-300 bg-gray-800 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           />
-          <p className="text-xs text-gray-500 mt-1">
-            You'll be notified when warranty expires
-          </p>
+          {/*<p className="text-xs text-gray-500 mt-1">*/}
+          {/*  You'll be notified when warranty expires*/}
+          {/*</p>*/}
         </Field>
         <Field label="Vendor">
           <select

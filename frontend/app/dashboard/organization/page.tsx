@@ -40,7 +40,7 @@ const ESTIMATED_ASSETS = [
 ];
 
 const buttonClass = 'px-4 py-2 rounded-lg font-medium transition-colors';
-const inputClass = 'w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-blue-500';
+const inputClass = 'w-full px-3 py-2 border border-gray-700 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-blue-500';
 const labelClass = 'block text-sm font-medium text-gray-300 mb-1';
 
 export default function OrganizationPage() {
@@ -201,14 +201,14 @@ export default function OrganizationPage() {
                   <>
                     <button
                       onClick={handleCancel}
-                      className={`${buttonClass} bg-slate-100 hover:bg-slate-200 text-gray-300`}
+                      className={`${buttonClass} bg-gray-500 hover:bg-gray-400 text-white`}
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSave}
                       disabled={saving}
-                      className={`${buttonClass} bg-gray-700 hover:bg-gray-700 text-white disabled:opacity-50`}
+                      className={`${buttonClass} bg-gray-700 hover:bg-gray-500 text-white disabled:opacity-50`}
                     >
                       {saving ? 'Saving...' : 'Save Changes'}
                     </button>

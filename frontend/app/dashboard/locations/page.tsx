@@ -217,20 +217,20 @@ export default function LocationsPage() {
             <div>
               <label className="block mb-1 font-medium text-gray-300">Name *</label>
               <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-                required className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-gray-900 text-gray-100"
+                required className="w-full px-3 py-2 border border-gray-700 rounded-lg bg-gray-800 text-gray-100"
                 placeholder="e.g. Room 201" />
             </div>
             <div>
               <label className="block mb-1 font-medium text-gray-300">Type *</label>
               <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-gray-900 text-gray-100">
+                className="w-full px-3 py-2 border border-gray-700 rounded-lg bg-gray-800 text-gray-100">
                 {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div>
               <label className="block mb-1 font-medium text-gray-300">Department</label>
               <select value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-gray-900 text-gray-100">
+                className="w-full px-3 py-2 border border-gray-700 rounded-lg bg-gray-800 text-gray-100">
                 <option value="">No department</option>
                 {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
               </select>
@@ -238,7 +238,7 @@ export default function LocationsPage() {
             <div>
               <label className="block mb-1 font-medium text-gray-300">Parent</label>
               <select value={form.parentId} onChange={(e) => setForm({ ...form, parentId: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-gray-900 text-gray-100">
+                className="w-full px-3 py-2 border border-gray-700 rounded-lg bg-gray-800 text-gray-100">
                 <option value="">None (top level)</option>
                 {locations.filter((l) => !editing || l._id !== editing._id).map((l) => (
                   <option key={l._id} value={l._id}>{l.name} ({l.type})</option>
@@ -248,7 +248,7 @@ export default function LocationsPage() {
             <div>
               <label className="block mb-1 font-medium text-gray-300">Code</label>
               <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-gray-900 text-gray-100"
+                className="w-full px-3 py-2 border border-gray-700 rounded-lg bg-gray-800 text-gray-100"
                 placeholder="e.g. R-201" />
             </div>
             <div className="flex gap-2">

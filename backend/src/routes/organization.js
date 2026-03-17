@@ -19,7 +19,7 @@ router.get('/', protect, async (req, res) => {
 
     // Return orgId and basic info for all users, full details for super_admin
     if (req.user.role === 'super_admin') {
-      const userCount = await User.countDocuments({ organizationId: req.user.organizationId });
+      const userCount = await User.countDocuments({ organizationId: req.user.organizationId, isActive: true });
       res.json({
         organization,
         statistics: {

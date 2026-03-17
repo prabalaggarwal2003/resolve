@@ -508,7 +508,7 @@ export default function VendorDetailPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-1">Status</label>
-                    <select value={invoiceForm.status} onChange={(e) => setInvoiceForm({ ...invoiceForm, status: e.target.value })} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent">
+                    <select value={invoiceForm.status} onChange={(e) => setInvoiceForm({ ...invoiceForm, status: e.target.value })} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent">
                       <option value="Pending">Pending</option>
                       <option value="Paid">Paid</option>
                       <option value="Overdue">Overdue</option>
@@ -517,7 +517,7 @@ export default function VendorDetailPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-1">Payment Method</label>
-                    <select value={invoiceForm.paymentMethod} onChange={(e) => setInvoiceForm({ ...invoiceForm, paymentMethod: e.target.value })} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent">
+                    <select value={invoiceForm.paymentMethod} onChange={(e) => setInvoiceForm({ ...invoiceForm, paymentMethod: e.target.value })} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent">
                       <option value="Cash">Cash</option>
                       <option value="Cheque">Cheque</option>
                       <option value="Bank Transfer">Bank Transfer</option>
@@ -541,7 +541,7 @@ export default function VendorDetailPage() {
                 </div>
                 <div className="flex gap-3 pt-4">
                   <button type="submit" disabled={uploadingInvoice} className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 font-medium disabled:opacity-50">{uploadingInvoice ? (editingInvoice ? 'Updating...' : 'Uploading...') : (editingInvoice ? 'Update Invoice' : 'Upload Invoice')}</button>
-                  <button type="button" onClick={() => { setShowInvoiceModal(false); resetInvoiceForm(); }} className="px-4 py-2 bg-gray-900 text-gray-300 rounded-lg hover:bg-gray-800 font-medium">Cancel</button>
+                  <button type="button" onClick={() => { setShowInvoiceModal(false); resetInvoiceForm(); }} className="px-4 py-2 bg-gray-900 text-gray-300 rounded-lg hover:bg-gray-600 font-medium">Cancel</button>
                 </div>
               </form>
             </div>
