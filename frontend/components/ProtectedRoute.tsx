@@ -19,8 +19,22 @@ export default function ProtectedRoute({
   const router = useRouter();
 
   useEffect(() => {
-    if (requireAuth && !isAuthenticated) {
+    // Check if user was logged out
+    const wasLoggedOut = localStorage.getItem('loggedOut') === 'true';
+
+    if (requireAuth && (!isAuthenticated || wasLoggedOut)) {
+      // Clear the loggedOut flag
+      localStorage.removeItem('loggedOut');
       router.push(redirectTo);
+
+      // Prevent back navigation by clearing history
+      if (window.history && window.history.pushState) {
+        window.history.pushState(null, '', window.location.href);
+        window.addEventListener('popstate', (event) => {
+          event.preventDefault();
+          router.push(redirectTo);
+        });
+      }
     }
   }, [isAuthenticated, requireAuth, redirectTo, router]);
 

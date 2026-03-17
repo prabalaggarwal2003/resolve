@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import SubscriptionBanner from '@/components/SubscriptionBanner';
+import UpgradeNudges from '@/components/UpgradeNudges';
 
 type Issue = {
   _id: string;
@@ -98,12 +99,16 @@ function StatusButtons({
 const CAN_EDIT_ROLES = ['super_admin', 'admin'];
 
 export default function DashboardPage() {
+  // ...existing code...
   const [summary, setSummary] = useState<Summary | null>(null);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [canEdit, setCanEdit] = useState(false);
   const [isManager, setIsManager] = useState(false);
+  const [subscriptionTier, setSubscriptionTier] = useState<'free' | 'pro' | 'premium'>('free');
+  const [dismissedNudges, setDismissedNudges] = useState<string[]>([]);
+
 
   useEffect(() => {
     try {
@@ -113,7 +118,30 @@ export default function DashboardPage() {
         setCanEdit(CAN_EDIT_ROLES.includes(parsed?.role ?? ''));
         setIsManager(parsed?.role === 'manager');
       }
+      // Load dismissed nudges from localStorage
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('dismissedNudges') : null;
+      if (saved) setDismissedNudges(JSON.parse(saved));
     } catch (_) {}
+  }, []);
+
+  // Fetch subscription details
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      if (!token) return;
+
+      try {
+        const res = await fetch(api('/api/payments/subscription-status'), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setSubscriptionTier(data.tier || 'free');
+        }
+      } catch (_) {}
+    };
+
+    fetchSubscription();
   }, []);
 
   const fetchData = () => {
@@ -154,6 +182,20 @@ export default function DashboardPage() {
       )}
 
       <SubscriptionBanner />
+
+      {/* Upgrade Nudges for Free Tier Users */}
+      <UpgradeNudges
+        userTier={subscriptionTier}
+        assetCount={summary?.totalAssets || 0}
+        dismissedNudges={dismissedNudges}
+        onDismiss={(nudgeId) => {
+          const updated = [...dismissedNudges, nudgeId];
+          setDismissedNudges(updated);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('dismissedNudges', JSON.stringify(updated));
+          }
+        }}
+      />
 
       {summary && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

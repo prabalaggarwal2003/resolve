@@ -318,8 +318,8 @@ export default function AssetDetailPage() {
               <p className="font-medium">—</p>
             )}
           </div>
-          <Item label="AMC expiry" value={asset.amcExpiry ? new Date(asset.amcExpiry).toLocaleDateString() : undefined} />
-          <Item label="Next maintenance" value={asset.nextMaintenanceDate ? new Date(asset.nextMaintenanceDate).toLocaleDateString() : undefined} />
+          {/*<Item label="AMC expiry" value={asset.amcExpiry ? new Date(asset.amcExpiry).toLocaleDateString() : undefined} />*/}
+          {/*<Item label="Next maintenance" value={asset.nextMaintenanceDate ? new Date(asset.nextMaintenanceDate).toLocaleDateString() : undefined} />*/}
         </div>
       </section>
 
