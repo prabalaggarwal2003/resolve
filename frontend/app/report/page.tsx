@@ -134,12 +134,12 @@ function ReportContent() {
     <main className="min-h-screen bg-gray-950 p-4">
       <div className="max-w-2xl mx-auto">
         <div className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-6">
-          <h1 className="text-xl font-bold mb-1 text-gray-100">Report an issue</h1>
+          <h1 className="text-xl font-bold mb-2 text-gray-100">Report an issue</h1>
           {asset && (
             <div className="bg-gray-900 p-3 rounded-lg mb-4 border border-gray-700">
-              <p className="text-sm text-gray-400"><strong className="text-gray-300">Asset:</strong> {asset.name} ({asset.assetId})</p>
-              <p className="text-sm text-gray-400"><strong className="text-gray-300">Category:</strong> {asset.category}</p>
-              <p className="text-sm text-gray-400"><strong className="text-gray-300">Status:</strong> {asset.status}</p>
+              <p className="mb-1 text-sm text-gray-400"><strong className="text-gray-300">Asset:</strong> {asset.name} ({asset.assetId})</p>
+              <p className="mb-1 text-sm text-gray-400"><strong className="text-gray-300">Category:</strong> {asset.category}</p>
+              <p className=" mb-1 text-sm text-gray-400"><strong className="text-gray-300">Status:</strong> {asset.status}</p>
               {asset.departmentId && (
                 <p className="text-sm text-gray-400"><strong className="text-gray-300">Department:</strong> {asset.departmentId.name}</p>
               )}
@@ -187,15 +187,25 @@ function ReportContent() {
                     placeholder="you@example.com" />
                 </div>
                 <div>
-                  <label className="block mb-1.5 font-medium text-gray-300">Phone (optional)</label>
-                  <input type="tel" value={reporterPhone} onChange={(e) => setReporterPhone(e.target.value)}
+                  <label className="block mb-1.5 font-medium text-gray-300">Phone *</label>
+                  <input
+                    type="tel"
+                    value={reporterPhone}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setReporterPhone(value);
+                    }}
+                    pattern="[0-9]{10}"
+                    maxLength={10}
+                    required
                     className="w-full px-3 py-2.5 border border-gray-700 bg-gray-900 text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-600 focus:border-transparent"
-                    placeholder="e.g. 9876543210" />
+                    placeholder="e.g. 9876543210"
+                  />
                 </div>
                 <div>
                   <label className="block mb-1.5 font-medium text-gray-300">What's the problem? *</label>
                   <select value={issueType} onChange={(e) => setIssueType(e.target.value)} required
-                    className="w-full px-3 py-2.5 border border-gray-700 bg-gray-900 text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-600 focus:border-transparent">
+                    className="w-full px-3 py-2.5 border border-gray-700 bg-gray-800 text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-600 focus:border-transparent">
                     <option value="">Select type</option>
                     {ISSUE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>

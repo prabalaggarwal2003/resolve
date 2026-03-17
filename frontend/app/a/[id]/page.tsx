@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import {useParams} from "next/navigation";
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
@@ -125,6 +125,7 @@ const searchIssue = async () => {
       : asset.previousIssues.filter(issue => issue.status === issueSort)
     : [];
 
+
   if (loading) {
     return (
       <main className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
@@ -135,7 +136,7 @@ const searchIssue = async () => {
 
   if (error || !asset) {
     return (
-      <main className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6 text-center">
+      <main className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
         <p className="text-red-400 mb-4">{error || 'Asset not found'}</p>
         <Link href="/" className="text-primary font-medium hover:underline">
           Go to Resolve

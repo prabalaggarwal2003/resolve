@@ -25,6 +25,8 @@ export default function LoginPage() {
       if (!res.ok) throw new Error(data.message || 'Login failed');
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
+      // Clear the logout flag on successful login
+      localStorage.removeItem('loggedOut');
       window.location.href = '/dashboard';
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');

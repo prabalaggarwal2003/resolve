@@ -231,9 +231,9 @@ export default function VendorsPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <input type="text" placeholder="Search vendors..." value={filters.search}
             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            className="px-4 py-2 bg-gray-900 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent" />
+            className="px-4 py-2 bg-gray-800 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent" />
           <select value={filters.category} onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-            className="px-4 py-2 bg-gray-900 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent">
+            className="px-4 py-2 bg-gray-800 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent">
             <option value="">All Categories</option>
             <option value="Hardware">Hardware</option>
             <option value="Software">Software</option>
@@ -242,7 +242,7 @@ export default function VendorsPage() {
             <option value="Other">Other</option>
           </select>
           <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            className="px-4 py-2 bg-gray-900 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent">
+            className="px-4 py-2 bg-gray-800 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent">
             <option value="">All Status</option>
             <option value="Active">Active</option>
             <option value="Inactive">Inactive</option>
@@ -359,7 +359,7 @@ export default function VendorsPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-1">Category</label>
                     <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full px-3 py-2 bg-gray-900 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent">
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent">
                       <option value="Hardware">Hardware</option>
                       <option value="Software">Software</option>
                       <option value="Services">Services</option>
@@ -370,7 +370,7 @@ export default function VendorsPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-1">Status</label>
                     <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      className="w-full px-3 py-2 bg-gray-900 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent">
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent">
                       <option value="Active">Active</option>
                       <option value="Inactive">Inactive</option>
                       <option value="Blacklisted">Blacklisted</option>
@@ -408,7 +408,7 @@ export default function VendorsPage() {
                   <button type="submit" className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 font-medium">
                     {editingVendor ? 'Update Vendor' : 'Create Vendor'}
                   </button>
-                  <button type="button" onClick={() => { setShowModal(false); resetForm(); }} className="px-4 py-2 bg-gray-900 text-gray-300 rounded-lg hover:bg-gray-800 font-medium">Cancel</button>
+                  <button type="button" onClick={() => { setShowModal(false); resetForm(); }} className="px-4 py-2 bg-gray-900 text-gray-300 rounded-lg hover:bg-gray-600 font-medium">Cancel</button>
                 </div>
               </form>
             </div>

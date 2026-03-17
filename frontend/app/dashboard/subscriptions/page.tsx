@@ -481,9 +481,10 @@ export default function SubscriptionsPage() {
       <div className="mt-12 bg-gray-800/50 rounded-lg border border-gray-700 p-6">
         <h3 className="text-lg font-semibold text-gray-100 mb-4">Need help choosing?</h3>
         <p className="text-gray-400 mb-4">
-          Start with Free and upgrade anytime as your organization grows. All plans include core features like asset tracking, issue management and team collaboration.
+          Start free and explore the basics.
+          Upgrade when you need more assets, users and advanced features.
         </p>
-        <Link href="/dashboard" className="text-blue-400 hover:underline">
+        <Link href="/dashboard" className="text-blue-400">
           Go to Dashboard →
         </Link>
       </div>

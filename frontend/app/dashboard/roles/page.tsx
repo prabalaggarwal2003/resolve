@@ -74,7 +74,7 @@ type User = {
 };
 
 const inputClass =
-	'w-full px-3 py-2 border border-slate-300 rounded-lg bg-gray-900 text-gray-100';
+	'w-full px-3 py-2 border border-gray-700 rounded-lg bg-gray-800 text-gray-100';
 const labelClass =
 	'block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2';
 
