@@ -792,29 +792,6 @@ export default function HomePage() {
 					</div>
 				<div>
 					<p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
-						Contact
-					</p>
-					<ul className="space-y-2 text-sm text-gray-500">
-						<li>
-							<a
-								href="mailto:resolveishere@gmail.com"
-								className="hover:text-gray-300 transition-colors no-underline"
-							>
-								resolveishere@gmail.com
-							</a>
-						</li>
-						<li>
-							<a
-								href="tel:+911234567890"
-								className="hover:text-gray-300 transition-colors no-underline"
-							>
-								+91 1234567890
-							</a>
-						</li>
-					</ul>
-				</div>
-				<div>
-					<p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
 						Legal
 					</p>
 					<ul className="space-y-2 text-sm text-gray-500">
@@ -841,6 +818,29 @@ export default function HomePage() {
 							>
 								Copyright & IP
 							</Link>
+						</li>
+					</ul>
+				</div>
+				<div>
+					<p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
+						Contact
+					</p>
+					<ul className="space-y-2 text-sm text-gray-500">
+						<li>
+							<a
+								href="mailto:resolveishere@gmail.com"
+								className="hover:text-gray-300 transition-colors no-underline"
+							>
+								resolveishere@gmail.com
+							</a>
+						</li>
+						<li>
+							<a
+								href="tel:+919811186846"
+								className="hover:text-gray-300 transition-colors no-underline"
+							>
+								+91 98111 86846
+							</a>
 						</li>
 					</ul>
 				</div>

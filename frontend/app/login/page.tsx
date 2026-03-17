@@ -25,6 +25,8 @@ export default function LoginPage() {
       if (!res.ok) throw new Error(data.message || 'Login failed');
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
+      // Clear the logout flag on successful login
+      localStorage.removeItem('loggedOut');
       window.location.href = '/dashboard';
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
@@ -58,7 +60,7 @@ export default function LoginPage() {
             Welcome back
           </span>
           <h1 className="text-3xl font-extrabold text-gray-100 tracking-tight">Sign in</h1>
-          <p className="text-gray-500 text-sm mt-1">Access your organisation's asset dashboard</p>
+          <p className="text-gray-500 text-sm mt-1">Access your organisation's dashboard</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -127,7 +129,7 @@ export default function LoginPage() {
 
         <p className="mt-6 text-center text-sm text-gray-600">
           Don't have an account?{' '}
-          <Link href="/signup" className="text-gray-300 font-semibold hover:text-white transition-colors no-underline">
+          <Link href="/signup" className="text-gray-300 font-semibold hover:text-white transition-colors no-underline ml-[2px]">
             Create one
           </Link>
         </p>

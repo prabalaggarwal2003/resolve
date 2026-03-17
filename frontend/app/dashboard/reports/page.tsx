@@ -510,14 +510,14 @@ function ReportsPage() {
             className="px-4 py-3 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 flex items-center justify-center gap-2"
           >
             <span>📦</span>
-            <span>Download All Assets (PDF)</span>
+            <span>Download All Assets</span>
           </button>
           <button
             onClick={downloadAllIssues}
             className="px-4 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 flex items-center justify-center gap-2"
           >
-            <span>🐛</span>
-            <span>Download All Issues (PDF)</span>
+            <span>🗒️</span>
+            <span>Download All Issues</span>
           </button>
         </div>
         <p className="text-sm text-gray-500 mt-3">

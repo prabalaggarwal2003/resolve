@@ -292,14 +292,14 @@ export default function MaintenancePage() {
             Assets currently under maintenance and requiring attention
           </p>
         </div>
-        {role !== 'manager' && (
-          <Link
-            href="/dashboard/asset-health"
-            className="px-4 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 text-sm font-medium"
-          >
-            View Health Dashboard →
-          </Link>
-        )}
+        {/*{role !== 'manager' && (*/}
+        {/*  <Link*/}
+        {/*    href="/dashboard/asset-health"*/}
+        {/*    className="px-4 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 text-sm font-medium"*/}
+        {/*  >*/}
+        {/*    View Health Dashboard →*/}
+        {/*  </Link>*/}
+        {/*)}*/}
       </div>
 
       {/* Stats Cards */}

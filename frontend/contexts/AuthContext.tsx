@@ -70,13 +70,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      // Always clear local storage regardless of API call success
+      // Clear all auth-related data
       setToken(null);
       setUser(null);
       setIsAuthenticated(false);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/';
+      localStorage.removeItem('dismissedNudges');
+
+      // Redirect to login
+      window.location.href = '/login';
     }
   };
 
