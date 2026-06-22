@@ -299,7 +299,6 @@ export default function SignupPage() {
                 required maxLength={6} placeholder="000000"
                 className={`${inputClass} text-center text-xl tracking-[0.5em] ${fieldErrors.otp ? 'border-red-500/60' : ''}`} />
               {fieldErrors.otp && <p className="text-red-400 text-xs mt-1">{fieldErrors.otp}</p>}
-              {/*<p className="text-xs text-gray-600 mt-1 text-center">In development you can use <span className="text-gray-400 font-semibold">123456</span></p>*/}
             </div>
             <div>
               <label className={labelClass}>Set Password *</label>

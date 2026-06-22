@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 interface TestPaymentState {
   tier: string;
@@ -114,7 +115,7 @@ export default function TestPaymentsPage() {
   };
 
   if (loading) {
-    return <div className="text-gray-400">Loading...</div>;
+    return <LoadingSpinner message="Loading..." />;
   }
 
   return (

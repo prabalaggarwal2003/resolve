@@ -3,6 +3,7 @@
 import {useParams} from "next/navigation";
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 type Issue = {
   ticketId: string;
@@ -129,7 +130,7 @@ const searchIssue = async () => {
   if (loading) {
     return (
       <main className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
-        <p className="text-gray-400">Loading…</p>
+        <LoadingSpinner message="Loading asset..." />
       </main>
     );
   }

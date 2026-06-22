@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 // ── Role definitions with privileges ─────────────────────────────────────────
 const ROLES = [
@@ -232,7 +233,7 @@ export default function RolesPage() {
 		return (
 			<div>
 				<h1 className="text-2xl font-bold mb-2">Users & Roles</h1>
-				<p className="text-gray-400">Loading…</p>
+				<LoadingSpinner message="Loading users..." />
 			</div>
 		);
 

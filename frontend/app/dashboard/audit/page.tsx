@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 type AuditLog = {
   _id: string;
@@ -441,10 +442,7 @@ export default function AuditLogsPage() {
 
       {/* Loading State */}
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          <span className="ml-3 text-gray-400">Loading audit logs...</span>
-        </div>
+        <LoadingSpinner message="Loading audit logs..." />
       ) : logs.length === 0 ? (
         <div className="text-center py-12 bg-gray-800 rounded-lg border border-gray-700">
           <div className="text-4xl mb-4">📋</div>

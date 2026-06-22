@@ -22,10 +22,6 @@ export function getOtpExpiry() {
   return new Date(Date.now() + OTP_EXPIRY_MS);
 }
 
-export function isDevBypass(code) {
-  return env.nodeEnv === 'development' && code === '123456';
-}
-
 function buildOtpEmailHtml(code) {
   return `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px; color: #e5e7eb; background: #111827; border-radius: 16px;">

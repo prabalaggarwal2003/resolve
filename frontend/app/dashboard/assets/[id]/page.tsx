@@ -2,6 +2,7 @@
 
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import Link from 'next/link';
 import dayjs from 'dayjs';
 
@@ -169,7 +170,7 @@ export default function AssetDetailPage() {
     }
   }
 
-  if (loading) return <p className="text-gray-400">Loading…</p>;
+  if (loading) return <LoadingSpinner message="Loading asset..." />;
   if (error || !asset) {
     return (
       <div>

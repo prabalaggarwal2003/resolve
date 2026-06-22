@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import jsPDF from 'jspdf';
+import { canAccessFeature } from '@/lib/subscriptionUtils';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 function api(path: string) {
   const base = process.env.NEXT_PUBLIC_API_URL || '';
@@ -110,6 +113,10 @@ function ReportsPage() {
   const [userRole, setUserRole] = useState('');
   const [userDeptId, setUserDeptId] = useState('');
   const [userDeptName, setUserDeptName] = useState('');
+  const [tier, setTier] = useState<string>('free');
+  const [isExpired, setIsExpired] = useState(false);
+
+  const canDownloadData = canAccessFeature(tier, 'dataExports') && !isExpired;
 
   useEffect(() => {
     try {
@@ -121,6 +128,26 @@ function ReportsPage() {
         setUserDeptName(parsed?.departmentName ?? '');
       }
     } catch (_) {}
+  }, []);
+
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      try {
+        const res = await fetch(api('/api/payments/subscription-status'), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setTier(data.tier);
+          setIsExpired(data.isExpired || false);
+        }
+      } catch (_) {}
+    };
+
+    fetchSubscription();
   }, []);
 
   useEffect(() => {
@@ -305,6 +332,11 @@ function ReportsPage() {
   };
 
   const downloadAllAssets = async () => {
+    if (!canDownloadData) {
+      setError('Assets PDF export is available on Pro and Premium plans.');
+      return;
+    }
+
     const token = localStorage.getItem('token');
     if (!token) return;
 
@@ -377,6 +409,11 @@ function ReportsPage() {
   };
 
   const downloadAllIssues = async () => {
+    if (!canDownloadData) {
+      setError('Issues PDF export is available on Pro and Premium plans.');
+      return;
+    }
+
     const token = localStorage.getItem('token');
     if (!token) return;
 
@@ -473,10 +510,7 @@ function ReportsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-        <span className="ml-3 text-gray-400">Loading reports...</span>
-      </div>
+      <LoadingSpinner message="Loading reports..." />
     );
   }
 
@@ -524,17 +558,38 @@ function ReportsPage() {
           <div className="flex flex-wrap gap-2">
             <button
               onClick={downloadAllAssets}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-teal-500/40 bg-teal-500/10 text-teal-300 hover:bg-teal-500/20 hover:border-teal-400/50 transition-colors"
+              disabled={!canDownloadData}
+              title={canDownloadData ? undefined : 'Available on Pro and Premium plans'}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                canDownloadData
+                  ? 'border-teal-500/40 bg-teal-500/10 text-teal-300 hover:bg-teal-500/20 hover:border-teal-400/50'
+                  : 'border-gray-700/60 bg-gray-800/40 text-gray-500 cursor-not-allowed opacity-60'
+              }`}
             >
-              Assets PDF
+              {canDownloadData ? 'Assets PDF' : '🔐 Assets PDF'}
             </button>
             <button
               onClick={downloadAllIssues}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 hover:border-rose-400/50 transition-colors"
+              disabled={!canDownloadData}
+              title={canDownloadData ? undefined : 'Available on Pro and Premium plans'}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                canDownloadData
+                  ? 'border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 hover:border-rose-400/50'
+                  : 'border-gray-700/60 bg-gray-800/40 text-gray-500 cursor-not-allowed opacity-60'
+              }`}
             >
-              Issues PDF
+              {canDownloadData ? 'Issues PDF' : '🔐 Issues PDF'}
             </button>
           </div>
+          {!canDownloadData && (
+            <p className="text-xs text-amber-500/70 mt-2">
+              {isExpired ? 'Your subscription has expired. ' : ''}
+              PDF exports require Pro or Premium.{' '}
+              <Link href="/dashboard/subscriptions" className="text-blue-400 hover:underline no-underline">
+                Upgrade
+              </Link>
+            </p>
+          )}
           {userRole === 'manager' && userDeptName && (
             <p className="text-xs text-amber-500/60 mt-2">Scoped to {userDeptName} department</p>
           )}

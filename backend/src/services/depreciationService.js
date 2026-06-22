@@ -1,277 +1,421 @@
 import { Asset, Issue } from '../models/index.js';
 
-/**
- * Depreciation calculation configuration
- */
-const DEPRECIATION_CONFIG = {
-  // Annual depreciation rate (straight-line method)
-  ANNUAL_DEPRECIATION_RATE: 0.20, // 20% per year
-
-  // Maximum depreciation (asset won't go below this % of original cost)
-  MIN_VALUE_PERCENTAGE: 0.10, // 10% minimum residual value
-
-  // Deduction multipliers
-  WARRANTY_EXPIRED_DEDUCTION: 0.05, // 5% deduction
-  MAINTENANCE_PER_OCCURRENCE: 0.03, // 3% per maintenance occurrence
-  ISSUE_PER_REPORT: 0.02, // 2% per issue report
-
-  // Status-based deductions
-  STATUS_DEDUCTIONS: {
-    'available': 0,
-    'in_use': 0,
-    'working': 0,
-    'under_maintenance': 0.10, // 10% deduction
-    'needs_repair': 0.15, // 15% deduction
-    'out_of_service': 0.30, // 30% deduction
-    'retired': 0.50 // 50% deduction
-  },
-
-  // Condition-based deductions
-  CONDITION_DEDUCTIONS: {
-    'excellent': 0,
-    'good': 0.05,
-    'fair': 0.10,
-    'poor': 0.20,
-    'critical': 0.30,
-    'under_maintenance': 0.15
-  }
+/** Category defaults: useful life (years), residual %, WDV annual rate */
+const CATEGORY_CONFIG = {
+  Projector: { usefulLife: 5, residualPct: 0.05, wdvRate: 0.25 },
+  Whiteboard: { usefulLife: 10, residualPct: 0.05, wdvRate: 0.15 },
+  Desktop: { usefulLife: 4, residualPct: 0.10, wdvRate: 0.30 },
+  Laptop: { usefulLife: 3, residualPct: 0.10, wdvRate: 0.35 },
+  AC: { usefulLife: 8, residualPct: 0.05, wdvRate: 0.20 },
+  Furniture: { usefulLife: 10, residualPct: 0.05, wdvRate: 0.12 },
+  'Lab Equipment': { usefulLife: 7, residualPct: 0.08, wdvRate: 0.22 },
+  Printer: { usefulLife: 5, residualPct: 0.08, wdvRate: 0.28 },
+  Other: { usefulLife: 5, residualPct: 0.075, wdvRate: 0.20 },
 };
 
-/**
- * Calculate asset age in years
- */
-function calculateAssetAge(purchaseDate) {
-  if (!purchaseDate) return 0;
-  const now = new Date();
-  const purchase = new Date(purchaseDate);
-  const diffTime = Math.abs(now - purchase);
-  const diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
-  return diffYears;
+const DEFAULT_CATEGORY = { usefulLife: 5, residualPct: 0.075, wdvRate: 0.20 };
+
+const CONDITION_BASE = {
+  excellent: 95,
+  good: 82,
+  fair: 65,
+  poor: 45,
+  critical: 25,
+  under_maintenance: 40,
+};
+
+const STATUS_PENALTY = {
+  available: 0,
+  in_use: 0,
+  working: 0,
+  under_maintenance: -12,
+  needs_repair: -22,
+  out_of_service: -35,
+  retired: -50,
+};
+
+const REPLACEMENT_PRIORITY = {
+  low: { label: 'Low', emoji: '🟢', description: 'Healthy' },
+  medium: { label: 'Medium', emoji: '🟡', description: 'Monitor' },
+  high: { label: 'High', emoji: '🟠', description: 'Replace Soon' },
+  critical: { label: 'Critical', emoji: '🔴', description: 'Replace Immediately' },
+};
+
+function round2(n) {
+  return Math.round(n * 100) / 100;
 }
 
-/**
- * Check if warranty is expired
- */
+function calculateAssetAge(purchaseDate) {
+  if (!purchaseDate) return 0;
+  const diff = Date.now() - new Date(purchaseDate).getTime();
+  return Math.max(0, diff / (1000 * 60 * 60 * 24 * 365.25));
+}
+
+function getCategoryConfig(category) {
+  return CATEGORY_CONFIG[category] || DEFAULT_CATEGORY;
+}
+
 function isWarrantyExpired(warrantyExpiry) {
   if (!warrantyExpiry) return true;
   return new Date(warrantyExpiry) < new Date();
 }
 
-/**
- * Calculate depreciation for a single asset
- */
-export async function calculateAssetDepreciation(assetId) {
-  try {
-    const asset = await Asset.findById(assetId)
-      .populate('locationId', 'name')
-      .populate('departmentId', 'name')
-      .lean();
+function isWarrantyExpiringSoon(warrantyExpiry, days = 30) {
+  if (!warrantyExpiry) return false;
+  const diff = (new Date(warrantyExpiry) - Date.now()) / (1000 * 60 * 60 * 24);
+  return diff > 0 && diff <= days;
+}
 
-    if (!asset) {
-      throw new Error('Asset not found');
-    }
+function isUnderWarranty(warrantyExpiry) {
+  if (!warrantyExpiry) return false;
+  return new Date(warrantyExpiry) >= new Date();
+}
 
-    const originalCost = asset.cost || 0;
+/** Straight Line Method */
+function calculateSLM(cost, ageYears, config) {
+  if (!cost || cost <= 0) {
+    return {
+      purchaseCost: 0,
+      residualValue: 0,
+      usefulLife: config.usefulLife,
+      annualDepreciation: 0,
+      currentBookValue: 0,
+      totalDepreciation: 0,
+      depreciationPercentage: 0,
+    };
+  }
 
-    // If no cost, return zero depreciation
-    if (originalCost === 0) {
-      return {
-        assetId: asset._id,
-        assetIdString: asset.assetId,
-        name: asset.name,
-        originalCost: 0,
-        currentValue: 0,
-        depreciation: 0,
-        depreciationPercentage: 0,
-        breakdown: {
-          ageDeduction: 0,
-          warrantyDeduction: 0,
-          maintenanceDeduction: 0,
-          issuesDeduction: 0,
-          statusDeduction: 0,
-          conditionDeduction: 0
+  const residualValue = cost * config.residualPct;
+  const depreciableAmount = cost - residualValue;
+  const annualDepreciation = depreciableAmount / config.usefulLife;
+  const yearsDepreciated = Math.min(ageYears, config.usefulLife);
+  const totalDepreciation = Math.min(annualDepreciation * yearsDepreciated, depreciableAmount);
+  const currentBookValue = cost - totalDepreciation;
+  const depreciationPercentage = (totalDepreciation / cost) * 100;
+
+  return {
+    purchaseCost: round2(cost),
+    residualValue: round2(residualValue),
+    usefulLife: config.usefulLife,
+    annualDepreciation: round2(annualDepreciation),
+    currentBookValue: round2(currentBookValue),
+    totalDepreciation: round2(totalDepreciation),
+    depreciationPercentage: round2(depreciationPercentage),
+  };
+}
+
+/** Written Down Value — compound yearly */
+function calculateWDV(cost, ageYears, config) {
+  if (!cost || cost <= 0) {
+    return {
+      purchaseCost: 0,
+      depreciationRate: config.wdvRate,
+      currentBookValue: 0,
+      totalDepreciation: 0,
+      depreciationPercentage: 0,
+    };
+  }
+
+  const fullYears = Math.floor(ageYears);
+  const partialYear = ageYears - fullYears;
+  let bookValue = cost;
+
+  for (let y = 0; y < fullYears; y++) {
+    bookValue *= 1 - config.wdvRate;
+  }
+  if (partialYear > 0) {
+    bookValue *= 1 - config.wdvRate * partialYear;
+  }
+
+  const residualFloor = cost * config.residualPct;
+  bookValue = Math.max(bookValue, residualFloor);
+  const totalDepreciation = cost - bookValue;
+
+  return {
+    purchaseCost: round2(cost),
+    depreciationRate: config.wdvRate,
+    currentBookValue: round2(bookValue),
+    totalDepreciation: round2(totalDepreciation),
+    depreciationPercentage: round2((totalDepreciation / cost) * 100),
+  };
+}
+
+function calculateHealthScore(asset, ageYears, issueCount, openIssueCount, maintenanceCount) {
+  const condition = asset.condition || 'good';
+  let score = CONDITION_BASE[condition] ?? 70;
+
+  score -= Math.min(openIssueCount * 4, 24);
+  score -= Math.min((issueCount - openIssueCount) * 1.5, 12);
+  score -= Math.min(maintenanceCount * 3, 18);
+
+  if (isUnderWarranty(asset.warrantyExpiry)) score += 5;
+  else if (isWarrantyExpired(asset.warrantyExpiry)) score -= 8;
+
+  score += STATUS_PENALTY[asset.status] ?? 0;
+
+  const config = getCategoryConfig(asset.category);
+  const ageRatio = config.usefulLife > 0 ? ageYears / config.usefulLife : 0;
+  if (ageRatio > 1) score -= 15;
+  else if (ageRatio > 0.75) score -= 8;
+  else if (ageRatio > 0.5) score -= 4;
+
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function healthLabel(score) {
+  if (score >= 90) return 'Excellent';
+  if (score >= 75) return 'Good';
+  if (score >= 50) return 'Needs Attention';
+  return 'Poor';
+}
+
+function calculateReplacementPriority(asset, healthScore, ageYears, issueCount, openIssueCount, maintenanceCount, config) {
+  let risk = 0;
+
+  const ageRatio = config.usefulLife > 0 ? ageYears / config.usefulLife : 0;
+  if (ageRatio >= 1) risk += 35;
+  else if (ageRatio >= 0.75) risk += 22;
+  else if (ageRatio >= 0.5) risk += 10;
+
+  risk += Math.max(0, 100 - healthScore) * 0.4;
+  risk += Math.min(openIssueCount * 6, 24);
+  risk += Math.min(maintenanceCount * 4, 16);
+
+  if (isWarrantyExpired(asset.warrantyExpiry)) risk += 12;
+  else if (isWarrantyExpiringSoon(asset.warrantyExpiry)) risk += 6;
+
+  if (['needs_repair', 'out_of_service'].includes(asset.status)) risk += 15;
+  if (asset.status === 'under_maintenance') risk += 8;
+
+  let level = 'low';
+  if (risk >= 70 || healthScore < 35) level = 'critical';
+  else if (risk >= 48 || healthScore < 50) level = 'high';
+  else if (risk >= 28 || healthScore < 75) level = 'medium';
+
+  const remainingUsefulLife = Math.max(0, config.usefulLife - ageYears);
+  const healthAdjustedRemaining = remainingUsefulLife * (healthScore / 100);
+
+  return {
+    level,
+    ...REPLACEMENT_PRIORITY[level],
+    riskScore: Math.round(risk),
+    estimatedRemainingUsefulLife: round2(healthAdjustedRemaining),
+  };
+}
+
+function buildAssetMetrics(asset, issueCount = 0, openIssueCount = 0) {
+  const cost = typeof asset.cost === 'number' ? asset.cost : (parseFloat(asset.cost) || 0);
+  const category = asset.category || 'Other';
+  const ageYears = calculateAssetAge(asset.purchaseDate);
+  const config = getCategoryConfig(category);
+  const maintenanceCount = asset.maintenanceHistory?.length || (asset.maintenanceStartDate ? 1 : 0);
+
+  const slm = calculateSLM(cost, ageYears, config);
+  const wdv = calculateWDV(cost, ageYears, config);
+  const healthScore = calculateHealthScore(asset, ageYears, issueCount, openIssueCount, maintenanceCount);
+  const replacement = calculateReplacementPriority(
+    asset, healthScore, ageYears, issueCount, openIssueCount, maintenanceCount, config
+  );
+
+  return {
+    assetId: asset._id,
+    assetIdString: asset.assetId,
+    name: asset.name,
+    category,
+    location: asset.locationId?.name,
+    department: asset.departmentId?.name,
+    purchaseDate: asset.purchaseDate,
+    warrantyExpiry: asset.warrantyExpiry,
+    status: asset.status,
+    condition: asset.condition || 'good',
+    ageYears: round2(ageYears),
+    slm,
+    wdv,
+    operational: {
+      healthScore,
+      healthLabel: healthLabel(healthScore),
+      replacementPriority: replacement.level,
+      replacementLabel: replacement.label,
+      replacementEmoji: replacement.emoji,
+      replacementDescription: replacement.description,
+      estimatedRemainingUsefulLife: replacement.estimatedRemainingUsefulLife,
+      issueCount,
+      openIssueCount,
+      maintenanceCount,
+      warrantyActive: isUnderWarranty(asset.warrantyExpiry),
+      warrantyExpiringSoon: isWarrantyExpiringSoon(asset.warrantyExpiry),
+    },
+    // Legacy fields for backward compatibility
+    originalCost: slm.purchaseCost,
+    currentValue: slm.currentBookValue,
+    depreciation: slm.totalDepreciation,
+    depreciationPercentage: slm.depreciationPercentage,
+  };
+}
+
+async function fetchIssueCountsByAsset(assetIds) {
+  if (!assetIds.length) return new Map();
+
+  const stats = await Issue.aggregate([
+    { $match: { assetId: { $in: assetIds } } },
+    {
+      $group: {
+        _id: '$assetId',
+        issueCount: { $sum: 1 },
+        openIssueCount: {
+          $sum: {
+            $cond: [{ $in: ['$status', ['open', 'in_progress']] }, 1, 0],
+          },
         },
-        factors: {
-          age: 0,
-          warrantyExpired: false,
-          maintenanceCount: 0,
-          issueCount: 0,
-          status: asset.status,
-          condition: asset.condition || 'good'
-        }
+      },
+    },
+  ]);
+
+  const map = new Map();
+  for (const row of stats) {
+    map.set(String(row._id), {
+      issueCount: row.issueCount,
+      openIssueCount: row.openIssueCount,
+    });
+  }
+  return map;
+}
+
+export async function calculateAssetMetrics(assetId) {
+  const asset = await Asset.findById(assetId)
+    .populate('locationId', 'name')
+    .populate('departmentId', 'name')
+    .lean();
+
+  if (!asset) throw new Error('Asset not found');
+
+  const issueStats = await fetchIssueCountsByAsset([asset._id]);
+  const counts = issueStats.get(String(asset._id)) || { issueCount: 0, openIssueCount: 0 };
+
+  return buildAssetMetrics(asset, counts.issueCount, counts.openIssueCount);
+}
+
+export async function calculateOrganizationMetrics(organizationId) {
+  const assets = await Asset.find({ organizationId })
+    .populate('locationId', 'name')
+    .populate('departmentId', 'name')
+    .lean();
+
+  const assetIds = assets.map((asset) => asset._id);
+  const issueStats = await fetchIssueCountsByAsset(assetIds);
+
+  const results = [];
+
+  let totalPurchaseValue = 0;
+  let totalBookValueSLM = 0;
+  let totalBookValueWDV = 0;
+  let totalHealth = 0;
+  let assetsNeedingReplacement = 0;
+  let assetsUnderWarranty = 0;
+  let warrantiesExpiringSoon = 0;
+
+  for (const asset of assets) {
+    try {
+      const counts = issueStats.get(String(asset._id)) || { issueCount: 0, openIssueCount: 0 };
+      const metrics = buildAssetMetrics(asset, counts.issueCount, counts.openIssueCount);
+      results.push(metrics);
+
+      totalPurchaseValue += metrics.slm.purchaseCost;
+      totalBookValueSLM += metrics.slm.currentBookValue;
+      totalBookValueWDV += metrics.wdv.currentBookValue;
+      totalHealth += metrics.operational.healthScore;
+
+      if (['high', 'critical'].includes(metrics.operational.replacementPriority)) {
+        assetsNeedingReplacement++;
+      }
+      if (metrics.operational.warrantyActive) assetsUnderWarranty++;
+      if (metrics.operational.warrantyExpiringSoon) warrantiesExpiringSoon++;
+    } catch (err) {
+      console.error(`Metrics error for asset ${asset.assetId}:`, err.message);
+    }
+  }
+
+  const count = results.length;
+  const avgHealth = count > 0 ? round2(totalHealth / count) : 0;
+
+  return {
+    assets: results,
+    summary: {
+      totalAssets: count,
+      totalPurchaseValue: round2(totalPurchaseValue),
+      currentBookValueSLM: round2(totalBookValueSLM),
+      currentBookValueWDV: round2(totalBookValueWDV),
+      totalDepreciationSLM: round2(totalPurchaseValue - totalBookValueSLM),
+      totalDepreciationWDV: round2(totalPurchaseValue - totalBookValueWDV),
+      averageAssetHealth: avgHealth,
+      assetsNeedingReplacement,
+      assetsUnderWarranty,
+      warrantiesExpiringSoon,
+      // Legacy
+      totalOriginalValue: round2(totalPurchaseValue),
+      totalCurrentValue: round2(totalBookValueSLM),
+      totalDepreciation: round2(totalPurchaseValue - totalBookValueSLM),
+      averageDepreciationPercentage: totalPurchaseValue > 0
+        ? round2(((totalPurchaseValue - totalBookValueSLM) / totalPurchaseValue) * 100)
+        : 0,
+    },
+  };
+}
+
+export async function getDepreciationByCategory(organizationId) {
+  const result = await calculateOrganizationMetrics(organizationId);
+  const categoryMap = {};
+
+  result.assets.forEach((asset) => {
+    const cat = asset.category || 'Uncategorized';
+    if (!categoryMap[cat]) {
+      categoryMap[cat] = {
+        category: cat,
+        count: 0,
+        purchaseValue: 0,
+        bookValueSLM: 0,
+        bookValueWDV: 0,
+        totalHealth: 0,
+        needingReplacement: 0,
       };
     }
-
-    // Calculate factors
-    const assetAge = calculateAssetAge(asset.purchaseDate);
-    const warrantyExpired = isWarrantyExpired(asset.warrantyExpiry);
-
-    // Count maintenance occurrences (times asset went to maintenance)
-    const maintenanceCount = asset.maintenanceStartDate ? 1 : 0; // Simplified for now
-
-    // Count total issues
-    const issueCount = await Issue.countDocuments({ assetId: asset._id });
-
-    // Calculate deductions
-
-    // 1. Age-based depreciation (straight-line)
-    const ageDepreciationRate = DEPRECIATION_CONFIG.ANNUAL_DEPRECIATION_RATE;
-    const ageDeduction = originalCost * ageDepreciationRate * assetAge;
-
-    // 2. Warranty expiration deduction
-    const warrantyDeduction = warrantyExpired
-      ? originalCost * DEPRECIATION_CONFIG.WARRANTY_EXPIRED_DEDUCTION
-      : 0;
-
-    // 3. Maintenance deduction
-    const maintenanceDeduction = originalCost * DEPRECIATION_CONFIG.MAINTENANCE_PER_OCCURRENCE * maintenanceCount;
-
-    // 4. Issues deduction
-    const issuesDeduction = originalCost * DEPRECIATION_CONFIG.ISSUE_PER_REPORT * issueCount;
-
-    // 5. Status deduction
-    const statusDeductionRate = DEPRECIATION_CONFIG.STATUS_DEDUCTIONS[asset.status] || 0;
-    const statusDeduction = originalCost * statusDeductionRate;
-
-    // 6. Condition deduction
-    const conditionDeductionRate = DEPRECIATION_CONFIG.CONDITION_DEDUCTIONS[asset.condition || 'good'] || 0;
-    const conditionDeduction = originalCost * conditionDeductionRate;
-
-    // Total depreciation
-    const totalDepreciation = ageDeduction + warrantyDeduction + maintenanceDeduction +
-                             issuesDeduction + statusDeduction + conditionDeduction;
-
-    // Current value (cannot go below minimum)
-    const minValue = originalCost * DEPRECIATION_CONFIG.MIN_VALUE_PERCENTAGE;
-    const currentValue = Math.max(originalCost - totalDepreciation, minValue);
-
-    const actualDepreciation = originalCost - currentValue;
-    const depreciationPercentage = (actualDepreciation / originalCost) * 100;
-
-    return {
-      assetId: asset._id,
-      assetIdString: asset.assetId,
-      name: asset.name,
-      category: asset.category,
-      location: asset.locationId?.name,
-      department: asset.departmentId?.name,
-      purchaseDate: asset.purchaseDate,
-      originalCost,
-      currentValue: Math.round(currentValue * 100) / 100,
-      depreciation: Math.round(actualDepreciation * 100) / 100,
-      depreciationPercentage: Math.round(depreciationPercentage * 100) / 100,
-      breakdown: {
-        ageDeduction: Math.round(ageDeduction * 100) / 100,
-        warrantyDeduction: Math.round(warrantyDeduction * 100) / 100,
-        maintenanceDeduction: Math.round(maintenanceDeduction * 100) / 100,
-        issuesDeduction: Math.round(issuesDeduction * 100) / 100,
-        statusDeduction: Math.round(statusDeduction * 100) / 100,
-        conditionDeduction: Math.round(conditionDeduction * 100) / 100
-      },
-      factors: {
-        age: Math.round(assetAge * 10) / 10,
-        warrantyExpired,
-        warrantyExpiry: asset.warrantyExpiry,
-        maintenanceCount,
-        issueCount,
-        status: asset.status,
-        condition: asset.condition || 'good'
-      }
-    };
-  } catch (error) {
-    console.error('Error calculating asset depreciation:', error);
-    throw error;
-  }
-}
-
-/**
- * Calculate depreciation for all assets in an organization
- */
-export async function calculateOrganizationDepreciation(organizationId) {
-  try {
-    const assets = await Asset.find({ organizationId })
-      .sort({ cost: -1 }) // Sort by cost descending
-      .lean();
-
-    const depreciationResults = [];
-    let totalOriginalValue = 0;
-    let totalCurrentValue = 0;
-
-    for (const asset of assets) {
-      try {
-        const depreciation = await calculateAssetDepreciation(asset._id);
-        depreciationResults.push(depreciation);
-        totalOriginalValue += depreciation.originalCost;
-        totalCurrentValue += depreciation.currentValue;
-      } catch (err) {
-        console.error(`Error calculating depreciation for asset ${asset.assetId}:`, err);
-      }
+    const c = categoryMap[cat];
+    c.count++;
+    c.purchaseValue += asset.slm.purchaseCost;
+    c.bookValueSLM += asset.slm.currentBookValue;
+    c.bookValueWDV += asset.wdv.currentBookValue;
+    c.totalHealth += asset.operational.healthScore;
+    if (['high', 'critical'].includes(asset.operational.replacementPriority)) {
+      c.needingReplacement++;
     }
+  });
 
-    const totalDepreciation = totalOriginalValue - totalCurrentValue;
-    const averageDepreciationPercentage = totalOriginalValue > 0
-      ? (totalDepreciation / totalOriginalValue) * 100
-      : 0;
+  const categories = Object.values(categoryMap).map((cat) => ({
+    ...cat,
+    purchaseValue: round2(cat.purchaseValue),
+    bookValueSLM: round2(cat.bookValueSLM),
+    bookValueWDV: round2(cat.bookValueWDV),
+    averageHealth: cat.count > 0 ? round2(cat.totalHealth / cat.count) : 0,
+    depreciationSLM: round2(cat.purchaseValue - cat.bookValueSLM),
+    depreciationPercentage: cat.purchaseValue > 0
+      ? round2(((cat.purchaseValue - cat.bookValueSLM) / cat.purchaseValue) * 100)
+      : 0,
+    // Legacy
+    originalValue: round2(cat.purchaseValue),
+    currentValue: round2(cat.bookValueSLM),
+    depreciation: round2(cat.purchaseValue - cat.bookValueSLM),
+  }));
 
-    return {
-      assets: depreciationResults,
-      summary: {
-        totalAssets: assets.length,
-        totalOriginalValue: Math.round(totalOriginalValue * 100) / 100,
-        totalCurrentValue: Math.round(totalCurrentValue * 100) / 100,
-        totalDepreciation: Math.round(totalDepreciation * 100) / 100,
-        averageDepreciationPercentage: Math.round(averageDepreciationPercentage * 100) / 100
-      }
-    };
-  } catch (error) {
-    console.error('Error calculating organization depreciation:', error);
-    throw error;
-  }
+  return { categories, summary: result.summary };
 }
 
-/**
- * Get depreciation summary by category
- */
-export async function getDepreciationByCategory(organizationId) {
-  try {
-    const result = await calculateOrganizationDepreciation(organizationId);
-
-    const categoryMap = {};
-
-    result.assets.forEach(asset => {
-      const category = asset.category || 'Uncategorized';
-      if (!categoryMap[category]) {
-        categoryMap[category] = {
-          category,
-          count: 0,
-          originalValue: 0,
-          currentValue: 0,
-          depreciation: 0
-        };
-      }
-
-      categoryMap[category].count++;
-      categoryMap[category].originalValue += asset.originalCost;
-      categoryMap[category].currentValue += asset.currentValue;
-      categoryMap[category].depreciation += asset.depreciation;
-    });
-
-    const categories = Object.values(categoryMap).map(cat => ({
-      ...cat,
-      depreciationPercentage: cat.originalValue > 0
-        ? Math.round((cat.depreciation / cat.originalValue) * 100 * 100) / 100
-        : 0
-    }));
-
-    return {
-      categories,
-      summary: result.summary
-    };
-  } catch (error) {
-    console.error('Error getting depreciation by category:', error);
-    throw error;
-  }
+// Legacy exports
+export async function calculateAssetDepreciation(assetId) {
+  return calculateAssetMetrics(assetId);
 }
 
-export { DEPRECIATION_CONFIG };
+export async function calculateOrganizationDepreciation(organizationId) {
+  return calculateOrganizationMetrics(organizationId);
+}
 
+export const DEPRECIATION_CONFIG = { CATEGORY_CONFIG, REPLACEMENT_PRIORITY };
