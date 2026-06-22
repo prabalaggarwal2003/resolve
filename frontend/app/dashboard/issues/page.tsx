@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import Link from 'next/link';
 
 type Issue = {
@@ -161,7 +162,7 @@ export default function IssuesPage() {
         ))}
       </div>
 
-      {loading && <p className="text-gray-400">Loading…</p>}
+      {loading && <LoadingSpinner message="Loading issues..." />}
       {error && (
         <p className="p-4 bg-red-900/20 border border-red-800 text-red-400 rounded-lg text-sm">{error}</p>
       )}

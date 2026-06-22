@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 const TYPES = ['campus', 'building', 'floor', 'room'];
 
@@ -183,7 +184,10 @@ export default function LocationsPage() {
   }, [filterType]);
 
   if (loading) return (
-    <div><h1 className="text-2xl font-bold mb-2">Locations</h1><p className="text-gray-400">Loading…</p></div>
+    <div>
+      <h1 className="text-2xl font-bold mb-2">Locations</h1>
+      <LoadingSpinner message="Loading locations..." />
+    </div>
   );
 
   return (

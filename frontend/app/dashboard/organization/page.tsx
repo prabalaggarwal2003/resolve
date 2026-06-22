@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiUrl } from '@/lib/api';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 const INDUSTRIES = [
   { value: 'IT', label: 'Information Technology' },
@@ -171,7 +172,7 @@ export default function OrganizationPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-400">Loading organization details...</div>
+        <LoadingSpinner message="Loading organization details..." />
       </div>
     );
   }

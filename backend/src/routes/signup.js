@@ -6,7 +6,6 @@ import { protect } from '../middleware/auth.js';
 import { env } from '../config/env.js';
 import {
   sendOtpEmail,
-  isDevBypass,
   generateOtp,
   hashOtp,
   verifyOtpHash,
@@ -144,55 +143,6 @@ router.post('/verify-admin-otp', async (req, res) => {
     if (passwordError) return res.status(400).json({ message: passwordError });
     
     const sanitizedEmail = email.toLowerCase().trim();
-    
-    if (isDevBypass(code)) {
-      // For development bypass, check if we have the required data
-      // If no OTP exists, we need to get the organization from the request
-      if (!req.body.organizationId) {
-        return res.status(400).json({ message: 'Organization ID required for development bypass' });
-      }
-      
-      const organization = await Organization.findById(req.body.organizationId);
-      if (!organization) return res.status(400).json({ message: 'Invalid organization' });
-      
-      // For dev bypass, we need the admin name - either from OTP or request
-      let adminName = req.body.name;
-      if (!adminName) {
-        // Try to get from existing OTP
-        const tempUser = await Otp.findOne({ email: sanitizedEmail }).sort({ createdAt: -1 });
-        if (tempUser?.tempData?.name) {
-          adminName = tempUser.tempData.name;
-        } else {
-          return res.status(400).json({ message: 'Admin name required' });
-        }
-      }
-      
-      const user = await User.create({
-        email: sanitizedEmail,
-        passwordHash: await bcrypt.hash(password, 12),
-        name: adminName,
-        role: 'super_admin',
-        emailVerified: true,
-        organizationId: organization._id,
-        onboardingComplete: true
-      });
-      
-      // Clean up any existing OTPs
-      await Otp.deleteMany({ email: sanitizedEmail });
-      const token = generateToken(user._id);
-      
-      const userWithOrg = await User.findById(user._id)
-        .select('-passwordHash')
-        .populate('organizationId', 'name orgId industry companySize country')
-        .lean();
-      
-      return res.json({
-        message: 'Administrator created successfully',
-        token,
-        user: userWithOrg,
-        redirectTo: '/dashboard'
-      });
-    }
     
     const otp = await Otp.findOne({ email: sanitizedEmail }).sort({ createdAt: -1 });
 

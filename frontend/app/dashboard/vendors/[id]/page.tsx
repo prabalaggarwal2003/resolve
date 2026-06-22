@@ -3,6 +3,8 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { UpgradePrompt } from '@/lib/subscriptionUtils';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 interface Vendor {
   _id: string;
@@ -83,6 +85,9 @@ export default function VendorDetailPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [tier, setTier] = useState<string>('free');
+  const [isExpired, setIsExpired] = useState(false);
+  const [subscriptionChecked, setSubscriptionChecked] = useState(false);
   const [vendor, setVendor] = useState<Vendor | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -107,8 +112,41 @@ export default function VendorDetailPage() {
   });
 
   useEffect(() => {
+    fetchSubscription();
+  }, []);
+
+  useEffect(() => {
+    if (!subscriptionChecked) return;
+    if (tier === 'free' || isExpired) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     fetchVendorDetails();
-  }, [params.id]);
+  }, [params.id, tier, isExpired, subscriptionChecked]);
+
+  const fetchSubscription = async () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) {
+      setLoading(false);
+      setSubscriptionChecked(true);
+      return;
+    }
+
+    try {
+      const res = await fetch(api('/api/payments/subscription-status'), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTier(data.tier);
+        setIsExpired(data.isExpired || false);
+      }
+    } catch (_) {}
+    finally {
+      setSubscriptionChecked(true);
+    }
+  };
 
   const fetchVendorDetails = async () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -256,11 +294,23 @@ export default function VendorDetailPage() {
     setEditingInvoice(null);
   };
 
-  if (loading) {
+  if (!subscriptionChecked || loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
-        <span className="ml-3 text-gray-400">Loading vendor details...</span>
+      <LoadingSpinner message="Loading vendor details..." />
+    );
+  }
+
+  if (tier === 'free' || isExpired) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-2xl font-bold text-gray-100 mb-6">🏢 Vendor Details</h1>
+        {isExpired && (
+          <div className="bg-red-900/20 border border-red-800 rounded-lg p-4 mb-6">
+            <p className="text-red-400 font-medium">⚠️ Your subscription has expired</p>
+            <p className="text-red-300 text-sm mt-1">Renew your subscription to access Vendor Management</p>
+          </div>
+        )}
+        <UpgradePrompt feature={isExpired ? 'Vendor Management (Renew subscription to unlock)' : 'Vendor Management'} />
       </div>
     );
   }

@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 type ReportRow = {
   reporterName: string;
@@ -125,7 +126,7 @@ export default function IssueDetailPage() {
     fetchIssue();
   }, [params.id]);
 
-  if (loading) return <p className="text-gray-400">Loading…</p>;
+  if (loading) return <LoadingSpinner message="Loading issue..." />;
   if (error || !issue) {
     return (
       <div>
