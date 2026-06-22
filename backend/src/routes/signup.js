@@ -4,15 +4,18 @@ import jwt from 'jsonwebtoken';
 import { User, Organization, Otp } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
 import { env } from '../config/env.js';
-import { sendOtpEmail, isDevBypass } from '../services/otpService.js';
+import {
+  sendOtpEmail,
+  isDevBypass,
+  generateOtp,
+  hashOtp,
+  verifyOtpHash,
+  getOtpExpiry,
+} from '../services/otpService.js';
 import { validateEmail, validatePassword, validateName, validateOtp, sanitizeInput } from '../utils/validation.js';
 
 const router = express.Router();
 const generateToken = (id) => jwt.sign({ id }, env.jwtSecret, { expiresIn: env.jwtExpire });
-
-function randomOtp() {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
 
 // Generate unique organization ID
 function generateOrgId() {
@@ -87,27 +90,28 @@ router.post('/send-admin-otp', async (req, res) => {
       return res.status(400).json({ message: 'Email already registered' });
     }
     
-    // Clean up old OTPs for this email
-    await Otp.deleteMany({ 
-      email: sanitizedEmail,
-      expiresAt: { $lt: new Date() }
-    });
-    
-    // Create OTP record with admin data
-    const code = randomOtp();
-    const tempData = { 
-      name: sanitizedName, 
-      organizationId: organization._id 
+    await Otp.deleteMany({ email: sanitizedEmail });
+
+    const code = generateOtp();
+    const codeHash = await hashOtp(code);
+    const tempData = {
+      name: sanitizedName,
+      organizationId: organization._id,
     };
-    
-    await Otp.create({
+
+    const otpRecord = await Otp.create({
       email: sanitizedEmail,
-      code,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
-      tempData
+      codeHash,
+      expiresAt: getOtpExpiry(),
+      tempData,
     });
-    
-    await sendOtpEmail(sanitizedEmail, code);
+
+    try {
+      await sendOtpEmail(sanitizedEmail, code);
+    } catch (sendErr) {
+      await Otp.deleteOne({ _id: otpRecord._id });
+      throw sendErr;
+    }
     res.status(201).json({
       message: 'Verification code sent to your email',
       email: sanitizedEmail,
@@ -190,16 +194,16 @@ router.post('/verify-admin-otp', async (req, res) => {
       });
     }
     
-    const otp = await Otp.findOne({
-      email: sanitizedEmail,
-      code: String(code).trim(),
-    });
-    
+    const otp = await Otp.findOne({ email: sanitizedEmail }).sort({ createdAt: -1 });
+
     if (!otp) return res.status(400).json({ message: 'Invalid or expired code' });
     if (new Date() > otp.expiresAt) {
       await Otp.deleteOne({ _id: otp._id });
       return res.status(400).json({ message: 'Code expired' });
     }
+
+    const codeValid = await verifyOtpHash(code, otp.codeHash);
+    if (!codeValid) return res.status(400).json({ message: 'Invalid or expired code' });
     
     if (!otp.tempData) {
       return res.status(400).json({ message: 'Invalid OTP data - missing organization information' });
@@ -303,15 +307,23 @@ router.post('/resend-otp', async (req, res) => {
       expiresAt: { $lt: new Date() }
     });
     
-    // Create new OTP
-    const code = randomOtp();
-    await Otp.create({
+    const existingOtp = await Otp.findOne({ email: sanitizedEmail }).sort({ createdAt: -1 });
+    const code = generateOtp();
+    const codeHash = await hashOtp(code);
+
+    const otpRecord = await Otp.create({
       email: sanitizedEmail,
-      code,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+      codeHash,
+      expiresAt: getOtpExpiry(),
+      tempData: existingOtp?.tempData,
     });
-    
-    await sendOtpEmail(sanitizedEmail, code);
+
+    try {
+      await sendOtpEmail(sanitizedEmail, code);
+    } catch (sendErr) {
+      await Otp.deleteOne({ _id: otpRecord._id });
+      throw sendErr;
+    }
     res.json({
       message: 'New verification code sent to your email',
     });

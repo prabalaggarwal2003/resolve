@@ -1,93 +1,71 @@
-import nodemailer from 'nodemailer';
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import { env } from '../config/env.js';
 
-/**
- * OTP sending: if SMTP env vars are set, send email; otherwise log to console.
- * In development, code 123456 is accepted as bypass when NODE_ENV=development.
- */
+const OTP_EXPIRY_MS = 10 * 60 * 1000;
+const BCRYPT_ROUNDS = 10;
 
-export function getDevBypassCode() {
-  return process.env.NODE_ENV === 'development' ? '123456' : null;
+export function generateOtp() {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+export async function hashOtp(code) {
+  return bcrypt.hash(String(code).trim(), BCRYPT_ROUNDS);
+}
+
+export async function verifyOtpHash(code, codeHash) {
+  if (!code || !codeHash) return false;
+  return bcrypt.compare(String(code).trim(), codeHash);
+}
+
+export function getOtpExpiry() {
+  return new Date(Date.now() + OTP_EXPIRY_MS);
 }
 
 export function isDevBypass(code) {
-  const bypass = getDevBypassCode();
-  return bypass && code === bypass;
+  return env.nodeEnv === 'development' && code === '123456';
 }
 
-// SendGrid API fallback (more reliable than SMTP)
-async function sendViaSendGridAPI(email, code) {
-  try {
-    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${env.smtpPass}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        personalizations: [{
-          to: [{ email }],
-          subject: 'Verify your Resolve account',
-        }],
-        from: { email: env.smtpFromEmail, name: env.smtpFromName || 'Resolve' },
-        content: [{
-          type: 'text/html',
-          value: `<h2>Verification Code: ${code}</h2><p>This code expires in 10 minutes.</p>`,
-        }],
-      }),
-    });
-
-    if (response.ok) {
-      console.log(`[OTP] Email sent via SendGrid API to ${email}`);
-      return true;
-    } else {
-      throw new Error(`SendGrid API error: ${response.status}`);
-    }
-  } catch (err) {
-    console.error(`[OTP] SendGrid API Error:`, err.message);
-    return false;
-  }
+function buildOtpEmailHtml(code) {
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px; color: #e5e7eb; background: #111827; border-radius: 16px;">
+      <h1 style="margin: 0 0 8px; font-size: 22px; color: #f9fafb;">Verify your Resolve account</h1>
+      <p style="margin: 0 0 24px; font-size: 14px; color: #9ca3af;">Use this code to complete your organisation signup. It expires in 10 minutes.</p>
+      <div style="font-size: 32px; font-weight: 700; letter-spacing: 0.35em; text-align: center; padding: 20px; background: #1f2937; border: 1px solid #374151; border-radius: 12px; color: #f9fafb;">${code}</div>
+      <p style="margin: 24px 0 0; font-size: 12px; color: #6b7280;">If you didn't request this, you can safely ignore this email.</p>
+    </div>
+  `;
 }
 
 export async function sendOtpEmail(email, code) {
-  try {
-    console.log(`[OTP] Attempting to send email to ${email}`);
-    console.log(`[OTP] SMTP Config: host=${env.smtpHost}, port=${env.smtpPort}, user=${env.smtpUser}`);
-    
-    // Try SendGrid API first (more reliable)
-    if (env.smtpHost === 'smtp.sendgrid.net' && env.smtpPass?.startsWith('SG.')) {
-      const apiSuccess = await sendViaSendGridAPI(email, code);
-      if (apiSuccess) return true;
-      console.log(`[OTP] API failed, trying SMTP fallback...`);
-    }
-    
-    // SMTP fallback
-    const transporter = nodemailer.createTransport({
-      host: env.smtpHost,
-      port: parseInt(env.smtpPort || '465'),
-      secure: env.smtpPort === '465' ? true : (env.smtpSecure === 'true'),
-      auth: {
-        user: env.smtpUser,
-        pass: env.smtpPass,
-      },
-      timeout: 15000, // 15 second timeout
-      debug: true, // Enable debug logging
-    });
-
-    const mailOptions = {
-      from: `"${env.smtpFromName || 'Resolve'}" <${env.smtpFromEmail || env.smtpUser}>`,
-      to: email,
-      subject: 'Verify your Resolve account',
-      html: `<h2>Verification Code: ${code}</h2><p>This code expires in 10 minutes.</p>`,
-    };
-
-    await transporter.sendMail(mailOptions);
-    console.log(`[OTP] Email sent successfully to ${email}`);
-    return true;
-  } catch (err) {
-    console.error(`[OTP] SMTP Error:`, err.message);
-    console.error(`[OTP] Full Error:`, err);
-    console.log(`[OTP] ${email} → ${code} (valid 10 min) - FALLBACK`);
-    return true;
+  if (!env.brevoApiKey) {
+    throw new Error('Brevo API key is not configured (BREVO_API_KEY)');
   }
+
+  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'api-key': env.brevoApiKey,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({
+      sender: {
+        name: env.brevoFromName,
+        email: env.brevoFromEmail,
+      },
+      to: [{ email }],
+      subject: 'Your Resolve verification code',
+      htmlContent: buildOtpEmailHtml(code),
+      textContent: `Your Resolve verification code is ${code}. It expires in 10 minutes.`,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    console.error('[OTP] Brevo API error:', response.status, body);
+    throw new Error('Failed to send verification email');
+  }
+
+  console.log(`[OTP] Verification email sent to ${email}`);
 }
