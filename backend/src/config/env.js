@@ -9,12 +9,8 @@ export const env = {
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-me',
   jwtExpire: process.env.JWT_EXPIRE || '7d',
   frontendUrl: process.env.FRONTEND_URL || 'https://resolve-ten.vercel.app',
-  // SMTP Configuration
-  smtpHost: process.env.SMTP_HOST,
-  smtpPort: process.env.SMTP_PORT,
-  smtpSecure: process.env.SMTP_SECURE,
-  smtpUser: process.env.SMTP_USER,
-  smtpPass: process.env.SMTP_PASS,
-  smtpFromEmail: process.env.SMTP_FROM_EMAIL,
-  smtpFromName: process.env.SMTP_FROM_NAME,
+  // Brevo (transactional email for OTP)
+  brevoApiKey: process.env.BREVO_API_KEY,
+  brevoFromEmail: process.env.BREVO_FROM_EMAIL || 'resolveishere@gmail.com',
+  brevoFromName: process.env.BREVO_FROM_NAME || 'Resolve',
 };

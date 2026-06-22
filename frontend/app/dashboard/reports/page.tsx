@@ -67,6 +67,37 @@ interface Report {
   status: string;
 }
 
+const REPORT_TYPE_STYLES: Record<string, { badge: string; accent: string; hover: string }> = {
+  daily: {
+    badge: 'text-blue-300 bg-blue-500/15 border-blue-500/30',
+    accent: 'border-l-blue-500/60',
+    hover: 'hover:border-blue-500/25',
+  },
+  weekly: {
+    badge: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
+    accent: 'border-l-emerald-500/60',
+    hover: 'hover:border-emerald-500/25',
+  },
+  monthly: {
+    badge: 'text-violet-300 bg-violet-500/15 border-violet-500/30',
+    accent: 'border-l-violet-500/60',
+    hover: 'hover:border-violet-500/25',
+  },
+};
+
+const GENERATE_BTN_STYLES: Record<string, string> = {
+  daily: 'border-blue-500/40 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 hover:border-blue-400/50',
+  weekly: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-400/50',
+  monthly: 'border-violet-500/40 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 hover:border-violet-400/50',
+};
+
+const FILTER_ACTIVE_STYLES: Record<string, string> = {
+  all: 'bg-gray-600/50 text-gray-100 border-gray-500/50',
+  daily: 'bg-blue-500/20 text-blue-200 border-blue-500/40',
+  weekly: 'bg-emerald-500/20 text-emerald-200 border-emerald-500/40',
+  monthly: 'bg-violet-500/20 text-violet-200 border-violet-500/40',
+};
+
 function ReportsPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
@@ -470,163 +501,147 @@ function ReportsPage() {
         </div>
       )}
 
-      {/* Generate Reports Section */}
-      <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-100 mb-4">Generate New Report</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button
-            onClick={() => generateReport('daily')}
-            disabled={generating !== null}
-            className="px-4 py-3 bg-gray-700 text-white rounded-lg font-medium hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {generating === 'daily' ? 'Generating...' : '📅 Generate Daily Report'}
-          </button>
-          <button
-            onClick={() => generateReport('weekly')}
-            disabled={generating !== null}
-            className="px-4 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {generating === 'weekly' ? 'Generating...' : '📆 Generate Weekly Report'}
-          </button>
-          <button
-            onClick={() => generateReport('monthly')}
-            disabled={generating !== null}
-            className="px-4 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {generating === 'monthly' ? 'Generating...' : '📊 Generate Monthly Report'}
-          </button>
+      {/* Generate & export — compact action bar */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-6">
+        <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-blue-500/50 bg-gradient-to-r from-blue-950/20 to-gray-800/40 px-4 py-3">
+          <p className="text-xs font-semibold text-blue-400/80 uppercase tracking-widest mb-2">Generate report</p>
+          <div className="flex flex-wrap gap-2">
+            {(['daily', 'weekly', 'monthly'] as const).map((type) => (
+              <button
+                key={type}
+                onClick={() => generateReport(type)}
+                disabled={generating !== null}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${GENERATE_BTN_STYLES[type]}`}
+              >
+                {generating === type ? 'Generating…' : type.charAt(0).toUpperCase() + type.slice(1)}
+              </button>
+            ))}
+          </div>
         </div>
-        {/*<p className="text-sm text-gray-500 mt-3">*/}
-        {/*  💡 Reports are automatically generated daily at 11:59 PM, weekly on Sundays, and monthly on the last day of each month*/}
-        {/*</p>*/}
-      </div>
 
-      {/* Download All Data Section */}
-      <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-100 mb-4">Download Complete Data</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button
-            onClick={downloadAllAssets}
-            className="px-4 py-3 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 flex items-center justify-center gap-2"
-          >
-            <span>📦</span>
-            <span>Download All Assets</span>
-          </button>
-          <button
-            onClick={downloadAllIssues}
-            className="px-4 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 flex items-center justify-center gap-2"
-          >
-            <span>🗒️</span>
-            <span>Download All Issues</span>
-          </button>
+        <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-amber-500/50 bg-gradient-to-r from-amber-950/15 to-gray-800/40 px-4 py-3">
+          <p className="text-xs font-semibold text-amber-400/80 uppercase tracking-widest mb-2">Download data</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={downloadAllAssets}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-teal-500/40 bg-teal-500/10 text-teal-300 hover:bg-teal-500/20 hover:border-teal-400/50 transition-colors"
+            >
+              Assets PDF
+            </button>
+            <button
+              onClick={downloadAllIssues}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 hover:border-rose-400/50 transition-colors"
+            >
+              Issues PDF
+            </button>
+          </div>
+          {userRole === 'manager' && userDeptName && (
+            <p className="text-xs text-amber-500/60 mt-2">Scoped to {userDeptName} department</p>
+          )}
         </div>
-        <p className="text-sm text-gray-500 mt-3">
-          📥 {userRole === 'manager' && userDeptName
-            ? `Downloads are scoped to the ${userDeptName} department`
-            : 'Download complete lists of all assets and issues in your organization as PDF files'}
-        </p>
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex flex-wrap gap-1.5 mb-4">
         {['all', 'daily', 'weekly', 'monthly'].map((type) => (
           <button
             key={type}
             onClick={() => setFilterType(type as any)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
               filterType === type
-                ? 'bg-gray-700 text-white'
-                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                ? FILTER_ACTIVE_STYLES[type]
+                : 'bg-gray-800/40 text-gray-400 border-gray-700/60 hover:bg-gray-700/60 hover:text-gray-200'
             }`}
           >
-            {type === 'all' ? 'All Reports' : `${type.charAt(0).toUpperCase() + type.slice(1)} Reports`}
+            {type === 'all' ? 'All' : type.charAt(0).toUpperCase() + type.slice(1)}
           </button>
         ))}
       </div>
 
       {/* Reports List */}
       {filteredReports.length === 0 ? (
-        <div className="bg-gray-800 rounded-lg border border-gray-700 p-12 text-center">
-          <div className="text-4xl mb-4">📋</div>
-          <h3 className="text-lg font-medium text-gray-100 mb-2">No reports yet</h3>
-          <p className="text-gray-400">Generate your first report using the buttons above</p>
+        <div className="rounded-xl border border-dashed border-blue-500/20 bg-blue-950/10 px-4 py-8 text-center">
+          <p className="text-sm font-medium text-gray-300 mb-1">No reports yet</p>
+          <p className="text-xs text-gray-500">Generate your first report using the buttons above</p>
         </div>
       ) : (
         <>
-          <div className="space-y-4">
-            {currentReports.map((report) => (
+          <div className="space-y-2">
+            {currentReports.map((report) => {
+              const typeStyle = REPORT_TYPE_STYLES[report.reportType] ?? REPORT_TYPE_STYLES.daily;
+              return (
             <div
               key={report._id}
-              className="bg-gray-800 rounded-lg border border-gray-700 p-6 hover:border-blue-300 transition-colors"
+              className={`rounded-xl border border-gray-700/60 border-l-2 ${typeStyle.accent} bg-gray-800/40 px-4 py-3 ${typeStyle.hover} transition-colors`}
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className={`text-3xl`}>
-                    {report.reportType === 'daily' ? '📅' :
-                     report.reportType === 'weekly' ? '📆' : '📊'}
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`px-2 py-0.5 text-[11px] font-semibold rounded-md border ${typeStyle.badge}`}>
+                      {report.reportType.charAt(0).toUpperCase() + report.reportType.slice(1)}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {new Date(report.period.start).toLocaleDateString()} – {new Date(report.period.end).toLocaleDateString()}
+                    </span>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-100">
-                      {report.reportType.charAt(0).toUpperCase() + report.reportType.slice(1)} Report
-                    </h3>
-                    <p className="text-sm text-gray-400">
-                      {new Date(report.period.start).toLocaleDateString()} - {new Date(report.period.end).toLocaleDateString()}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Generated: {new Date(report.generatedAt).toLocaleString()}
-                    </p>
-                  </div>
+                  <p className="text-[11px] text-gray-600 mt-1">
+                    Generated {new Date(report.generatedAt).toLocaleString()}
+                  </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-1.5 shrink-0">
                   <button
                     onClick={() => setSelectedReport(selectedReport?._id === report._id ? null : report)}
-                    className="px-3 py-1.5 text-sm bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 font-medium"
+                    className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors ${
+                      selectedReport?._id === report._id
+                        ? 'border-blue-500/40 bg-blue-500/15 text-blue-300'
+                        : 'border-gray-700/60 bg-gray-800/60 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200'
+                    }`}
                   >
-                    {selectedReport?._id === report._id ? 'Hide Details' : 'View Details'}
+                    {selectedReport?._id === report._id ? 'Hide' : 'Details'}
                   </button>
                   <button
                     onClick={() => downloadReport(report)}
-                    className="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-700 font-medium"
+                    className="px-2.5 py-1 text-xs font-medium rounded-lg border border-teal-500/40 bg-teal-500/10 text-teal-300 hover:bg-teal-500/20 hover:border-teal-400/50 transition-colors"
                   >
-                    📥 Download
+                    Download
                   </button>
                 </div>
               </div>
 
               {/* Summary Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <div className="bg-blue-900/20 p-3 rounded-lg">
-                  <p className="text-sm text-blue-400 font-medium">Total Issues</p>
-                  <p className="text-2xl font-bold text-blue-900">{report.summary.totalIssuesReported}</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                <div className="px-2 py-1.5 rounded-lg border border-blue-800/30 bg-blue-900/15">
+                  <p className="text-[10px] text-blue-400/70 uppercase tracking-wide">Issues</p>
+                  <p className="text-sm font-semibold text-blue-300">{report.summary.totalIssuesReported}</p>
                 </div>
-                <div className="bg-green-900/20 p-3 rounded-lg">
-                  <p className="text-sm text-green-400 font-medium">Assets Affected</p>
-                  <p className="text-2xl font-bold text-green-900">{report.summary.totalAssetsAffected}</p>
+                <div className="px-2 py-1.5 rounded-lg border border-emerald-800/30 bg-emerald-900/15">
+                  <p className="text-[10px] text-emerald-400/70 uppercase tracking-wide">Assets</p>
+                  <p className="text-sm font-semibold text-emerald-300">{report.summary.totalAssetsAffected}</p>
                 </div>
-                <div className="bg-purple-50 p-3 rounded-lg">
-                  <p className="text-sm text-purple-600 font-medium">Resolution Rate</p>
-                  <p className="text-2xl font-bold text-purple-900">{report.insights.performanceMetrics.resolutionRate}%</p>
+                <div className="px-2 py-1.5 rounded-lg border border-violet-800/30 bg-violet-900/15">
+                  <p className="text-[10px] text-violet-400/70 uppercase tracking-wide">Resolution</p>
+                  <p className="text-sm font-semibold text-violet-300">{report.insights.performanceMetrics.resolutionRate}%</p>
                 </div>
-                <div className="bg-amber-50 p-3 rounded-lg">
-                  <p className="text-sm text-amber-600 font-medium">Avg Resolution</p>
-                  <p className="text-2xl font-bold text-amber-900">{report.insights.performanceMetrics.avgResolutionTime}h</p>
+                <div className="px-2 py-1.5 rounded-lg border border-amber-800/30 bg-amber-900/15">
+                  <p className="text-[10px] text-amber-400/70 uppercase tracking-wide">Avg time</p>
+                  <p className="text-sm font-semibold text-amber-300">{report.insights.performanceMetrics.avgResolutionTime}h</p>
                 </div>
               </div>
 
               {/* Detailed View */}
               {selectedReport?._id === report._id && (
-                <div className="border-t border-gray-700 pt-4 mt-4 space-y-6">
+                <div className="border-t border-gray-700/60 pt-3 mt-3 space-y-4">
                   {/* Most Reported Assets */}
                   <div>
-                    <h4 className="font-semibold text-gray-100 mb-3">Most Reported Assets</h4>
-                    <div className="space-y-2">
+                    <h4 className="text-xs font-semibold text-blue-400/80 uppercase tracking-widest mb-1.5">Most reported assets</h4>
+                    <div className="space-y-1">
                       {report.summary.mostReportedAssets.slice(0, 5).map((asset, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-900 rounded-lg">
-                          <div>
-                            <p className="font-medium text-gray-100">{asset.assetName}</p>
-                            <p className="text-sm text-gray-400">{asset.assetTag}</p>
+                        <div key={idx} className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-blue-950/20 border border-blue-800/20">
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-gray-200 truncate">{asset.assetName}</p>
+                            <p className="text-[11px] text-gray-500 truncate">{asset.assetTag}</p>
                           </div>
-                          <span className="px-3 py-1 bg-red-100 text-red-400 rounded-full text-sm font-medium">
+                          <span className="ml-2 shrink-0 px-2 py-0.5 text-[11px] font-medium text-red-400 bg-red-900/20 border border-red-800/40 rounded-md">
                             {asset.issueCount} issues
                           </span>
                         </div>
@@ -636,12 +651,12 @@ function ReportsPage() {
 
                   {/* Most Reported Locations */}
                   <div>
-                    <h4 className="font-semibold text-gray-100 mb-3">Most Reported Locations</h4>
-                    <div className="space-y-2">
+                    <h4 className="text-xs font-semibold text-amber-400/80 uppercase tracking-widest mb-1.5">Most reported locations</h4>
+                    <div className="space-y-1">
                       {report.summary.mostReportedLocations.slice(0, 5).map((loc, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-900 rounded-lg">
-                          <p className="font-medium text-gray-100">{loc.locationName}</p>
-                          <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
+                        <div key={idx} className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-amber-950/15 border border-amber-800/20">
+                          <p className="text-xs font-medium text-gray-200 truncate">{loc.locationName}</p>
+                          <span className="ml-2 shrink-0 px-2 py-0.5 text-[11px] font-medium text-amber-400 bg-amber-900/20 border border-amber-800/40 rounded-md">
                             {loc.issueCount} issues
                           </span>
                         </div>
@@ -651,23 +666,23 @@ function ReportsPage() {
 
                   {/* Issues by Status */}
                   <div>
-                    <h4 className="font-semibold text-gray-100 mb-3">Issues by Status</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <div className="p-3 bg-yellow-900/20 border border-yellow-200 rounded-lg">
-                        <p className="text-sm text-yellow-400 font-medium">Open</p>
-                        <p className="text-xl font-bold text-yellow-900">{report.summary.issuesByStatus.open}</p>
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Issues by status</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                      <div className="px-2 py-1.5 rounded-lg border border-yellow-800/30 bg-yellow-900/10">
+                        <p className="text-[10px] text-yellow-500/80 uppercase tracking-wide">Open</p>
+                        <p className="text-sm font-semibold text-yellow-400">{report.summary.issuesByStatus.open}</p>
                       </div>
-                      <div className="p-3 bg-blue-900/20 border border-blue-200 rounded-lg">
-                        <p className="text-sm text-blue-400 font-medium">In Progress</p>
-                        <p className="text-xl font-bold text-blue-900">{report.summary.issuesByStatus.in_progress}</p>
+                      <div className="px-2 py-1.5 rounded-lg border border-blue-800/30 bg-blue-900/10">
+                        <p className="text-[10px] text-blue-500/80 uppercase tracking-wide">In progress</p>
+                        <p className="text-sm font-semibold text-blue-400">{report.summary.issuesByStatus.in_progress}</p>
                       </div>
-                      <div className="p-3 bg-green-900/20 border border-green-800 rounded-lg">
-                        <p className="text-sm text-green-400 font-medium">Completed</p>
-                        <p className="text-xl font-bold text-green-900">{report.summary.issuesByStatus.completed}</p>
+                      <div className="px-2 py-1.5 rounded-lg border border-green-800/30 bg-green-900/10">
+                        <p className="text-[10px] text-green-500/80 uppercase tracking-wide">Completed</p>
+                        <p className="text-sm font-semibold text-green-400">{report.summary.issuesByStatus.completed}</p>
                       </div>
-                      <div className="p-3 bg-gray-900 border border-gray-700 rounded-lg">
-                        <p className="text-sm text-gray-300 font-medium">Cancelled</p>
-                        <p className="text-xl font-bold text-gray-100">{report.summary.issuesByStatus.cancelled}</p>
+                      <div className="px-2 py-1.5 rounded-lg border border-gray-600/40 bg-gray-800/40">
+                        <p className="text-[10px] text-gray-500 uppercase tracking-wide">Cancelled</p>
+                        <p className="text-sm font-semibold text-gray-400">{report.summary.issuesByStatus.cancelled}</p>
                       </div>
                     </div>
                   </div>
@@ -675,15 +690,15 @@ function ReportsPage() {
                   {/* Critical Assets */}
                   {report.insights.criticalAssets.length > 0 && (
                     <div>
-                      <h4 className="font-semibold text-gray-100 mb-3">⚠️ Critical Assets (High Issue Frequency)</h4>
-                      <div className="space-y-2">
+                      <h4 className="text-xs font-semibold text-red-400/80 uppercase tracking-widest mb-1.5">Critical assets</h4>
+                      <div className="space-y-1">
                         {report.insights.criticalAssets.map((asset, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-3 bg-red-900/20 border border-red-800 rounded-lg">
-                            <div>
-                              <p className="font-medium text-red-900">{asset.assetName}</p>
-                              <p className="text-sm text-red-400">Avg Resolution: {asset.avgResolutionTime}h</p>
+                          <div key={idx} className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-red-900/10 border border-red-800/30">
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-red-300 truncate">{asset.assetName}</p>
+                              <p className="text-[11px] text-red-400/70">Avg resolution: {asset.avgResolutionTime}h</p>
                             </div>
-                            <span className="px-3 py-1 bg-red-600 text-white rounded-full text-sm font-medium">
+                            <span className="ml-2 shrink-0 px-2 py-0.5 text-[11px] font-medium text-red-300 bg-red-900/30 border border-red-800/40 rounded-md">
                               {asset.issueCount} issues
                             </span>
                           </div>
@@ -694,11 +709,11 @@ function ReportsPage() {
 
                   {/* Trends */}
                   <div>
-                    <h4 className="font-semibold text-gray-100 mb-3">📈 Trends</h4>
-                    <div className="p-4 bg-gray-900 rounded-lg">
-                      <p className="text-gray-300">
-                        Issues vs Previous Period:
-                        <span className={`ml-2 font-bold ${
+                    <h4 className="text-xs font-semibold text-cyan-400/80 uppercase tracking-widest mb-1.5">Trends</h4>
+                    <div className="px-2 py-2 rounded-lg bg-cyan-950/15 border border-cyan-800/20">
+                      <p className="text-xs text-gray-400">
+                        Issues vs previous period:
+                        <span className={`ml-1.5 font-semibold ${
                           report.insights.trends.issuesVsPreviousPeriod > 0 ? 'text-red-400' : 'text-green-400'
                         }`}>
                           {report.insights.trends.issuesVsPreviousPeriod > 0 ? '+' : ''}
@@ -706,11 +721,11 @@ function ReportsPage() {
                         </span>
                       </p>
                       {report.insights.trends.highRiskLocations.length > 0 && (
-                        <div className="mt-3">
-                          <p className="text-gray-300 font-medium mb-2">High Risk Locations:</p>
-                          <div className="flex flex-wrap gap-2">
+                        <div className="mt-2">
+                          <p className="text-[11px] text-gray-500 mb-1">High risk locations</p>
+                          <div className="flex flex-wrap gap-1">
                             {report.insights.trends.highRiskLocations.map((loc, idx) => (
-                              <span key={idx} className="px-2 py-1 bg-red-100 text-red-400 rounded text-sm">
+                              <span key={idx} className="px-1.5 py-0.5 text-[11px] text-red-400 bg-red-900/20 border border-red-800/30 rounded">
                                 {loc}
                               </span>
                             ))}
@@ -722,31 +737,32 @@ function ReportsPage() {
                 </div>
               )}
             </div>
-          ))}
+            );
+            })}
         </div>
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="mt-6 bg-gray-800 border border-gray-700 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-400">
-                Showing {startIndex + 1} to {Math.min(endIndex, filteredReports.length)} of {filteredReports.length} reports
+          <div className="mt-4 rounded-xl border border-gray-700/60 bg-gray-800/40 px-4 py-2.5">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-xs text-gray-500">
+                {startIndex + 1}–{Math.min(endIndex, filteredReports.length)} of {filteredReports.length}
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="px-4 py-2 text-sm border border-gray-700 bg-gray-900 text-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-800"
+                  className="px-2.5 py-1 text-xs font-medium border border-gray-700/60 bg-gray-800/60 text-gray-400 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700/60 hover:text-gray-200 transition-colors"
                 >
-                  Previous
+                  Prev
                 </button>
-                <span className="px-4 py-2 text-sm text-gray-100">
-                  Page {currentPage} of {totalPages}
+                <span className="px-2 text-xs text-gray-500">
+                  {currentPage}/{totalPages}
                 </span>
                 <button
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage >= totalPages}
-                  className="px-4 py-2 text-sm border border-gray-700 bg-gray-900 text-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-800"
+                  className="px-2.5 py-1 text-xs font-medium border border-gray-700/60 bg-gray-800/60 text-gray-400 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700/60 hover:text-gray-200 transition-colors"
                 >
                   Next
                 </button>
