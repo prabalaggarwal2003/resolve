@@ -3,16 +3,18 @@
  */
 
 export const TIER_LIMITS = {
-  free: { assets: 50, users: 5, showKPIs: false, showDepreciation: false },
-  pro: { assets: 200, users: 10, showKPIs: true, showDepreciation: true },
-  premium: { assets: 1000, users: 20, showKPIs: true, showDepreciation: true },
+  free: { assets: 50, users: 5, showKPIs: false, showDepreciation: false, showVendors: false, showDataExports: false },
+  pro: { assets: 200, users: 10, showKPIs: true, showDepreciation: true, showVendors: true, showDataExports: true },
+  premium: { assets: 1000, users: 20, showKPIs: true, showDepreciation: true, showVendors: true, showDataExports: true },
 };
 
 /** @ts-ignore - Exported for future use */
-export function canAccessFeature(tier: string, feature: 'kpis' | 'depreciation'): boolean {
+export function canAccessFeature(tier: string, feature: 'kpis' | 'depreciation' | 'vendors' | 'dataExports'): boolean {
   const limits = TIER_LIMITS[tier as keyof typeof TIER_LIMITS] || TIER_LIMITS.free;
   if (feature === 'kpis') return limits.showKPIs;
   if (feature === 'depreciation') return limits.showDepreciation;
+  if (feature === 'vendors') return limits.showVendors;
+  if (feature === 'dataExports') return limits.showDataExports;
   return false;
 }
 

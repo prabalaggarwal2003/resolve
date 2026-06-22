@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import SubscriptionBanner from '@/components/SubscriptionBanner';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import UpgradeNudges from '@/components/UpgradeNudges';
 
 type Issue = {
@@ -176,7 +177,7 @@ export default function DashboardPage() {
         Overview of assets and issues for your organization
       </p>
 
-      {loading && <p className="text-gray-400">Loading…</p>}
+      {loading && <LoadingSpinner message="Loading dashboard..." />}
       {error && (
         <p className="p-4 bg-red-900/20 border border-red-800 text-red-400 rounded-lg text-sm mb-4">{error}</p>
       )}

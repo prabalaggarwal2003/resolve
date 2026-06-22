@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 interface SubscriptionStatus {
   tier: 'free' | 'pro' | 'premium';
@@ -45,6 +46,7 @@ const PLAN_DETAILS = {
       'Up to 10 users/roles',
       'KPIs & Metrics',
       'Depreciation tracking',
+      'Vendor management',
       'Advanced maintenance',
       'Premium reports',
     ],
@@ -61,6 +63,7 @@ const PLAN_DETAILS = {
       'Up to 20 users/roles',
       'Full KPIs & Metrics',
       'Complete depreciation',
+      'Vendor management',
       'Priority support',
       'Custom integrations',
     ],
@@ -243,12 +246,7 @@ export default function SubscriptionsPage() {
 
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400"></div>
-        <span className="ml-3 text-gray-400">Loading subscription...</span>
-      </div>
-    );
+    return <LoadingSpinner message="Loading subscription..." />;
   }
 
   return (

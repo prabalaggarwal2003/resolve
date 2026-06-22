@@ -3,6 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Suspense, useState, useEffect } from 'react';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 const ISSUE_TYPES = [
   { value: 'not_working', label: 'Not working / Not turning on' },
@@ -250,7 +251,7 @@ export default function ReportPage() {
   return (
     <Suspense fallback={
       <main className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
-        <p className="text-gray-400">Loading…</p>
+        <LoadingSpinner message="Loading..." />
       </main>
     }>
       <ReportContent />

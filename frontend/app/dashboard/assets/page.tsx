@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import UpgradeNudges from '@/components/UpgradeNudges';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 const CATEGORIES = [
   'Projector',
@@ -333,7 +334,7 @@ function AssetsPageContent() {
         </select>
       </div>
 
-      {loading && <p className="text-gray-400">Loading…</p>}
+      {loading && <LoadingSpinner message="Loading assets..." />}
       {error && (
         <p className="p-4 bg-red-900/20 border border-red-800 text-red-400 rounded-lg text-sm">{error}</p>
       )}
@@ -431,7 +432,7 @@ function AssetsPageContent() {
 
 export default function AssetsPage() {
   return (
-    <Suspense fallback={<p className="text-gray-400">Loading…</p>}>
+    <Suspense fallback={<LoadingSpinner message="Loading assets..." />}>
       <AssetsPageContent />
     </Suspense>
   );

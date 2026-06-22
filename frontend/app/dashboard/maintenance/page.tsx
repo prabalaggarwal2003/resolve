@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 interface MaintenanceAsset {
   _id: string;
@@ -275,10 +276,7 @@ export default function MaintenancePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-        <span className="ml-3 text-gray-400">Loading maintenance assets...</span>
-      </div>
+      <LoadingSpinner message="Loading maintenance assets..." />
     );
   }
 
