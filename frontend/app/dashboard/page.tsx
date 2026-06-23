@@ -290,13 +290,17 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function getFirstName(fullName: string): string {
+  const trimmed = fullName.trim();
+  if (!trimmed) return 'there';
+  return trimmed.split(/\s+/)[0];
 }
 
 function KpiCard({
@@ -311,13 +315,13 @@ function KpiCard({
   accent: string;
 }) {
   return (
-    <div className={`relative overflow-hidden rounded-xl border border-gray-700/50 bg-gray-900/40 px-2.5 py-2`}>
+    <div className={`relative overflow-hidden rounded-lg border border-gray-700/50 bg-gray-900/40 px-2 py-1.5`}>
       <div className={`absolute inset-0 opacity-20 bg-gradient-to-br ${accent} to-transparent`} />
-      <div className="relative flex items-start gap-2">
-        <span className="text-base leading-none mt-0.5">{icon}</span>
+      <div className="relative flex items-center gap-1.5">
+        <span className="text-sm leading-none">{icon}</span>
         <div className="min-w-0">
-          <p className="text-[9px] text-gray-500 uppercase tracking-wide truncate">{label}</p>
-          <p className="text-lg font-bold text-gray-100 tabular-nums leading-tight mt-0.5">{value}</p>
+          <p className="text-[8px] text-gray-500 uppercase tracking-wide truncate">{label}</p>
+          <p className="text-sm font-bold text-gray-100 tabular-nums leading-tight">{value}</p>
         </div>
       </div>
     </div>
@@ -333,9 +337,9 @@ function LineChart({
   reported: number[];
   resolved: number[];
 }) {
-  const w = 320;
-  const h = 120;
-  const pad = { t: 8, r: 8, b: 20, l: 28 };
+  const w = 280;
+  const h = 72;
+  const pad = { t: 4, r: 6, b: 14, l: 22 };
   const max = Math.max(...reported, ...resolved, 1);
   const innerW = w - pad.l - pad.r;
   const innerH = h - pad.t - pad.b;
@@ -368,8 +372,8 @@ function LineChart({
 }
 
 function DonutChart({ segments }: { segments: Array<{ key: string; label: string; value: number }> }) {
-  const size = 110;
-  const stroke = 12;
+  const size = 72;
+  const stroke = 9;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const total = segments.reduce((s, seg) => s + seg.value, 0);
@@ -400,12 +404,12 @@ function DonutChart({ segments }: { segments: Array<{ key: string; label: string
           })}
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-sm font-bold text-gray-100 tabular-nums">{total}</span>
+          <span className="text-xs font-bold text-gray-100 tabular-nums">{total}</span>
         </div>
       </div>
-      <div className="flex-1 space-y-1 min-w-0">
+      <div className="flex-1 space-y-0.5 min-w-0 mt-6">
         {segments.map((seg) => (
-          <div key={seg.key} className="flex items-center gap-1.5 text-[10px]">
+          <div key={seg.key} className="flex items-center gap-1 text-[10px]">
             <span className="w-2 h-2 rounded-full shrink-0" style={{ background: STATUS_COLORS[seg.key] }} />
             <span className="text-gray-500 truncate flex-1">{seg.label}</span>
             <span className="text-gray-300 font-medium tabular-nums">{seg.value}</span>
@@ -428,8 +432,8 @@ function Panel({
   className?: string;
 }) {
   return (
-    <div className={`rounded-xl border border-gray-700/60 border-l-2 ${accent} bg-gray-800/40 px-3 py-2.5 flex flex-col min-h-0 ${className}`}>
-      <p className="text-[9px] font-semibold uppercase tracking-widest text-gray-500 mb-2 shrink-0">{title}</p>
+    <div className={`rounded-lg border border-gray-700/60 border-l-2 ${accent} bg-gray-800/40 px-2.5 py-2 flex flex-col min-h-0 ${className}`}>
+      <p className="text-[12px] font-semibold uppercase tracking-widest text-gray-500 mb-1 shrink-0">{title}</p>
       <div className="flex-1 min-h-0">{children}</div>
     </div>
   );
@@ -440,11 +444,13 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isManager, setIsManager] = useState(false);
+  const [userName, setUserName] = useState('');
 
   useEffect(() => {
     try {
-      const u = localStorage.getItem('user');
-      if (u) setIsManager(JSON.parse(u).role === 'manager');
+      const u = JSON.parse(localStorage.getItem('user') || '{}');
+      if (u.role === 'manager') setIsManager(true);
+      if (u.name) setUserName(u.name);
     } catch (_) {}
   }, []);
 
@@ -462,7 +468,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="h-[calc(100dvh-7rem)] flex items-center justify-center">
+      <div className="h-full flex items-center justify-center">
         <LoadingSpinner message="Loading dashboard..." />
       </div>
     );
@@ -482,16 +488,22 @@ export default function DashboardPage() {
       ? { icon: '💰', label: 'Purchase value', value: formatCurrency(kpis.totalPurchaseValue) }
       : null;
 
-  const analyticsCount = (issueTrend ? 1 : 0) + (assetStatus ? 1 : 0);
-  const analyticsGridClass =
-    analyticsCount === 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1';
+  const displayIssues = latestIssues.slice(0, 10);
+  const hasCharts = Boolean(issueTrend || assetStatus);
 
   return (
-    <div className="max-w-7xl mx-auto flex flex-col gap-4 pb-2 text-sm">
+    <div className="h-[calc(100dvh-8.5rem)] max-w-7xl mx-auto w-full flex flex-col gap-2  text-sm">
+      <div className="shrink-0">
+        <h1 className="text-[20px] font-bold text-gray-100 leading-tight mb-2">
+          {getGreeting()}, {getFirstName(userName)}
+        </h1>
+        <p className="text-[14px] text-gray-500 mt-0.5 mb-2">Here&apos;s what&apos;s happening across your organization</p>
+      </div>
+
       {/* KPI row */}
       <div
-        className={`grid gap-3 ${
-          valueKpi ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5' : 'grid-cols-2 lg:grid-cols-4'
+        className={`shrink-0 grid gap-2 ${
+          valueKpi ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'
         }`}
       >
         {kpiCards.map((meta) => (
@@ -510,8 +522,8 @@ export default function DashboardPage() {
 
       {/* Action required */}
       {actionRequired.length > 0 && (
-        <div className="rounded-xl border border-red-500/30 bg-red-950/20 px-4 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-2">
-          <span className="text-[10px] font-semibold text-red-400 uppercase tracking-wide">⚠️ Action required</span>
+        <div className="shrink-0 rounded-lg border border-red-500/30 bg-red-950/20 px-3 py-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 my-2">
+          <span className="text-[12px] font-semibold text-red-400 uppercase tracking-wide">⚠️  Action required</span>
           {actionRequired.map((item) => (
             <Link
               key={item.key}
@@ -525,85 +537,101 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Charts */}
-      {analyticsCount > 0 && (
-        <div className={`grid ${analyticsGridClass} gap-4`}>
-          {issueTrend && (
-            <Panel title="📈 Issue trend — last 30 days" accent="border-l-amber-500/50">
-              <div className="flex gap-3 mb-1.5 text-[10px]">
-                <span className="flex items-center gap-1 text-gray-500">
-                  <span className="w-3 h-0.5 bg-amber-400 rounded" /> Reported
-                </span>
-                <span className="flex items-center gap-1 text-gray-500">
-                  <span className="w-3 h-0.5 bg-emerald-400 rounded" /> Resolved
-                </span>
-              </div>
-              <LineChart labels={issueTrend.labels} reported={issueTrend.reported} resolved={issueTrend.resolved} />
-            </Panel>
-          )}
-          {assetStatus && (
-            <Panel title="🥧 Asset status" accent="border-l-blue-500/50">
-              <DonutChart segments={assetStatus} />
-            </Panel>
-          )}
-        </div>
-      )}
-
-      {/* Latest issues */}
-      <Panel title="📋 Latest issues" accent="border-l-violet-500/50">
-        {latestIssues.length === 0 ? (
-          <p className="text-xs text-gray-500">No issues yet.</p>
-        ) : (
-          <div>
-            <div className="grid grid-cols-[1fr_0.7fr_0.5fr_0.55fr_0.7fr] gap-2 text-[9px] text-gray-600 uppercase tracking-wide border-b border-gray-700/30 pb-1.5 mb-1">
-              <span>Asset</span>
-              <span>Reporter</span>
-              <span>Priority</span>
-              <span>Status</span>
-              <span className="text-right">Reported</span>
-            </div>
-            {latestIssues.map((issue) => {
-              const row = (
-                <>
-                  <span className="truncate text-gray-300">{issue.assetName}</span>
-                  <span className="truncate text-gray-500">{issue.reporterName}</span>
-                  <span
-                    className={`w-fit px-1 py-0.5 text-[9px] rounded border capitalize ${
-                      PRIORITY_BADGE[issue.priority] || PRIORITY_BADGE.medium
-                    }`}
-                  >
-                    {issue.priority}
+      {/* Charts row + latest issues */}
+      <div className="flex-1 min-h-0 flex flex-col gap-2">
+        {hasCharts && (
+          <div
+            className={`shrink-0 grid gap-2 ${
+              issueTrend && assetStatus ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'
+            }`}
+          >
+            {issueTrend && (
+              <Panel title="📈 Issue trend" accent="border-l-amber-500/50" className="overflow-hidden">
+                <div className="flex gap-2 mb-0.5 text-[10px]">
+                  <span className="flex items-center gap-1 text-gray-500">
+                    <span className="w-2.5 h-0.5 bg-amber-400 rounded" /> Reported
                   </span>
-                  <span
-                    className={`w-fit px-1 py-0.5 text-[9px] rounded border capitalize ${
-                      STATUS_BADGE[issue.status] || STATUS_BADGE.cancelled
-                    }`}
-                  >
-                    {issue.status.replace('_', ' ')}
+                  <span className="flex items-center gap-1 text-gray-500">
+                    <span className="w-2.5 h-0.5 bg-emerald-400 rounded" /> Resolved
                   </span>
-                  <span className="text-right text-gray-600 tabular-nums text-[10px]">{formatTime(issue.createdAt)}</span>
-                </>
-              );
-              return isManager ? (
-                <div
-                  key={issue._id}
-                  className="grid grid-cols-[1fr_0.7fr_0.5fr_0.55fr_0.7fr] gap-2 py-1.5 border-b border-gray-700/20 text-[11px] items-center last:border-0"
-                >
-                  {row}
                 </div>
-              ) : (
-                <Link
-                  key={issue._id}
-                  href={`/dashboard/issues/${issue._id}`}
-                  className="grid grid-cols-[1fr_0.7fr_0.5fr_0.55fr_0.7fr] gap-2 py-1.5 border-b border-gray-700/20 text-[11px] items-center no-underline hover:bg-gray-800/30 last:border-0"
-                >
-                  {row}
-                </Link>
-              );
-            })}
+                <LineChart labels={issueTrend.labels} reported={issueTrend.reported} resolved={issueTrend.resolved} />
+              </Panel>
+            )}
+            {assetStatus && (
+              <Panel title="🥧 Asset status" accent="border-l-blue-500/50" className="overflow-hidden">
+                <DonutChart segments={assetStatus} />
+              </Panel>
+            )}
           </div>
         )}
-      </Panel>
+
+        <Panel
+          title="📋 Latest issues"
+          accent="border-l-violet-500/50"
+          className="flex-1 min-h-0 overflow-hidden mt-2"
+        >
+          {displayIssues.length === 0 ? (
+            <p className="text-[10px] text-gray-500">No issues yet.</p>
+          ) : (
+            <div className="flex-1 min-h-0 flex flex-col h-full">
+              <div className="shrink-0 grid grid-cols-[1fr_0.65fr_0.45fr_0.5fr_0.6fr] gap-1 text-[12px] text-gray-600 uppercase tracking-wide border-b border-gray-700/30 pb-1">
+                <span>Asset</span>
+                <span>Reporter</span>
+                <span>Priority</span>
+                <span>Status</span>
+                <span className="text-right">When</span>
+              </div>
+              <div className="flex-1 min-h-0 flex flex-col justify-evenly my-2">
+                {displayIssues.map((issue) => {
+                  const rowClass =
+                    'grid grid-cols-[1fr_0.65fr_0.45fr_0.5fr_0.6fr] gap-1 text-[12px] items-center min-h-0 flex-1';
+                  const row = (
+                    <>
+                      <span className="truncate text-gray-300">{issue.assetName}</span>
+                      <span className="truncate text-gray-500">{issue.reporterName}</span>
+                      <span
+                        className={`w-fit px-1 py-0.5 text-[8px] rounded border capitalize ${
+                          PRIORITY_BADGE[issue.priority] || PRIORITY_BADGE.medium
+                        }`}
+                      >
+                        {issue.priority}
+                      </span>
+                      <span
+                        className={`w-fit px-1 py-0.5 text-[8px] rounded border capitalize ${
+                          STATUS_BADGE[issue.status] || STATUS_BADGE.cancelled
+                        }`}
+                      >
+                        {issue.status.replace('_', ' ')}
+                      </span>
+                      <span className="text-right text-gray-600 tabular-nums text-[9px]">
+                        {new Date(issue.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      </span>
+                    </>
+                  );
+                  return isManager ? (
+                    <div key={issue._id} className={rowClass}>
+                      {row}
+                    </div>
+                  ) : (
+                    <Link
+                      key={issue._id}
+                      href={`/dashboard/issues/${issue._id}`}
+                      className={`${rowClass} no-underline hover:bg-gray-800/30 rounded`}
+                    >
+                      {row}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </Panel>
+      </div>
+      <div className="">
+    <p className="text-[18px] text-gray-600 text-center -mb-12 pt-7 ">Manage smarter. Track better. Resolve faster.</p>
+  </div>
     </div>
+    
   );
 }

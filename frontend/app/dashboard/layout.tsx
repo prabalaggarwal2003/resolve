@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import DashboardNav from './DashboardNav';
 import { NotificationProvider } from '@/contexts/NotificationContext';
-import DarkModeToggle from '@/components/DarkModeToggle';
 
 export default function DashboardLayout({
   children,
@@ -26,7 +25,6 @@ export default function DashboardLayout({
               >
                 resolve
               </Link>
-              {/*<p className="text-xs text-gray-600 mt-0.5">Asset Management</p>*/}
             </div>
 
             {/* Nav */}

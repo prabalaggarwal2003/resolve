@@ -15,6 +15,8 @@ const userSchema = new mongoose.Schema(
     departmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
     assignedLocationIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Location' }],
     phone: String,
+    jobTitle: String,
+    timeZone: { type: String, default: 'Asia/Kolkata' },
     avatar: String,
     isActive: { type: Boolean, default: true },
     emailVerified: { type: Boolean, default: false },

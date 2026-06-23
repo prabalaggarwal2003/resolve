@@ -21,6 +21,8 @@ const organizationSchema = new mongoose.Schema(
     },
     country: { type: String, index: true },
     region: { type: String, index: true },
+    gstin: { type: String, trim: true, uppercase: true },
+    registeredAddress: { type: String, trim: true },
     primaryGoal: {
       type: String,
       enum: ['track_it_assets', 'maintenance', 'inventory', 'compliance', 'other']

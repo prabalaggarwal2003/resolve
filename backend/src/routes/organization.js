@@ -54,7 +54,7 @@ router.put('/', protect, async (req, res) => {
       return res.status(400).json({ message: 'No organization found' });
     }
 
-    const { name, industry, companySize, country, region, primaryGoal, estimatedAssets } = req.body;
+    const { name, industry, companySize, country, region, primaryGoal, estimatedAssets, gstin, registeredAddress } = req.body;
     
     // Build update object with only provided fields
     const updateData = {};
@@ -65,6 +65,8 @@ router.put('/', protect, async (req, res) => {
     if (region !== undefined) updateData.region = region?.trim() || undefined;
     if (primaryGoal !== undefined) updateData.primaryGoal = primaryGoal;
     if (estimatedAssets !== undefined) updateData.estimatedAssets = estimatedAssets;
+    if (gstin !== undefined) updateData.gstin = gstin?.trim().toUpperCase() || undefined;
+    if (registeredAddress !== undefined) updateData.registeredAddress = registeredAddress?.trim() || undefined;
 
     const organization = await Organization.findByIdAndUpdate(
       req.user.organizationId,
