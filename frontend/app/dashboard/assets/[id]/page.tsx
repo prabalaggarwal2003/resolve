@@ -204,20 +204,6 @@ function Pagination({
   );
 }
 
-function getChangedFields(log: { fieldChanges?: { label: string }[]; summary?: string }): string[] {
-  if (log.fieldChanges?.length) {
-    return [...new Set(log.fieldChanges.map((c) => c.label))];
-  }
-  if (log.summary) {
-    return log.summary.split(' · ').map((part) => {
-      if (part.startsWith('Created:')) return 'Created';
-      const idx = part.indexOf(':');
-      return idx > 0 ? part.slice(0, idx).trim() : part.trim();
-    });
-  }
-  return [];
-}
-
 function getReportCount(issue: Issue): number {
   if (issue.reports && issue.reports.length > 0) return issue.reports.length;
   return 1;
@@ -227,13 +213,6 @@ export default function AssetDetailPage() {
   const params = useParams();
   const [asset, setAsset] = useState<Asset | null>(null);
   const [issues, setIssues] = useState<Issue[]>([]);
-  const [logs, setLogs] = useState<
-    {
-      summary?: string;
-      fieldChanges?: { label: string; oldValue?: string; newValue?: string }[];
-      createdAt: string;
-    }[]
-  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -244,7 +223,6 @@ export default function AssetDetailPage() {
   const [maintFilter, setMaintFilter] = useState<'all' | 'active' | 'completed'>('all');
   const [issuesPage, setIssuesPage] = useState(1);
   const [issuesFilter, setIssuesFilter] = useState('all');
-  const [logsPage, setLogsPage] = useState(1);
 
   useEffect(() => {
     try {
@@ -266,13 +244,11 @@ export default function AssetDetailPage() {
     Promise.all([
       fetch(api(`/api/assets/${params.id}`), { headers }).then((r) => r.json()),
       fetch(api(`/api/issues?assetId=${params.id}`), { headers }).then((r) => r.json()),
-      fetch(api(`/api/assets/${params.id}/logs`), { headers }).then((r) => r.json()),
     ])
-      .then(([assetData, issuesData, logsData]) => {
+      .then(([assetData, issuesData]) => {
         if (assetData._id) setAsset(assetData);
         else setError(assetData.message || 'Not found');
         if (issuesData.issues) setIssues(issuesData.issues);
-        if (logsData.logs) setLogs(logsData.logs);
       })
       .catch(() => setError('Failed to load'))
       .finally(() => setLoading(false));
@@ -317,9 +293,6 @@ export default function AssetDetailPage() {
     asset.warrantyExpiry &&
     !warrantyExpired &&
     new Date(asset.warrantyExpiry) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-
-  const logsTotalPages = Math.ceil(logs.length / PER_PAGE);
-  const paginatedLogs = logs.slice((logsPage - 1) * PER_PAGE, logsPage * PER_PAGE);
 
   const allMaintEntries = asset.maintenanceHistory ? [...asset.maintenanceHistory].reverse() : [];
   const filteredMaint =
@@ -490,46 +463,6 @@ export default function AssetDetailPage() {
           </div>
         </Section>
       )}
-
-      <Section
-        title="Change history"
-        subtitle={logs.length ? `${logs.length} changes` : 'No changes yet'}
-        accentClass="border-l-violet-500/50"
-        titleClass="text-violet-400/80"
-        compact
-      >
-        {paginatedLogs.length === 0 ? (
-          <p className="text-[11px] text-gray-500 py-1">No changes recorded yet.</p>
-        ) : (
-          <div className="divide-y divide-gray-700/30">
-            {paginatedLogs.map((log, i) => {
-              const changedFields = getChangedFields(log);
-              return (
-                <div key={i} className="flex items-center justify-between gap-2 py-1.5 text-xs min-w-0">
-                  <p className="text-gray-300">
-                    {changedFields.length > 0 ? changedFields.join(', ') : 'Change recorded'}
-                  </p>
-                  <span className="text-[10px] text-gray-600 shrink-0 tabular-nums">
-                    {new Date(log.createdAt).toLocaleString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-        <Pagination
-          page={logsPage}
-          totalPages={logsTotalPages}
-          total={logs.length}
-          perPage={PER_PAGE}
-          onPageChange={setLogsPage}
-        />
-      </Section>
 
       <Section
         title="Maintenance"
