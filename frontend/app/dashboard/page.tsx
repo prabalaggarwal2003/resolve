@@ -28,7 +28,6 @@ type Overview = {
     reporterName: string;
     assetName: string;
   }>;
-  recentActivity: Array<{ type: string; label: string; description: string; at: string }> | null;
   assetValueSummary: {
     totalPurchaseValue: number;
     currentBookValueSLM: number | null;
@@ -145,48 +144,6 @@ function buildAssetStatusBuckets(statusCounts: Record<string, number>): Overview
   return buckets.length > 0 ? buckets : null;
 }
 
-function mapAuditActivity(log: {
-  resource?: string;
-  action?: string;
-  description?: string;
-  resourceName?: string;
-  createdAt: string;
-  details?: { newStatus?: string; changes?: { status?: { old?: string } }; oldStatus?: string };
-}): Overview['recentActivity'] extends Array<infer T> | null ? T : never | null {
-  let type: string | null = null;
-  if (log.resource === 'asset' && log.action === 'created') type = 'asset_added';
-  else if (log.resource === 'asset' && log.action === 'assigned') type = 'asset_assigned';
-  else if (
-    log.resource === 'issue' &&
-    (log.action === 'resolved' || log.details?.newStatus === 'completed')
-  ) {
-    type = 'issue_closed';
-  } else if (
-    log.resource === 'asset' &&
-    log.action === 'updated' &&
-    (log.details?.changes?.status?.old === 'under_maintenance' ||
-      log.details?.oldStatus === 'under_maintenance' ||
-      log.description?.toLowerCase().includes('maintenance completed'))
-  ) {
-    type = 'maintenance_completed';
-  }
-  if (!type) return null;
-
-  const labels: Record<string, string> = {
-    asset_added: 'Asset added',
-    asset_assigned: 'Asset assigned',
-    issue_closed: 'Issue closed',
-    maintenance_completed: 'Maintenance completed',
-  };
-
-  return {
-    type,
-    label: labels[type] || 'Activity',
-    description: log.description || log.resourceName || labels[type] || 'Activity',
-    at: log.createdAt,
-  };
-}
-
 async function fetchAssetStatusCounts(token: string): Promise<Overview['assetStatus']> {
   const results = await Promise.all(
     ASSET_STATUS_KEYS.map(async (status) => {
@@ -295,20 +252,6 @@ async function loadDashboard(token: string): Promise<Overview> {
     });
   }
 
-  let recentActivity: Overview['recentActivity'] = null;
-  try {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    if (['super_admin', 'admin', 'manager'].includes(user.role)) {
-      const auditRes = await fetchJson(token, '/api/audit-logs?limit=15');
-      if (auditRes.ok) {
-        const mapped = (auditRes.data.logs || [])
-          .map(mapAuditActivity)
-          .filter(Boolean) as NonNullable<Overview['recentActivity']>;
-        if (mapped.length > 0) recentActivity = mapped.slice(0, 5);
-      }
-    }
-  } catch (_) {}
-
   const hasFinancial = totalPurchaseValue != null && totalPurchaseValue > 0;
 
   return {
@@ -327,7 +270,6 @@ async function loadDashboard(token: string): Promise<Overview> {
     issueTrend,
     assetStatus,
     latestIssues,
-    recentActivity,
     assetValueSummary:
       depreciationEnabled && hasFinancial && currentBookValueSLM != null
         ? {
@@ -530,7 +472,7 @@ export default function DashboardPage() {
     return <p className="text-red-400 text-sm">{error || 'Unable to load dashboard'}</p>;
   }
 
-  const { kpis, actionRequired, issueTrend, assetStatus, latestIssues, recentActivity } = data;
+  const { kpis, actionRequired, issueTrend, assetStatus, latestIssues } = data;
 
   const kpiCards = [...KPI_META];
   const valueKpi =
@@ -540,14 +482,9 @@ export default function DashboardPage() {
       ? { icon: '💰', label: 'Purchase value', value: formatCurrency(kpis.totalPurchaseValue) }
       : null;
 
-  const analyticsCount =
-    (issueTrend ? 1 : 0) + (assetStatus ? 1 : 0) + (recentActivity ? 1 : 0);
+  const analyticsCount = (issueTrend ? 1 : 0) + (assetStatus ? 1 : 0);
   const analyticsGridClass =
-    analyticsCount >= 3
-      ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'
-      : analyticsCount === 2
-      ? 'grid-cols-1 md:grid-cols-2'
-      : 'grid-cols-1';
+    analyticsCount === 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1';
 
   return (
     <div className="max-w-7xl mx-auto flex flex-col gap-4 pb-2 text-sm">
@@ -588,7 +525,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Charts + compact recent activity */}
+      {/* Charts */}
       {analyticsCount > 0 && (
         <div className={`grid ${analyticsGridClass} gap-4`}>
           {issueTrend && (
@@ -607,30 +544,6 @@ export default function DashboardPage() {
           {assetStatus && (
             <Panel title="🥧 Asset status" accent="border-l-blue-500/50">
               <DonutChart segments={assetStatus} />
-            </Panel>
-          )}
-          {recentActivity && (
-            <Panel
-              title="📜 Recent activity"
-              accent="border-l-emerald-500/50"
-              className="xl:max-w-sm"
-            >
-              <div className="space-y-0.5">
-                {recentActivity.map((item, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-2 py-1 border-b border-gray-700/20 last:border-0"
-                  >
-                    <span className="text-[8px] font-medium text-emerald-400/80 shrink-0 w-16 truncate">
-                      {item.label}
-                    </span>
-                    <span className="text-[9px] text-gray-500 truncate flex-1 min-w-0">{item.description}</span>
-                    <span className="text-[8px] text-gray-600 shrink-0 tabular-nums whitespace-nowrap">
-                      {new Date(item.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                    </span>
-                  </div>
-                ))}
-              </div>
             </Panel>
           )}
         </div>
