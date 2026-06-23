@@ -2,334 +2,608 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import SubscriptionBanner from '@/components/SubscriptionBanner';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import UpgradeNudges from '@/components/UpgradeNudges';
 
-type Issue = {
-  _id: string;
-  ticketId: string;
-  title: string;
-  status: string;
-  category: string;
-  reporterName?: string;
-  reports?: { reporterName: string }[];
-  createdAt: string;
-  assetId?: { _id: string; name: string; assetId: string };
+type Overview = {
+  kpis: {
+    totalAssets: number;
+    openIssues: number;
+    inProgressIssues: number;
+    resolvedToday: number;
+    underMaintenance: number;
+    totalPurchaseValue: number | null;
+    currentBookValueSLM: number | null;
+    depreciationEnabled: boolean;
+  };
+  actionRequired: Array<{ key: string; label: string; count: number; href: string }>;
+  issueTrend: { labels: string[]; reported: number[]; resolved: number[] } | null;
+  assetStatus: Array<{ key: string; label: string; value: number }> | null;
+  latestIssues: Array<{
+    _id: string;
+    ticketId: string;
+    title: string;
+    status: string;
+    priority: string;
+    createdAt: string;
+    reporterName: string;
+    assetName: string;
+  }>;
+  assetValueSummary: {
+    totalPurchaseValue: number;
+    currentBookValueSLM: number | null;
+    depreciationEnabled: boolean;
+  } | null;
 };
 
-type Summary = {
-  totalAssets: number;
-  openIssues: number;
-  inProgressIssues: number;
-  completedToday: number;
-  myAssets: number;
-  myReports: number;
-  pendingReports: number;
-  role: string;
-  canReportOnly?: boolean;
+const STATUS_BADGE: Record<string, string> = {
+  open: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
+  in_progress: 'text-blue-300 bg-blue-500/15 border-blue-500/30',
+  completed: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
+  cancelled: 'text-gray-400 bg-gray-500/15 border-gray-500/30',
 };
 
-const STATUS_CLASSES: Record<string, string> = {
-  open: 'bg-amber-100 text-amber-800',
-  in_progress: 'bg-blue-100 text-blue-800',
-  completed: 'bg-green-100 text-green-800',
-  cancelled: 'bg-slate-200 text-gray-400',
+const PRIORITY_BADGE: Record<string, string> = {
+  high: 'text-red-300 bg-red-500/15 border-red-500/30',
+  medium: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
+  low: 'text-gray-400 bg-gray-500/15 border-gray-500/30',
 };
+
+const STATUS_COLORS: Record<string, string> = {
+  available: '#10b981',
+  in_use: '#3b82f6',
+  under_maintenance: '#f59e0b',
+  out_of_service: '#ef4444',
+  retired: '#6b7280',
+};
+
+const STATUS_BUCKETS = [
+  { key: 'available', label: 'Available', statuses: ['available', 'working'] },
+  { key: 'in_use', label: 'In use', statuses: ['in_use'] },
+  { key: 'under_maintenance', label: 'Under maintenance', statuses: ['under_maintenance', 'needs_repair'] },
+  { key: 'out_of_service', label: 'Out of service', statuses: ['out_of_service'] },
+  { key: 'retired', label: 'Retired', statuses: ['retired'] },
+];
+
+const ASSET_STATUS_KEYS = [
+  'available',
+  'working',
+  'in_use',
+  'under_maintenance',
+  'needs_repair',
+  'out_of_service',
+  'retired',
+] as const;
+
+const KPI_META = [
+  { key: 'totalAssets', label: 'Total assets', icon: '📦', accent: 'from-blue-600/30' },
+  { key: 'openIssues', label: 'Open issues', icon: '🚨', accent: 'from-amber-600/30' },
+  { key: 'inProgressIssues', label: 'In progress', icon: '🔄', accent: 'from-violet-600/30' },
+  { key: 'resolvedToday', label: 'Resolved today', icon: '✅', accent: 'from-emerald-600/30' },
+] as const;
 
 function api(path: string) {
   const base = process.env.NEXT_PUBLIC_API_URL || '';
   return base ? `${base}${path}` : path;
 }
 
-function StatusButtons({
-  issueId,
-  currentStatus,
-  onUpdate,
-}: {
-  issueId: string;
-  currentStatus: string;
-  onUpdate: () => void;
-}) {
-  const [loading, setLoading] = useState(false);
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+async function fetchJson(token: string, path: string) {
+  const res = await fetch(api(path), { headers: { Authorization: `Bearer ${token}` } });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
 
-  const setStatus = async (status: string) => {
-    if (!token || loading || status === currentStatus) return;
-    setLoading(true);
-    try {
-      const res = await fetch(api(`/api/issues/${issueId}`), {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status }),
-      });
-      if (res.ok) onUpdate();
-    } finally {
-      setLoading(false);
+function buildIssueTrend(
+  issues: Array<{ createdAt: string; status: string; resolvedAt?: string }>
+): Overview['issueTrend'] {
+  const days = 30;
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+  const reportedMap = new Map<string, number>();
+  const resolvedMap = new Map<string, number>();
+
+  for (const issue of issues) {
+    const created = new Date(issue.createdAt);
+    if (created >= thirtyDaysAgo) {
+      const key = created.toISOString().slice(0, 10);
+      reportedMap.set(key, (reportedMap.get(key) || 0) + 1);
     }
+    if (issue.status === 'completed' && issue.resolvedAt) {
+      const resolvedDate = new Date(issue.resolvedAt);
+      if (resolvedDate >= thirtyDaysAgo) {
+        const key = resolvedDate.toISOString().slice(0, 10);
+        resolvedMap.set(key, (resolvedMap.get(key) || 0) + 1);
+      }
+    }
+  }
+
+  const labels: string[] = [];
+  const reported: number[] = [];
+  const resolved: number[] = [];
+
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    labels.push(d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }));
+    reported.push(reportedMap.get(key) || 0);
+    resolved.push(resolvedMap.get(key) || 0);
+  }
+
+  const hasData = reported.some((n) => n > 0) || resolved.some((n) => n > 0);
+  return hasData ? { labels, reported, resolved } : null;
+}
+
+function buildAssetStatusBuckets(statusCounts: Record<string, number>): Overview['assetStatus'] {
+  const buckets = STATUS_BUCKETS.map((bucket) => ({
+    key: bucket.key,
+    label: bucket.label,
+    value: bucket.statuses.reduce((sum, st) => sum + (statusCounts[st] || 0), 0),
+  })).filter((b) => b.value > 0);
+  return buckets.length > 0 ? buckets : null;
+}
+
+async function fetchAssetStatusCounts(token: string): Promise<Overview['assetStatus']> {
+  const results = await Promise.all(
+    ASSET_STATUS_KEYS.map(async (status) => {
+      const { ok, data } = await fetchJson(token, `/api/assets?status=${status}&limit=1`);
+      return { status, count: ok ? Number(data.total) || 0 : 0 };
+    })
+  );
+  const statusCounts = Object.fromEntries(results.map((r) => [r.status, r.count]));
+  return buildAssetStatusBuckets(statusCounts);
+}
+
+async function loadDashboard(token: string): Promise<Overview> {
+  const [summaryRes, latestIssuesRes, trendIssuesRes, subRes, maintenanceRes] = await Promise.all([
+    fetchJson(token, '/api/dashboard/summary'),
+    fetchJson(token, '/api/issues?limit=10'),
+    fetchJson(token, '/api/issues?limit=300'),
+    fetchJson(token, '/api/payments/subscription-status'),
+    fetchJson(token, '/api/asset-health/maintenance'),
+  ]);
+
+  if (!summaryRes.ok) {
+    throw new Error(summaryRes.data.message || 'Failed to load dashboard');
+  }
+
+  const summary = summaryRes.data;
+  const tier = subRes.ok && !subRes.data.isExpired ? subRes.data.tier : 'free';
+  const depreciationEnabled = tier === 'pro' || tier === 'premium';
+
+  let totalPurchaseValue: number | null = null;
+  let currentBookValueSLM: number | null = null;
+  let assetStatus: Overview['assetStatus'] = null;
+  let expiredWarrantyCount = 0;
+
+  if (depreciationEnabled) {
+    const [kpisRes, depRes] = await Promise.all([
+      fetchJson(token, '/api/kpis'),
+      fetchJson(token, '/api/depreciation/summary'),
+    ]);
+
+    if (kpisRes.ok && kpisRes.data.status) {
+      const statusCounts = Object.fromEntries(
+        Object.entries(kpisRes.data.status as Record<string, { count: number }>).map(([k, v]) => [
+          k,
+          v.count,
+        ])
+      );
+      assetStatus = buildAssetStatusBuckets(statusCounts);
+      expiredWarrantyCount = kpisRes.data.warranty?.expired?.count ?? 0;
+    }
+
+    if (depRes.ok && depRes.data.summary) {
+      const s = depRes.data.summary;
+      if (s.totalPurchaseValue > 0) {
+        totalPurchaseValue = s.totalPurchaseValue;
+        currentBookValueSLM = s.currentBookValueSLM ?? null;
+      }
+    }
+  }
+
+  if (!assetStatus) {
+    assetStatus = await fetchAssetStatusCounts(token);
+  }
+
+  const trendIssues = trendIssuesRes.ok ? trendIssuesRes.data.issues || [] : [];
+  const issueTrend = buildIssueTrend(trendIssues);
+
+  const latestIssues = (latestIssuesRes.ok ? latestIssuesRes.data.issues || [] : []).map(
+    (issue: {
+      _id: string;
+      ticketId: string;
+      title: string;
+      status: string;
+      priority?: string;
+      createdAt: string;
+      reporterName?: string;
+      assetId?: { name?: string };
+    }) => ({
+      _id: issue._id,
+      ticketId: issue.ticketId,
+      title: issue.title,
+      status: issue.status,
+      priority: issue.priority || 'medium',
+      createdAt: issue.createdAt,
+      reporterName: issue.reporterName || '—',
+      assetName: issue.assetId?.name || '—',
+    })
+  );
+
+  const actionRequired: Overview['actionRequired'] = [];
+  const maintenanceAssets = maintenanceRes.ok ? maintenanceRes.data.assets || [] : [];
+  const overdueCount = maintenanceAssets.filter((a: { isOverdue?: boolean }) => a.isOverdue).length;
+  if (overdueCount > 0) {
+    actionRequired.push({
+      key: 'overdue_maintenance',
+      label: 'Overdue maintenance',
+      count: overdueCount,
+      href: '/dashboard/maintenance',
+    });
+  }
+  if (expiredWarrantyCount > 0) {
+    actionRequired.push({
+      key: 'expired_warranties',
+      label: 'Expired warranties',
+      count: expiredWarrantyCount,
+      href: '/dashboard/assets',
+    });
+  }
+
+  const hasFinancial = totalPurchaseValue != null && totalPurchaseValue > 0;
+
+  return {
+    kpis: {
+      totalAssets: summary.totalAssets ?? 0,
+      openIssues: summary.openIssues ?? 0,
+      inProgressIssues: summary.inProgressIssues ?? 0,
+      resolvedToday: summary.completedToday ?? 0,
+      underMaintenance: summary.underMaintenance ?? 0,
+      totalPurchaseValue: hasFinancial ? totalPurchaseValue : null,
+      currentBookValueSLM:
+        depreciationEnabled && hasFinancial ? currentBookValueSLM : null,
+      depreciationEnabled,
+    },
+    actionRequired,
+    issueTrend,
+    assetStatus,
+    latestIssues,
+    assetValueSummary:
+      depreciationEnabled && hasFinancial && currentBookValueSLM != null
+        ? {
+            totalPurchaseValue: totalPurchaseValue!,
+            currentBookValueSLM,
+            depreciationEnabled: true,
+          }
+        : null,
   };
+}
 
-  const options = [
-    { value: 'in_progress', label: 'In progress' },
-    { value: 'completed', label: 'Completed' },
-    { value: 'cancelled', label: 'Cancelled' },
-  ].filter((o) => o.value !== currentStatus);
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
 
-  if (options.length === 0) return null;
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
+function KpiCard({
+  icon,
+  label,
+  value,
+  accent,
+}: {
+  icon: string;
+  label: string;
+  value: string | number;
+  accent: string;
+}) {
   return (
-    <div className="flex flex-wrap gap-1">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          onClick={() => setStatus(o.value)}
-          disabled={loading}
-          className="px-2 py-1 text-xs font-medium rounded bg-gray-900 text-gray-300 hover:bg-gray-500 disabled:opacity-50"
-        >
-          {o.label}
-        </button>
-      ))}
+    <div className={`relative overflow-hidden rounded-xl border border-gray-700/50 bg-gray-900/40 px-2.5 py-2`}>
+      <div className={`absolute inset-0 opacity-20 bg-gradient-to-br ${accent} to-transparent`} />
+      <div className="relative flex items-start gap-2">
+        <span className="text-base leading-none mt-0.5">{icon}</span>
+        <div className="min-w-0">
+          <p className="text-[9px] text-gray-500 uppercase tracking-wide truncate">{label}</p>
+          <p className="text-lg font-bold text-gray-100 tabular-nums leading-tight mt-0.5">{value}</p>
+        </div>
+      </div>
     </div>
   );
 }
 
-const CAN_EDIT_ROLES = ['super_admin', 'admin'];
+function LineChart({
+  labels,
+  reported,
+  resolved,
+}: {
+  labels: string[];
+  reported: number[];
+  resolved: number[];
+}) {
+  const w = 320;
+  const h = 120;
+  const pad = { t: 8, r: 8, b: 20, l: 28 };
+  const max = Math.max(...reported, ...resolved, 1);
+  const innerW = w - pad.l - pad.r;
+  const innerH = h - pad.t - pad.b;
+
+  const toX = (i: number) => pad.l + (i / Math.max(labels.length - 1, 1)) * innerW;
+  const toY = (v: number) => pad.t + innerH - (v / max) * innerH;
+
+  const line = (data: number[]) =>
+    data.map((v, i) => `${i === 0 ? 'M' : 'L'} ${toX(i).toFixed(1)} ${toY(v).toFixed(1)}`).join(' ');
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto">
+      {[0, 0.5, 1].map((f) => {
+        const y = pad.t + innerH * (1 - f);
+        return (
+          <line key={f} x1={pad.l} y1={y} x2={w - pad.r} y2={y} stroke="rgb(55 65 81 / 0.4)" strokeWidth="1" />
+        );
+      })}
+      <path d={line(reported)} fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" />
+      <path d={line(resolved)} fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
+      {labels.map((lbl, i) =>
+        i % 6 === 0 ? (
+          <text key={lbl} x={toX(i)} y={h - 4} textAnchor="middle" className="fill-gray-600" fontSize="7">
+            {lbl}
+          </text>
+        ) : null
+      )}
+    </svg>
+  );
+}
+
+function DonutChart({ segments }: { segments: Array<{ key: string; label: string; value: number }> }) {
+  const size = 110;
+  const stroke = 12;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const total = segments.reduce((s, seg) => s + seg.value, 0);
+  let offset = 0;
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="relative shrink-0" style={{ width: size, height: size }}>
+        <svg width={size} height={size} className="-rotate-90">
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgb(55 65 81 / 0.5)" strokeWidth={stroke} />
+          {segments.map((seg) => {
+            const dash = (seg.value / total) * c;
+            const el = (
+              <circle
+                key={seg.key}
+                cx={size / 2}
+                cy={size / 2}
+                r={r}
+                fill="none"
+                stroke={STATUS_COLORS[seg.key] || '#6b7280'}
+                strokeWidth={stroke}
+                strokeDasharray={`${dash} ${c - dash}`}
+                strokeDashoffset={-offset}
+              />
+            );
+            offset += dash;
+            return el;
+          })}
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-sm font-bold text-gray-100 tabular-nums">{total}</span>
+        </div>
+      </div>
+      <div className="flex-1 space-y-1 min-w-0">
+        {segments.map((seg) => (
+          <div key={seg.key} className="flex items-center gap-1.5 text-[10px]">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: STATUS_COLORS[seg.key] }} />
+            <span className="text-gray-500 truncate flex-1">{seg.label}</span>
+            <span className="text-gray-300 font-medium tabular-nums">{seg.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Panel({
+  title,
+  accent,
+  children,
+  className = '',
+}: {
+  title: string;
+  accent: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`rounded-xl border border-gray-700/60 border-l-2 ${accent} bg-gray-800/40 px-3 py-2.5 flex flex-col min-h-0 ${className}`}>
+      <p className="text-[9px] font-semibold uppercase tracking-widest text-gray-500 mb-2 shrink-0">{title}</p>
+      <div className="flex-1 min-h-0">{children}</div>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
-  // ...existing code...
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [issues, setIssues] = useState<Issue[]>([]);
+  const [data, setData] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [canEdit, setCanEdit] = useState(false);
   const [isManager, setIsManager] = useState(false);
-  const [subscriptionTier, setSubscriptionTier] = useState<'free' | 'pro' | 'premium'>('free');
-  const [dismissedNudges, setDismissedNudges] = useState<string[]>([]);
-
 
   useEffect(() => {
     try {
-      const u = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-      if (u) {
-        const parsed = JSON.parse(u);
-        setCanEdit(CAN_EDIT_ROLES.includes(parsed?.role ?? ''));
-        setIsManager(parsed?.role === 'manager');
-      }
-      // Load dismissed nudges from localStorage
-      const saved = typeof window !== 'undefined' ? localStorage.getItem('dismissedNudges') : null;
-      if (saved) setDismissedNudges(JSON.parse(saved));
+      const u = localStorage.getItem('user');
+      if (u) setIsManager(JSON.parse(u).role === 'manager');
     } catch (_) {}
   }, []);
 
-  // Fetch subscription details
   useEffect(() => {
-    const fetchSubscription = async () => {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      if (!token) return;
-
-      try {
-        const res = await fetch(api('/api/payments/subscription-status'), {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setSubscriptionTier(data.tier || 'free');
-        }
-      } catch (_) {}
-    };
-
-    fetchSubscription();
-  }, []);
-
-  const fetchData = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const token = localStorage.getItem('token');
     if (!token) {
       setLoading(false);
       return;
     }
-    const headers = { Authorization: `Bearer ${token}` };
-    // For manager the backend already scopes issues to their dept via JWT
-    Promise.all([
-      fetch(api('/api/dashboard/summary'), { headers }).then((r) => r.json()),
-      fetch(api('/api/issues?limit=10&sort=createdAt&order=desc'), { headers }).then((r) => r.json()),
-    ])
-      .then(([summaryData, issuesData]) => {
-        if (summaryData.totalAssets !== undefined) setSummary(summaryData);
-        if (issuesData.issues) setIssues(issuesData.issues);
-        if (summaryData.message) setError(summaryData.message);
-      })
-      .catch(() => setError('Failed to load'))
+    loadDashboard(token)
+      .then(setData)
+      .catch((err: Error) => setError(err.message || 'Failed to load'))
       .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    fetchData();
   }, []);
 
-  return (
-    <div>
-      <h1 className="text-2xl font-bold mb-2 text-gray-100">Dashboard</h1>
-      <p className="text-gray-400 mb-6">
-        Overview of assets and issues for your organization
-      </p>
+  if (loading) {
+    return (
+      <div className="h-[calc(100dvh-7rem)] flex items-center justify-center">
+        <LoadingSpinner message="Loading dashboard..." />
+      </div>
+    );
+  }
 
-      {loading && <LoadingSpinner message="Loading dashboard..." />}
-      {error && (
-        <p className="p-4 bg-red-900/20 border border-red-800 text-red-400 rounded-lg text-sm mb-4">{error}</p>
+  if (error || !data) {
+    return <p className="text-red-400 text-sm">{error || 'Unable to load dashboard'}</p>;
+  }
+
+  const { kpis, actionRequired, issueTrend, assetStatus, latestIssues } = data;
+
+  const kpiCards = [...KPI_META];
+  const valueKpi =
+    kpis.depreciationEnabled && kpis.currentBookValueSLM != null
+      ? { icon: '💰', label: 'Book value (SLM)', value: formatCurrency(kpis.currentBookValueSLM) }
+      : kpis.totalPurchaseValue != null
+      ? { icon: '💰', label: 'Purchase value', value: formatCurrency(kpis.totalPurchaseValue) }
+      : null;
+
+  const analyticsCount = (issueTrend ? 1 : 0) + (assetStatus ? 1 : 0);
+  const analyticsGridClass =
+    analyticsCount === 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1';
+
+  return (
+    <div className="max-w-7xl mx-auto flex flex-col gap-4 pb-2 text-sm">
+      {/* KPI row */}
+      <div
+        className={`grid gap-3 ${
+          valueKpi ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5' : 'grid-cols-2 lg:grid-cols-4'
+        }`}
+      >
+        {kpiCards.map((meta) => (
+          <KpiCard
+            key={meta.key}
+            icon={meta.icon}
+            label={meta.label}
+            value={kpis[meta.key]}
+            accent={meta.accent}
+          />
+        ))}
+        {valueKpi && (
+          <KpiCard icon={valueKpi.icon} label={valueKpi.label} value={valueKpi.value} accent="from-teal-600/30" />
+        )}
+      </div>
+
+      {/* Action required */}
+      {actionRequired.length > 0 && (
+        <div className="rounded-xl border border-red-500/30 bg-red-950/20 px-4 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className="text-[10px] font-semibold text-red-400 uppercase tracking-wide">⚠️ Action required</span>
+          {actionRequired.map((item) => (
+            <Link
+              key={item.key}
+              href={item.href}
+              className="text-xs text-red-200 hover:text-red-100 no-underline flex items-center gap-1.5"
+            >
+              <span className="font-semibold tabular-nums">{item.count}</span>
+              <span className="text-red-300/80">{item.label}</span>
+            </Link>
+          ))}
+        </div>
       )}
 
-      <SubscriptionBanner />
-
-      {/* Upgrade Nudges for Free Tier Users */}
-      <UpgradeNudges
-        userTier={subscriptionTier}
-        assetCount={summary?.totalAssets || 0}
-        dismissedNudges={dismissedNudges}
-        onDismiss={(nudgeId) => {
-          const updated = [...dismissedNudges, nudgeId];
-          setDismissedNudges(updated);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('dismissedNudges', JSON.stringify(updated));
-          }
-        }}
-      />
-
-      {summary && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {summary.canReportOnly ? (
-            <>
-              <Card title="My Assets" value={String(summary.myAssets)} />
-              <Card title="My Reports" value={String(summary.myReports)} />
-              <Card title="Open Issues" value={String(summary.openIssues)} />
-              <Card title="Completed Today" value={String(summary.completedToday)} />
-            </>
-          ) : (
-            <>
-              <Card title="Total Assets" value={String(summary.totalAssets)} />
-              <Card title="Pending Reports" value={String(summary.pendingReports)} className="border-amber-200 bg-amber-50/50" />
-              <Card title="Open Issues" value={String(summary.openIssues)} />
-              <Card title="Completed Today" value={String(summary.completedToday)} />
-            </>
+      {/* Charts */}
+      {analyticsCount > 0 && (
+        <div className={`grid ${analyticsGridClass} gap-4`}>
+          {issueTrend && (
+            <Panel title="📈 Issue trend — last 30 days" accent="border-l-amber-500/50">
+              <div className="flex gap-3 mb-1.5 text-[10px]">
+                <span className="flex items-center gap-1 text-gray-500">
+                  <span className="w-3 h-0.5 bg-amber-400 rounded" /> Reported
+                </span>
+                <span className="flex items-center gap-1 text-gray-500">
+                  <span className="w-3 h-0.5 bg-emerald-400 rounded" /> Resolved
+                </span>
+              </div>
+              <LineChart labels={issueTrend.labels} reported={issueTrend.reported} resolved={issueTrend.resolved} />
+            </Panel>
+          )}
+          {assetStatus && (
+            <Panel title="🥧 Asset status" accent="border-l-blue-500/50">
+              <DonutChart segments={assetStatus} />
+            </Panel>
           )}
         </div>
       )}
 
-      <section className="mt-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-100">Latest 10 Issues</h2>
-          <Link href="/dashboard/issues" className="text-sm text-primary hover:underline">
-            View all issues →
-          </Link>
-        </div>
-        {issues.length === 0 && !loading && (
-          <p className="text-gray-400">
-            No issues yet. Report via QR scan or from an asset page.
-          </p>
-        )}
-        {issues.length > 0 && (
-          <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-gray-950 text-left">
-                    <th className="p-3 text-sm font-medium text-gray-300">Ticket</th>
-                    <th className="p-3 text-sm font-medium text-gray-300">Asset</th>
-                    <th className="p-3 text-sm font-medium text-gray-300">Title</th>
-                    <th className="p-3 text-sm font-medium text-gray-300">Status</th>
-                    <th className="p-3 text-sm font-medium text-gray-300">Reported by</th>
-                    <th className="p-3 text-sm font-medium text-gray-300">Date</th>
-                  {canEdit && <th className="p-3 text-sm font-medium text-gray-300">Actions</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {issues.map((issue) => (
-                    <tr
-                      key={issue._id}
-                      className="border-t border-gray-700 hover:bg-gray-950/50"
-                    >
-                      <td className="p-3 font-medium text-gray-100">
-                        {isManager ? (
-                          <span>{issue.ticketId}</span>
-                        ) : (
-                          <Link
-                            href={`/dashboard/issues/${issue._id}`}
-                            className="text-primary"
-                          >
-                            {issue.ticketId}
-                          </Link>
-                        )}
-                      </td>
-                      <td className="p-3 text-gray-100">
-                        {issue.assetId ? (
-                          isManager ? (
-                            <span className="text-sm text-gray-300">{issue.assetId.name}</span>
-                          ) : (
-                            <Link
-                              href={`/dashboard/assets/${issue.assetId._id}`}
-                              className="text-primary hover:underline text-sm"
-                            >
-                              {issue.assetId.name}
-                            </Link>
-                          )
-                        ) : '—'}
-                      </td>
-                      <td className="p-3 text-gray-300 text-sm max-w-xs truncate" title={issue.title}>
-                        {issue.title}
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${STATUS_CLASSES[issue.status] ?? 'bg-slate-100 text-gray-300'}`}
-                        >
-                          {issue.status.replace('_', ' ')}
-                        </span>
-                      </td>
-                      <td className="p-3 text-sm text-gray-400">
-                        {issue.reporterName ?? issue.reports?.[0]?.reporterName ?? '—'}
-                        {issue.reports && issue.reports.length > 1 && (
-                          <span className="text-slate-400"> (+{issue.reports.length - 1})</span>
-                        )}
-                      </td>
-                      <td className="p-3 text-gray-400 text-sm">
-                        {new Date(issue.createdAt).toLocaleDateString()}
-                      </td>
-                      {canEdit && (
-                        <td className="p-3">
-                          <StatusButtons
-                            issueId={issue._id}
-                            currentStatus={issue.status}
-                            onUpdate={fetchData}
-                          />
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {/* Latest issues */}
+      <Panel title="📋 Latest issues" accent="border-l-violet-500/50">
+        {latestIssues.length === 0 ? (
+          <p className="text-xs text-gray-500">No issues yet.</p>
+        ) : (
+          <div>
+            <div className="grid grid-cols-[1fr_0.7fr_0.5fr_0.55fr_0.7fr] gap-2 text-[9px] text-gray-600 uppercase tracking-wide border-b border-gray-700/30 pb-1.5 mb-1">
+              <span>Asset</span>
+              <span>Reporter</span>
+              <span>Priority</span>
+              <span>Status</span>
+              <span className="text-right">Reported</span>
             </div>
+            {latestIssues.map((issue) => {
+              const row = (
+                <>
+                  <span className="truncate text-gray-300">{issue.assetName}</span>
+                  <span className="truncate text-gray-500">{issue.reporterName}</span>
+                  <span
+                    className={`w-fit px-1 py-0.5 text-[9px] rounded border capitalize ${
+                      PRIORITY_BADGE[issue.priority] || PRIORITY_BADGE.medium
+                    }`}
+                  >
+                    {issue.priority}
+                  </span>
+                  <span
+                    className={`w-fit px-1 py-0.5 text-[9px] rounded border capitalize ${
+                      STATUS_BADGE[issue.status] || STATUS_BADGE.cancelled
+                    }`}
+                  >
+                    {issue.status.replace('_', ' ')}
+                  </span>
+                  <span className="text-right text-gray-600 tabular-nums text-[10px]">{formatTime(issue.createdAt)}</span>
+                </>
+              );
+              return isManager ? (
+                <div
+                  key={issue._id}
+                  className="grid grid-cols-[1fr_0.7fr_0.5fr_0.55fr_0.7fr] gap-2 py-1.5 border-b border-gray-700/20 text-[11px] items-center last:border-0"
+                >
+                  {row}
+                </div>
+              ) : (
+                <Link
+                  key={issue._id}
+                  href={`/dashboard/issues/${issue._id}`}
+                  className="grid grid-cols-[1fr_0.7fr_0.5fr_0.55fr_0.7fr] gap-2 py-1.5 border-b border-gray-700/20 text-[11px] items-center no-underline hover:bg-gray-800/30 last:border-0"
+                >
+                  {row}
+                </Link>
+              );
+            })}
           </div>
         )}
-        {/*{issues.length > 0 && (*/}
-        {/*  <Link*/}
-        {/*    href="/dashboard/issues"*/}
-        {/*    className="inline-block mt-3 text-primary text-sm font-medium hover:underline"*/}
-        {/*  >*/}
-        {/*    View all issues →*/}
-        {/*  </Link>*/}
-        {/*)}*/}
-      </section>
-    </div>
-  );
-}
-
-function Card({ title, value, className = '' }: { title: string; value: string; className?: string }) {
-  return (
-    <div className={`bg-gray-800 p-5 rounded-lg border border-gray-700 ${className}`}>
-      <p className="text-sm text-gray-400">{title}</p>
-      <p className="text-2xl font-bold mt-1 text-gray-100">{value}</p>
+      </Panel>
     </div>
   );
 }

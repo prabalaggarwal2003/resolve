@@ -40,9 +40,13 @@ const ESTIMATED_ASSETS = [
   { value: '1000+', label: '1000+ assets' },
 ];
 
-const buttonClass = 'px-4 py-2 rounded-lg font-medium transition-colors';
-const inputClass = 'w-full px-3 py-2 border border-gray-700 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-blue-500';
-const labelClass = 'block text-sm font-medium text-gray-300 mb-1';
+const buttonClass = 'px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors';
+const inputClass = 'w-full px-3 py-1.5 text-sm border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200 focus:ring-1 focus:ring-blue-500/40 focus:border-blue-500/40';
+const labelClass = 'block text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1';
+
+function getLabel(options: { value: string; label: string }[], value?: string) {
+  return options.find((o) => o.value === value)?.label || value || '—';
+}
 
 export default function OrganizationPage() {
   const { user, token } = useAuth();
@@ -170,281 +174,239 @@ export default function OrganizationPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <LoadingSpinner message="Loading organization details..." />
-      </div>
-    );
+    return <LoadingSpinner message="Loading organization details..." />;
   }
 
   if (error && !organization) {
     return (
-      <div className="bg-red-900/20 border border-red-800 rounded-lg p-6">
-        <h3 className="text-red-800 font-medium mb-2">Error</h3>
-        <p className="text-red-400">{error}</p>
+      <div className="max-w-7xl mx-auto">
+        <div className="p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-400 text-sm">
+          {error}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="bg-gray-800 rounded-xl shadow-sm border border-gray-700">
-        {/* Header */}
-        <div className="p-6 border-b border-gray-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-100">Organization Details</h1>
-              <p className="text-gray-400 mt-1">Manage your organization information and settings.</p>
-            </div>
-            {user?.role === 'super_admin' && (
-              <div className="flex gap-2">
-                {editing ? (
-                  <>
-                    <button
-                      onClick={handleCancel}
-                      className={`${buttonClass} bg-gray-500 hover:bg-gray-400 text-white`}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className={`${buttonClass} bg-gray-700 hover:bg-gray-500 text-white disabled:opacity-50`}
-                    >
-                      {saving ? 'Saving...' : 'Save Changes'}
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => setEditing(true)}
-                    className={`${buttonClass} bg-gray-700 hover:bg-gray-700 text-white`}
-                  >
-                    Edit Organization
-                  </button>
-                )}
-              </div>
+    <div className="max-w-7xl mx-auto">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-100">Organization</h1>
+          <p className="text-gray-400 mt-1 text-sm">
+            Manage your organization profile, identifiers, and workspace settings.
+          </p>
+        </div>
+        {user?.role === 'super_admin' && (
+          <div className="flex flex-wrap gap-1.5">
+            {editing ? (
+              <>
+                <button
+                  onClick={handleCancel}
+                  className={`${buttonClass} border-gray-700/60 bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className={`${buttonClass} border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-400/50 disabled:opacity-50`}
+                >
+                  {saving ? 'Saving…' : 'Save changes'}
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setEditing(true)}
+                className={`${buttonClass} border-blue-500/40 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 hover:border-blue-400/50`}
+              >
+                Edit organization
+              </button>
             )}
           </div>
+        )}
+      </div>
+
+      {error && (
+        <div className="mb-4 p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-400 text-sm">
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="mb-4 p-4 bg-emerald-900/20 border border-emerald-800 rounded-lg text-emerald-400 text-sm">
+          {success}
+        </div>
+      )}
+
+      <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-blue-500/50 bg-gradient-to-r from-blue-950/20 to-gray-800/40 px-4 py-4 mb-4">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <p className="text-xs font-semibold text-blue-400/80 uppercase tracking-widest mb-1">Workspace</p>
+            <h2 className="text-lg font-bold text-gray-100">{organization?.name || 'Unnamed organization'}</h2>
+            <p className="text-[11px] text-gray-500 mt-0.5 font-mono">{organization?.orgId}</p>
+          </div>
+          {organization?.industry && (
+            <span className="shrink-0 px-2 py-0.5 text-[11px] font-semibold rounded-md border text-blue-300 bg-blue-500/15 border-blue-500/30">
+              {organization.industry}
+            </span>
+          )}
         </div>
 
-        {/* Content */}
-        <div className="p-6">
-          {error && (
-            <div className="mb-6 p-4 bg-red-900/20 border border-red-800 rounded-lg">
-              <p className="text-red-400">{error}</p>
-            </div>
-          )}
-          
-          {success && (
-            <div className="mb-6 p-4 bg-green-900/20 border border-green-800 rounded-lg">
-              <p className="text-green-400">{success}</p>
-            </div>
-          )}
+        {statistics && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <SummaryCard label="Total users" value={String(statistics.totalUsers)} accent="text-blue-300" />
+            <SummaryCard
+              label="Created"
+              value={new Date(statistics.createdAt).toLocaleDateString()}
+              accent="text-violet-300"
+            />
+            <SummaryCard
+              label="Company size"
+              value={getLabel(COMPANY_SIZES, organization?.companySize)}
+              accent="text-emerald-300"
+            />
+          </div>
+        )}
+      </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Main Information */}
-            <div className="lg:col-span-2">
-              <h2 className="text-lg font-semibold text-gray-100 mb-4">Organization Information</h2>
-              
-              {editing ? (
-                <form onSubmit={handleSave} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelClass}>Organization Name</label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        className={inputClass}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>Industry</label>
-                      <select
-                        name="industry"
-                        value={formData.industry}
-                        onChange={handleInputChange}
-                        className={inputClass}
-                      >
-                        <option value="">Select Industry</option>
-                        {INDUSTRIES.map((ind) => (
-                          <option key={ind.value} value={ind.value}>{ind.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div className="lg:col-span-2 rounded-xl border border-gray-700/60 border-l-2 border-l-violet-500/50 bg-gray-800/40 px-4 py-4">
+          <p className="text-xs font-semibold text-violet-400/80 uppercase tracking-widest mb-3">Organization information</p>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelClass}>Company Size</label>
-                      <select
-                        name="companySize"
-                        value={formData.companySize}
-                        onChange={handleInputChange}
-                        className={inputClass}
-                      >
-                        <option value="">Select Size</option>
-                        {COMPANY_SIZES.map((size) => (
-                          <option key={size.value} value={size.value}>{size.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelClass}>Country</label>
-                      <input
-                        type="text"
-                        name="country"
-                        value={formData.country}
-                        onChange={handleInputChange}
-                        className={inputClass}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>Region/State</label>
-                    <input
-                      type="text"
-                      name="region"
-                      value={formData.region}
-                      onChange={handleInputChange}
-                      className={inputClass}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelClass}>Primary Goal</label>
-                      <select
-                        name="primaryGoal"
-                        value={formData.primaryGoal}
-                        onChange={handleInputChange}
-                        className={inputClass}
-                      >
-                        <option value="">Select Goal</option>
-                        {PRIMARY_GOALS.map((goal) => (
-                          <option key={goal.value} value={goal.value}>{goal.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelClass}>Estimated Assets</label>
-                      <select
-                        name="estimatedAssets"
-                        value={formData.estimatedAssets}
-                        onChange={handleInputChange}
-                        className={inputClass}
-                      >
-                        <option value="">Select Range</option>
-                        {ESTIMATED_ASSETS.map((range) => (
-                          <option key={range.value} value={range.value}>{range.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </form>
-              ) : (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-400">Organization Name</p>
-                      <p className="font-medium text-gray-100">{organization?.name || 'Not set'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-400">Industry</p>
-                      <p className="font-medium text-gray-100">{organization?.industry || 'Not set'}</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-400">Company Size</p>
-                      <p className="font-medium text-gray-100">{organization?.companySize || 'Not set'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-400">Country</p>
-                      <p className="font-medium text-gray-100">{organization?.country || 'Not set'}</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-400">Region/State</p>
-                      <p className="font-medium text-gray-100">{organization?.region || 'Not set'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-400">Primary Goal</p>
-                      <p className="font-medium text-gray-100">{organization?.primaryGoal || 'Not set'}</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-gray-400">Estimated Assets</p>
-                    <p className="font-medium text-gray-100">{organization?.estimatedAssets || 'Not set'}</p>
-                  </div>
+          {editing ? (
+            <form onSubmit={handleSave} className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>Organization name</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    className={inputClass}
+                    required
+                  />
                 </div>
-              )}
-            </div>
-
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* Organization ID */}
-              <div className="bg-gray-950 rounded-lg p-4">
-                <h3 className="font-medium text-gray-100 mb-3">Organization ID</h3>
-                <p className="text-sm font-mono text-gray-300 bg-gray-800 px-3 py-2 rounded border border-gray-700">
-                  {organization?.orgId}
-                </p>
-              </div>
-
-              {/* Statistics */}
-              {statistics && (
-                <div className="bg-gray-950 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-100 mb-3">Statistics</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-400">Total Users</span>
-                      <span className="text-sm font-medium text-gray-100">{statistics.totalUsers}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-400">Created</span>
-                      <span className="text-sm font-medium text-gray-100">
-                        {new Date(statistics.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Quick Actions */}
-              <div className="bg-blue-900/20 rounded-lg p-4 border border-blue-800">
-                <h3 className="font-medium text-white mb-3">Quick Actions</h3>
-                <div className="space-y-2">
-                  <Link
-                    href="/dashboard/roles"
-                    className="w-full block text-left text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-900/20 px-3 py-2 rounded transition-colors no-underline"
-                  >
-                    → Add new user
-                  </Link>
-                  <Link
-                    href="/dashboard/subscriptions"
-                    className="w-full block text-left text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-900/20 px-3 py-2 rounded transition-colors no-underline"
-                  >
-                    → Manage subscriptions
-                  </Link>
-                  <Link
-                    href="/dashboard/audit"
-                    className="w-full block text-left text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-900/20 px-3 py-2 rounded transition-colors no-underline"
-                  >
-                    → View audit logs
-                  </Link>
+                <div>
+                  <label className={labelClass}>Industry</label>
+                  <select name="industry" value={formData.industry} onChange={handleInputChange} className={inputClass}>
+                    <option value="">Select industry</option>
+                    {INDUSTRIES.map((ind) => (
+                      <option key={ind.value} value={ind.value}>{ind.label}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>Company size</label>
+                  <select name="companySize" value={formData.companySize} onChange={handleInputChange} className={inputClass}>
+                    <option value="">Select size</option>
+                    {COMPANY_SIZES.map((size) => (
+                      <option key={size.value} value={size.value}>{size.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Country</label>
+                  <input type="text" name="country" value={formData.country} onChange={handleInputChange} className={inputClass} />
+                </div>
+              </div>
+
+              <div>
+                <label className={labelClass}>Region / state</label>
+                <input type="text" name="region" value={formData.region} onChange={handleInputChange} className={inputClass} />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>Primary goal</label>
+                  <select name="primaryGoal" value={formData.primaryGoal} onChange={handleInputChange} className={inputClass}>
+                    <option value="">Select goal</option>
+                    {PRIMARY_GOALS.map((goal) => (
+                      <option key={goal.value} value={goal.value}>{goal.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Estimated assets</label>
+                  <select name="estimatedAssets" value={formData.estimatedAssets} onChange={handleInputChange} className={inputClass}>
+                    <option value="">Select range</option>
+                    {ESTIMATED_ASSETS.map((range) => (
+                      <option key={range.value} value={range.value}>{range.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </form>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <InfoField label="Organization name" value={organization?.name} />
+              <InfoField label="Industry" value={getLabel(INDUSTRIES, organization?.industry)} />
+              <InfoField label="Company size" value={getLabel(COMPANY_SIZES, organization?.companySize)} />
+              <InfoField label="Country" value={organization?.country} />
+              <InfoField label="Region / state" value={organization?.region} />
+              <InfoField label="Primary goal" value={getLabel(PRIMARY_GOALS, organization?.primaryGoal)} />
+              <InfoField label="Estimated assets" value={getLabel(ESTIMATED_ASSETS, organization?.estimatedAssets)} className="sm:col-span-2" />
             </div>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-gray-500/60 bg-gray-800/40 px-4 py-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Organization ID</p>
+            <p className="text-xs font-mono text-gray-300 bg-gray-900/50 px-2 py-1.5 rounded-lg border border-gray-700/40 break-all">
+              {organization?.orgId}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-amber-500/50 bg-gradient-to-r from-amber-950/15 to-gray-800/40 px-4 py-3">
+            <p className="text-xs font-semibold text-amber-400/80 uppercase tracking-widest mb-2">Quick actions</p>
+            <div className="space-y-1">
+              <QuickActionLink href="/dashboard/roles" label="Add new user" />
+              <QuickActionLink href="/dashboard/subscriptions" label="Manage subscriptions" />
+              <QuickActionLink href="/dashboard/audit" label="View audit logs" />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-gray-700/40 bg-gray-800/30 p-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">About this page</p>
+            <p className="text-xs text-gray-500">
+              Organization details are visible to super admins. Updates apply across your workspace, including reports and asset limits.
+            </p>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function SummaryCard({ label, value, accent = 'text-gray-100' }: { label: string; value: string; accent?: string }) {
+  return (
+    <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
+      <p className="text-[10px] text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className={`text-sm font-semibold mt-0.5 ${accent}`}>{value}</p>
+    </div>
+  );
+}
+
+function InfoField({ label, value, className = '' }: { label: string; value?: string; className?: string }) {
+  return (
+    <div className={`px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30 ${className}`}>
+      <p className="text-[10px] text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className="text-sm font-semibold text-gray-200 mt-0.5">{value || '—'}</p>
+    </div>
+  );
+}
+
+function QuickActionLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="block px-2 py-1.5 text-xs text-amber-300/90 hover:text-amber-200 hover:bg-amber-500/10 rounded-lg transition-colors no-underline"
+    >
+      → {label}
+    </Link>
   );
 }

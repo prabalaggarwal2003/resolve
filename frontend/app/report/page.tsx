@@ -14,6 +14,21 @@ const ISSUE_TYPES = [
   { value: 'other', label: 'Other' },
 ];
 
+const STATUS_BADGE: Record<string, string> = {
+  available: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
+  in_use: 'text-blue-300 bg-blue-500/15 border-blue-500/30',
+  working: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
+  under_maintenance: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
+  needs_repair: 'text-red-300 bg-red-500/15 border-red-500/30',
+  out_of_service: 'text-red-300 bg-red-500/15 border-red-500/30',
+  retired: 'text-gray-400 bg-gray-500/15 border-gray-500/30',
+};
+
+const inputClass =
+  'w-full px-2.5 py-1.5 text-sm border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200 placeholder:text-gray-600 focus:ring-1 focus:ring-blue-500/40 focus:border-blue-500/40';
+const labelClass = 'block text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1';
+const buttonClass = 'px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-50';
+
 interface Asset {
   _id: string;
   assetId: string;
@@ -23,13 +38,51 @@ interface Asset {
   condition?: string;
   maintenanceReason?: string;
   departmentId?: { name: string };
-  locationId?: { name: string };
+  locationId?: { name: string; path?: string };
 }
-
 
 function api(path: string) {
   const base = process.env.NEXT_PUBLIC_API_URL || '';
   return base ? `${base}${path}` : path;
+}
+
+function Field({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className={labelClass}>
+        {label}
+        {required && ' *'}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function Section({
+  title,
+  accentClass,
+  titleClass,
+  children,
+}: {
+  title: string;
+  accentClass: string;
+  titleClass: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`rounded-xl border border-gray-700/60 border-l-2 ${accentClass} bg-gray-800/40 px-3 py-2.5`}>
+      <p className={`text-[10px] font-semibold uppercase tracking-widest mb-2.5 ${titleClass}`}>{title}</p>
+      {children}
+    </div>
+  );
 }
 
 function ReportContent() {
@@ -42,17 +95,13 @@ function ReportContent() {
   const [reporterPhone, setReporterPhone] = useState('');
   const [issueType, setIssueType] = useState('');
   const [description, setDescription] = useState('');
-  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<{ merged: boolean; ticketId: string; message: string } | null>(null);
   const [asset, setAsset] = useState<Asset | null>(null);
 
-  // Fetch asset when component mounts
   useEffect(() => {
-    if (assetId) {
-      fetchAsset();
-    }
+    if (assetId) fetchAsset();
   }, [assetId]);
 
   const fetchAsset = async () => {
@@ -60,20 +109,10 @@ function ReportContent() {
       const res = await fetch(api(`/api/public/assets/${assetId}`));
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to load asset');
-      
       setAsset(data);
-    } catch (err) {
-      console.error('Failed to load asset:', err);
-      // Don't show error for asset loading, just continue
+    } catch {
+      // Continue without asset details
     }
-  };
-
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = () => setPhotoDataUrl(reader.result as string);
-    reader.readAsDataURL(file);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -81,7 +120,6 @@ function ReportContent() {
     setError('');
     setLoading(true);
     try {
-      const photos = photoDataUrl ? [{ url: photoDataUrl }] : undefined;
       const res = await fetch(api('/api/public/report'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -92,7 +130,6 @@ function ReportContent() {
           reporterPhone: reporterPhone.trim() || undefined,
           issueType: issueType || 'other',
           description: description.trim(),
-          photos,
         }),
       });
       const data = await res.json();
@@ -111,19 +148,22 @@ function ReportContent() {
 
   if (success) {
     return (
-      <main className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6">
-        <div className="w-full max-w-md bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-8 text-center">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-green-900/30 text-green-400 mb-4">
-            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
+      <main className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-xl border border-gray-700/60 border-l-2 border-l-emerald-500/50 bg-gray-800/40 px-5 py-6 text-center">
+          <div className="inline-flex items-center justify-center w-11 h-11 rounded-full bg-emerald-500/15 text-emerald-400 mb-3 text-lg">
+            ✓
           </div>
-          <h1 className="text-xl font-bold mb-2 text-gray-100">Report submitted</h1>
-          <p className="text-gray-400 mb-2">{success.message}</p>
+          <h1 className="text-base font-bold text-gray-100 mb-1">Report submitted</h1>
+          <p className="text-xs text-gray-400 mb-2">{success.message}</p>
           {success.ticketId && (
-            <p className="text-sm text-gray-500 mb-6">Reference: <strong className="text-gray-300">{success.ticketId}</strong></p>
+            <p className="text-[11px] text-gray-500 mb-4">
+              Reference: <span className="text-gray-300 font-medium">{success.ticketId}</span>
+            </p>
           )}
-          <Link href={assetId ? `/a/${assetId}` : '/'} className="inline-block py-2.5 px-5 bg-gray-700 text-white rounded-lg font-medium hover:bg-gray-600 no-underline">
+          <Link
+            href={assetId ? `/a/${assetId}` : '/'}
+            className={`${buttonClass} inline-block no-underline border-gray-700/60 bg-gray-800/60 text-gray-200 hover:bg-gray-700/60 py-2 px-4`}
+          >
             Back to asset
           </Link>
         </div>
@@ -131,117 +171,177 @@ function ReportContent() {
     );
   }
 
+  const displayName = asset?.name || assetName;
+  const isUnderMaintenance = asset?.status === 'under_maintenance';
+
   return (
-    <main className="min-h-screen bg-gray-950 p-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-6">
-          <h1 className="text-xl font-bold mb-2 text-gray-100">Report an issue</h1>
-          {asset && (
-            <div className="bg-gray-900 p-3 rounded-lg mb-4 border border-gray-700">
-              <p className="mb-1 text-sm text-gray-400"><strong className="text-gray-300">Asset:</strong> {asset.name} ({asset.assetId})</p>
-              <p className="mb-1 text-sm text-gray-400"><strong className="text-gray-300">Category:</strong> {asset.category}</p>
-              <p className=" mb-1 text-sm text-gray-400"><strong className="text-gray-300">Status:</strong> {asset.status}</p>
-              {asset.departmentId && (
-                <p className="text-sm text-gray-400"><strong className="text-gray-300">Department:</strong> {asset.departmentId.name}</p>
-              )}
-            </div>
-          )}
-
-          {/* Maintenance Warning */}
-          {asset?.status === 'under_maintenance' && (
-            <div className="bg-amber-900/20 border-2 border-amber-800 rounded-xl p-5 mb-4">
-              <div className="flex items-start gap-3">
-                <div className="text-2xl">🔧</div>
-                <div>
-                  <h3 className="font-bold text-amber-400 text-lg mb-1">Can't Report Issues</h3>
-                  <p className="text-amber-400 text-sm mb-2">This asset is currently under maintenance and issue reporting is temporarily disabled.</p>
-                  {asset.maintenanceReason && (
-                    <p className="text-amber-500 text-xs"><span className="font-medium">Reason:</span> {asset.maintenanceReason}</p>
-                  )}
-                </div>
-              </div>
-              <Link href={assetId ? `/a/${assetId}` : '/'} className="mt-4 block w-full py-3 bg-amber-700 text-white text-center font-semibold rounded-lg hover:bg-amber-600 no-underline">
-                ← Back to Asset
-              </Link>
-            </div>
-          )}
-
-          {!assetId && (
-            <p className="text-amber-400 bg-amber-900/20 border border-amber-800 text-sm p-3 rounded-lg mb-4">
-              No asset selected. Open this page from the asset QR or link.
-            </p>
-          )}
-
-          {asset?.status !== 'under_maintenance' && (
-          <form onSubmit={handleSubmit} className="space-y-4">
-                {error && <p className="p-3 bg-red-900/20 border border-red-800 text-red-400 rounded-lg text-sm">{error}</p>}
-                <div>
-                  <label className="block mb-1.5 font-medium text-gray-300">Your name *</label>
-                  <input type="text" value={reporterName} onChange={(e) => setReporterName(e.target.value)} required
-                    className="w-full px-3 py-2.5 border border-gray-700 bg-gray-900 text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-600 focus:border-transparent"
-                    placeholder="e.g. John Smith" />
-                </div>
-                <div>
-                  <label className="block mb-1.5 font-medium text-gray-300">Email *</label>
-                  <input type="email" value={reporterEmail} onChange={(e) => setReporterEmail(e.target.value)} required
-                    className="w-full px-3 py-2.5 border border-gray-700 bg-gray-900 text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-600 focus:border-transparent"
-                    placeholder="you@example.com" />
-                </div>
-                <div>
-                  <label className="block mb-1.5 font-medium text-gray-300">Phone *</label>
-                  <input
-                    type="tel"
-                    value={reporterPhone}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                      setReporterPhone(value);
-                    }}
-                    pattern="[0-9]{10}"
-                    maxLength={10}
-                    required
-                    className="w-full px-3 py-2.5 border border-gray-700 bg-gray-900 text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-600 focus:border-transparent"
-                    placeholder="e.g. 9876543210"
-                  />
-                </div>
-                <div>
-                  <label className="block mb-1.5 font-medium text-gray-300">What's the problem? *</label>
-                  <select value={issueType} onChange={(e) => setIssueType(e.target.value)} required
-                    className="w-full px-3 py-2.5 border border-gray-700 bg-gray-800 text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-600 focus:border-transparent">
-                    <option value="">Select type</option>
-                    {ISSUE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block mb-1.5 font-medium text-gray-300">Description *</label>
-                  <textarea value={description} onChange={(e) => setDescription(e.target.value)} required rows={4}
-                    className="w-full px-3 py-2.5 border border-gray-700 bg-gray-900 text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-600 focus:border-transparent resize-none"
-                    placeholder="Describe the issue in a few lines..." />
-                </div>
-                <div>
-                  {/*<label className="block mb-1.5 font-medium text-gray-300">Photo (optional)</label>*/}
-                  {/*<input type="file" accept="image/*" onChange={handlePhotoChange}*/}
-                  {/*  className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-gray-700 file:text-gray-200 hover:file:bg-gray-600" />*/}
-                  {/*{photoDataUrl && (*/}
-                  {/*  <div className="mt-2 relative inline-block">*/}
-                  {/*    <img src={photoDataUrl} alt="Attached" className="h-20 w-20 object-cover rounded-lg border border-gray-700" />*/}
-                  {/*    <button type="button" onClick={() => setPhotoDataUrl(null)}*/}
-                  {/*      className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-500">×</button>*/}
-                  {/*  </div>*/}
-                  {/*)}*/}
-                </div>
-            <button type="submit" disabled={loading || !assetId}
-              className="w-full py-3 bg-gray-700 text-white rounded-lg font-semibold disabled:opacity-60 hover:bg-gray-600">
-              {loading ? 'Submitting…' : 'Submit report'}
-            </button>
-          </form>
-          )}
-
-          {asset?.status !== 'under_maintenance' && (
-          <Link href={assetId ? `/a/${assetId}` : '/'} className="block mt-4 text-center text-gray-500 text-sm hover:text-gray-300 no-underline">
-            ← Back to asset
-          </Link>
+    <main className="min-h-screen bg-gray-950 text-sm">
+      <div className="max-w-lg mx-auto px-4 py-4 flex flex-col gap-4">
+        <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-blue-500/50 bg-gray-800/40 px-4 py-3">
+          <h1 className="text-base font-bold text-gray-100">Report an issue</h1>
+          {displayName && (
+            <p className="text-xs text-gray-500 mt-0.5 truncate">{displayName}</p>
           )}
         </div>
+
+        {asset && (
+          <Section title="Asset" accentClass="border-l-violet-500/50" titleClass="text-violet-400/80">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30 min-w-0">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Name</p>
+                <p className="text-xs font-medium text-gray-200 mt-0.5 truncate">{asset.name}</p>
+              </div>
+              <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30 min-w-0">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide">ID</p>
+                <p className="text-xs font-medium text-gray-200 mt-0.5 truncate">{asset.assetId}</p>
+              </div>
+              <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30 min-w-0">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Category</p>
+                <p className="text-xs font-medium text-gray-200 mt-0.5">{asset.category}</p>
+              </div>
+              <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30 min-w-0">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Status</p>
+                <span
+                  className={`inline-block mt-0.5 px-1.5 py-0.5 text-[9px] rounded border capitalize ${
+                    STATUS_BADGE[asset.status] ?? STATUS_BADGE.retired
+                  }`}
+                >
+                  {asset.status.replace('_', ' ')}
+                </span>
+              </div>
+              {asset.departmentId && (
+                <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30 min-w-0 col-span-2">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Department</p>
+                  <p className="text-xs font-medium text-gray-200 mt-0.5">{asset.departmentId.name}</p>
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
+
+        {isUnderMaintenance && (
+          <Section title="Reporting unavailable" accentClass="border-l-amber-500/50" titleClass="text-amber-400/80">
+            <div className="flex items-start gap-2">
+              <span className="text-base">🔧</span>
+              <div>
+                <p className="text-xs text-amber-200/90">
+                  This asset is under maintenance. Issue reporting is temporarily disabled.
+                </p>
+                {asset.maintenanceReason && (
+                  <p className="text-[10px] text-amber-400/70 mt-1">
+                    <span className="font-medium">Reason:</span> {asset.maintenanceReason}
+                  </p>
+                )}
+              </div>
+            </div>
+            <Link
+              href={assetId ? `/a/${assetId}` : '/'}
+              className={`${buttonClass} mt-3 block text-center no-underline w-full border-amber-500/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20 py-2`}
+            >
+              ← Back to asset
+            </Link>
+          </Section>
+        )}
+
+        {!assetId && (
+          <p className="text-[11px] text-amber-300 px-3 py-2 rounded-lg border border-amber-500/30 bg-amber-500/10">
+            No asset selected. Open this page from the asset QR code or link.
+          </p>
+        )}
+
+        {!isUnderMaintenance && (
+          <Section title="Your report" accentClass="border-l-emerald-500/50" titleClass="text-emerald-400/80">
+            <form onSubmit={handleSubmit} className="space-y-3">
+              {error && (
+                <p className="text-[11px] text-red-400 px-2.5 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10">
+                  {error}
+                </p>
+              )}
+
+              <Field label="Your name" required>
+                <input
+                  type="text"
+                  value={reporterName}
+                  onChange={(e) => setReporterName(e.target.value)}
+                  required
+                  className={inputClass}
+                  placeholder="e.g. John Smith"
+                />
+              </Field>
+
+              <Field label="Email" required>
+                <input
+                  type="email"
+                  value={reporterEmail}
+                  onChange={(e) => setReporterEmail(e.target.value)}
+                  required
+                  className={inputClass}
+                  placeholder="you@example.com"
+                />
+              </Field>
+
+              <Field label="Phone" required>
+                <input
+                  type="tel"
+                  value={reporterPhone}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setReporterPhone(value);
+                  }}
+                  pattern="[0-9]{10}"
+                  maxLength={10}
+                  required
+                  className={inputClass}
+                  placeholder="e.g. 9876543210"
+                />
+              </Field>
+
+              <Field label="What's the problem?" required>
+                <select
+                  value={issueType}
+                  onChange={(e) => setIssueType(e.target.value)}
+                  required
+                  className={inputClass}
+                >
+                  <option value="">Select type</option>
+                  {ISSUE_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Description" required>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  required
+                  rows={3}
+                  className={`${inputClass} resize-none`}
+                  placeholder="Describe the issue in a few lines..."
+                />
+              </Field>
+
+              <button
+                type="submit"
+                disabled={loading || !assetId}
+                className={`${buttonClass} w-full py-2.5 text-sm font-semibold border-blue-500/40 bg-blue-600/20 text-blue-200 hover:bg-blue-600/30`}
+              >
+                {loading ? 'Submitting…' : 'Submit report'}
+              </button>
+            </form>
+          </Section>
+        )}
+
+        {!isUnderMaintenance && (
+          <Link
+            href={assetId ? `/a/${assetId}` : '/'}
+            className="text-center text-[11px] text-gray-500 hover:text-gray-300 no-underline"
+          >
+            ← Back to asset
+          </Link>
+        )}
       </div>
     </main>
   );
@@ -249,11 +349,13 @@ function ReportContent() {
 
 export default function ReportPage() {
   return (
-    <Suspense fallback={
-      <main className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
-        <LoadingSpinner message="Loading..." />
-      </main>
-    }>
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
+          <LoadingSpinner message="Loading..." />
+        </main>
+      }
+    >
       <ReportContent />
     </Suspense>
   );

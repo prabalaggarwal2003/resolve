@@ -143,7 +143,9 @@ async function analyzeAssetHealth(assetId) {
       healthFactors,
       maintenanceReason,
       riskLevel,
-      needsUpdate: asset.status !== (recommendedCondition === ASSET_CONDITIONS.MAINTENANCE ? 'under_maintenance' : asset.status),
+      needsUpdate:
+        asset.condition !== recommendedCondition ||
+        asset.status !== (recommendedCondition === ASSET_CONDITIONS.MAINTENANCE ? 'under_maintenance' : asset.status),
       canReportIssues: recommendedCondition !== ASSET_CONDITIONS.MAINTENANCE
     };
   } catch (error) {

@@ -4,6 +4,7 @@ import { protect } from '../middleware/auth.js';
 import { generateQrDataUrl, getAssetPublicUrl } from '../services/qrService.js';
 import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
 import { assetFilterForUser, canEdit, canViewAsset } from '../services/permissions.js';
+import { buildAssetEditChanges, createAssetEditLog, serializeAssetLogs } from '../services/assetLogService.js';
 import { env } from '../config/env.js';
 
 const router = express.Router();
@@ -65,12 +66,12 @@ router.get('/:id/logs', async (req, res) => {
     if (!canViewAsset(req.user, asset)) {
       return res.status(403).json({ message: 'You do not have access to this asset' });
     }
-    const logs = await AssetLog.find({ assetId: req.params.id })
+    const logs = await AssetLog.find({ assetId: req.params.id, type: 'edit' })
       .populate('userId', 'name email')
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
-    res.json({ logs });
+    res.json({ logs: serializeAssetLogs(logs) });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -169,6 +170,14 @@ router.post('/', requireCanEdit, async (req, res) => {
       .populate('departmentId', 'name')
       .populate('assignedTo', 'name email')
       .lean();
+
+    await createAssetEditLog(AssetLog, {
+      assetId: asset._id,
+      userId: req.user._id,
+      fieldChanges: [{ field: 'created', label: 'Created', oldValue: '—', newValue: asset.name }],
+      summary: `Created: ${asset.name}`,
+    });
+
     res.status(201).json({ ...populated, qrCodeUrl: qrCodeUrl || populated.qrCodeUrl });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -180,10 +189,16 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
     const prev = await Asset.findById(req.params.id).lean();
     if (!prev) return res.status(404).json({ message: 'Asset not found' });
 
-    const update = { ...req.body, updatedBy: req.user._id };
-
-    // Convert empty strings to null for ObjectId fields
     const objectIdFields = ['vendorId', 'locationId', 'departmentId', 'assignedTo', 'purchaseInvoiceId'];
+    const patchForLog = { ...req.body };
+    objectIdFields.forEach((field) => {
+      if (patchForLog[field] === '' || patchForLog[field] === 'null' || patchForLog[field] === 'undefined') {
+        patchForLog[field] = null;
+      }
+    });
+    const pendingEditLog = await buildAssetEditChanges(prev, patchForLog);
+
+    const update = { ...req.body, updatedBy: req.user._id };
     objectIdFields.forEach(field => {
       if (update[field] === '' || update[field] === 'null' || update[field] === 'undefined') {
         update[field] = null;
@@ -194,18 +209,16 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
     let auditDescription = `Updated asset "${prev.name}"`;
     let auditSeverity = 'low';
 
-    // Handle assignment changes
+    // Handle assignment timestamp
     if (update.assignedTo !== undefined) {
       update.assignedAt = update.assignedTo ? new Date() : null;
 
       if (prev.assignedTo && !update.assignedTo) {
-        await AssetLog.create({ assetId: prev._id, userId: prev.assignedTo, type: 'check_out', unassignedAt: new Date() });
         auditAction = AUDIT_ACTIONS.ASSET_UNASSIGNED;
         auditDescription = `Unassigned asset "${prev.name}" from user`;
         auditSeverity = 'medium';
       }
       if (update.assignedTo) {
-        await AssetLog.create({ assetId: prev._id, userId: update.assignedTo, type: 'check_in', assignedAt: new Date() });
         auditAction = AUDIT_ACTIONS.ASSET_ASSIGNED;
         auditDescription = `Assigned asset "${prev.name}" to user`;
         auditSeverity = 'medium';
@@ -259,6 +272,14 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
       .populate('assignedTo', 'name email')
       .lean();
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
+
+    if (pendingEditLog) {
+      await createAssetEditLog(AssetLog, {
+        assetId: prev._id,
+        userId: req.user._id,
+        ...pendingEditLog,
+      });
+    }
 
     const changedFields = {};
     Object.keys(update).forEach(key => {

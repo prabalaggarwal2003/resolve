@@ -32,8 +32,6 @@ const PLAN_DETAILS = {
     assets: 50,
     users: 5,
     features: ['Up to 50 assets', 'Up to 5 users/roles', 'Basic asset tracking', 'Issue reporting', 'Locations & departments'],
-    color: 'gray',
-    badge: 'Current Plan',
   },
   pro: {
     name: 'Pro',
@@ -50,7 +48,6 @@ const PLAN_DETAILS = {
       'Advanced maintenance',
       'Premium reports',
     ],
-    color: 'blue',
   },
   premium: {
     name: 'Premium',
@@ -67,9 +64,42 @@ const PLAN_DETAILS = {
       'Priority support',
       'Custom integrations',
     ],
-    color: 'purple',
   },
 };
+
+const TIER_STYLES: Record<string, { badge: string; accent: string; hover: string; btn: string; price: string }> = {
+  free: {
+    badge: 'text-gray-300 bg-gray-500/15 border-gray-500/30',
+    accent: 'border-l-gray-500/60',
+    hover: 'hover:border-gray-500/25',
+    btn: 'border-gray-700/60 bg-gray-800/40 text-gray-400',
+    price: 'text-gray-100',
+  },
+  pro: {
+    badge: 'text-blue-300 bg-blue-500/15 border-blue-500/30',
+    accent: 'border-l-blue-500/60',
+    hover: 'hover:border-blue-500/25',
+    btn: 'border-blue-500/40 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 hover:border-blue-400/50',
+    price: 'text-blue-300',
+  },
+  premium: {
+    badge: 'text-violet-300 bg-violet-500/15 border-violet-500/30',
+    accent: 'border-l-violet-500/60',
+    hover: 'hover:border-violet-500/25',
+    btn: 'border-violet-500/40 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 hover:border-violet-400/50',
+    price: 'text-violet-300',
+  },
+};
+
+function formatDaysRemaining(endDate?: string): string {
+  if (!endDate) return '—';
+  const diff = new Date(endDate).getTime() - Date.now();
+  const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+  if (days < 0) return 'Expired';
+  if (days === 0) return 'Expires today';
+  if (days === 1) return '1 day left';
+  return `${days} days left`;
+}
 
 export default function SubscriptionsPage() {
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
@@ -251,207 +281,165 @@ export default function SubscriptionsPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-100 mb-2">Plans & Pricing</h1>
-        <p className="text-gray-400">Choose the perfect plan for your organization.</p>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-100">Plans & Pricing</h1>
+        <p className="text-gray-400 mt-1 text-sm">
+          Choose the right plan for your organization. Upgrade anytime to unlock KPIs, depreciation, vendors, and reports.
+        </p>
       </div>
 
-      {error && <p className="mb-6 p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-400">{error}</p>}
+      {error && (
+        <div className="mb-6 p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-400 text-sm">
+          {error}
+        </div>
+      )}
 
-      {/* Current Plan - Detailed */}
       {subscription && (
-        <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-8">
-          <div className="flex items-start justify-between mb-6">
+        <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-emerald-500/50 bg-gradient-to-r from-emerald-950/20 to-gray-800/40 px-4 py-4 mb-6">
+          <div className="flex items-start justify-between gap-3 mb-3">
             <div>
-              <p className="text-sm text-gray-400 mb-2">Current Plan</p>
-              <h2 className="text-3xl font-bold text-gray-100 capitalize">
-                {PLAN_DETAILS[subscription.tier].name}
-              </h2>
+              <p className="text-xs font-semibold text-emerald-400/80 uppercase tracking-widest mb-1">Current plan</p>
+              <h2 className="text-lg font-bold text-gray-100">{PLAN_DETAILS[subscription.tier].name}</h2>
+              <p className="text-[11px] text-gray-500 mt-0.5 capitalize">{subscription.plan} billing</p>
             </div>
-            <div className="text-right">
-              <div
-                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${
-                  subscription.tier === 'free'
-                    ? 'bg-gray-700/50 border-gray-600 text-gray-300'
-                    : 'bg-green-900/30 border-green-700 text-green-400'
-                }`}
-              >
-                {subscription.tier === 'free' ? '○ Free' : '✓ Active'}
-              </div>
-            </div>
+            <span className={`shrink-0 px-2 py-0.5 text-[11px] font-semibold rounded-md border ${
+              subscription.tier === 'free'
+                ? 'text-gray-300 bg-gray-500/15 border-gray-500/30'
+                : 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30'
+            }`}>
+              {subscription.tier === 'free' ? 'Free tier' : 'Active'}
+            </span>
           </div>
 
-          {/* Limits & Details Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 pb-6 border-b border-gray-700">
-            <div>
-              <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Assets Limit</p>
-              <p className="text-2xl font-bold text-gray-100">{subscription.limits.assets}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Users Limit</p>
-              <p className="text-2xl font-bold text-gray-100">{subscription.limits.users}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Plan Type</p>
-              <p className="text-lg font-semibold text-gray-100 capitalize">{subscription.plan}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Status</p>
-              <p
-                className={`text-lg font-semibold ${
-                  subscription.tier === 'free'
-                    ? 'text-gray-400'
-                    : 'text-green-400'
-                }`}
-              >
-                {subscription.tier === 'free' ? 'Forever' : 'Active'}
-              </p>
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+            <SummaryCard label="Assets limit" value={String(subscription.limits.assets)} accent="text-blue-300" />
+            <SummaryCard label="Users limit" value={String(subscription.limits.users)} accent="text-violet-300" />
+            <SummaryCard
+              label="Plan type"
+              value={subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1)}
+            />
+            <SummaryCard
+              label="Status"
+              value={subscription.tier === 'free' ? 'Forever' : formatDaysRemaining(subscription.subscriptionEndDate)}
+              accent={subscription.tier === 'free' ? 'text-gray-300' : 'text-emerald-400'}
+            />
           </div>
 
-          {/* Dates & Days Remaining */}
           {subscription.tier !== 'free' && subscription.subscriptionStartDate && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-400">Subscription Started</span>
-                <span className="text-sm font-medium text-gray-100">
-                  {new Date(subscription.subscriptionStartDate).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                  })}
-                </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-3 border-t border-gray-700/60">
+              <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Started</p>
+                <p className="text-xs font-medium text-gray-200 mt-0.5">
+                  {new Date(subscription.subscriptionStartDate).toLocaleDateString()}
+                </p>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-400">Expires On</span>
-                <span className="text-sm font-medium text-gray-100">
+              <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Expires</p>
+                <p className="text-xs font-medium text-gray-200 mt-0.5">
                   {subscription.subscriptionEndDate
-                    ? new Date(subscription.subscriptionEndDate).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })
+                    ? new Date(subscription.subscriptionEndDate).toLocaleDateString()
                     : '—'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between pt-3 border-t border-gray-700">
-                <span className="text-sm text-gray-400">Time Remaining</span>
-                <span className="text-sm font-bold text-green-400">
-                  {(() => {
-                    if (!subscription.subscriptionEndDate) return '—';
-                    const now = new Date();
-                    const end = new Date(subscription.subscriptionEndDate);
-                    const diff = end.getTime() - now.getTime();
-                    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-                    if (days < 0) return 'Expired';
-                    if (days === 0) return 'Expires Today';
-                    if (days === 1) return '1 day left';
-                    return `${days} days left`;
-                  })()}
-                </span>
+                </p>
               </div>
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="mt-6 flex gap-3">
-            {subscription.tier !== 'free' && userRole === 'super_admin' && (
+          {userRole === 'super_admin' && subscription.tier !== 'free' && (
+            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-700/60">
               <button
                 onClick={handleDowngrade}
-                className="flex-1 px-4 py-2 text-sm bg-red-900/20 text-red-400 rounded-lg hover:bg-red-900/30 border border-red-800 font-medium transition-colors"
+                className="px-2.5 py-1 text-xs font-medium rounded-lg border border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20 hover:border-red-400/50 transition-colors"
               >
                 Downgrade to Free
               </button>
-            )}
-            {subscription.tier !== 'premium' && subscription.tier !== 'free' && userRole === 'super_admin' && (
-              <button
-                onClick={() => { setSelectedTier('premium'); setPlanType(subscription.plan as any); }}
-                className="flex-1 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
-              >
-                Upgrade to Premium
-              </button>
-            )}
-          </div>
+              {subscription.tier === 'pro' && (
+                <button
+                  onClick={() => { setSelectedTier('premium'); setPlanType(subscription.plan as 'monthly' | 'annual'); }}
+                  className="px-2.5 py-1 text-xs font-medium rounded-lg border border-violet-500/40 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 hover:border-violet-400/50 transition-colors"
+                >
+                  Upgrade to Premium
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Plan Type Toggle */}
-      <div className="flex justify-center gap-4 mb-8">
+      <div className="flex flex-wrap gap-1.5 mb-4">
         <button
           onClick={() => setPlanType('monthly')}
-          className={`px-6 py-2 rounded-lg font-medium transition-all ${
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
             planType === 'monthly'
-              ? 'bg-gray-700 text-white'
-              : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              ? 'bg-blue-500/20 text-blue-200 border-blue-500/40'
+              : 'bg-gray-800/40 text-gray-400 border-gray-700/60 hover:bg-gray-700/60 hover:text-gray-200'
           }`}
         >
           Monthly
         </button>
         <button
           onClick={() => setPlanType('annual')}
-          className={`px-6 py-2 rounded-lg font-medium transition-all ${
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
             planType === 'annual'
-              ? 'bg-gray-700 text-white'
-              : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              ? 'bg-emerald-500/20 text-emerald-200 border-emerald-500/40'
+              : 'bg-gray-800/40 text-gray-400 border-gray-700/60 hover:bg-gray-700/60 hover:text-gray-200'
           }`}
         >
-          Annual (Save 17%)
+          Annual <span className="text-emerald-400/80">(save 17%)</span>
         </button>
       </div>
 
-      {/* Plans Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {(['free', 'pro', 'premium'] as const).map((tier) => {
           const plan = PLAN_DETAILS[tier];
+          const style = TIER_STYLES[tier];
           const isCurrent = subscription?.tier === tier;
+          const price = tier === 'free'
+            ? '₹0'
+            : planType === 'monthly'
+              ? (tier === 'pro' ? '₹499' : '₹899')
+              : (tier === 'pro' ? '₹4,999' : '₹8,999');
 
           return (
             <div
               key={tier}
-              className={`rounded-lg border p-6 relative ${
-                isCurrent
-                  ? 'border-gray-600 bg-gray-800 ring-2 ring-gray-600'
-                  : 'border-gray-700 bg-gray-900/40 hover:border-gray-600 transition-colors'
+              className={`rounded-xl border border-gray-700/60 border-l-2 ${style.accent} bg-gray-800/40 px-4 py-4 ${style.hover} transition-colors ${
+                isCurrent ? 'ring-1 ring-gray-500/40' : ''
               }`}
             >
-              {isCurrent && (
-                <div className="absolute top-4 right-4 px-2 py-1 bg-green-900/30 text-green-400 text-xs rounded-full border border-green-800">
-                  Current
-                </div>
-              )}
-
-              <h3 className="text-xl font-bold text-gray-100 mb-2">{plan.name}</h3>
-
-              <div className="mb-4">
-                {tier === 'free' && (
-                  <p className="text-3xl font-bold text-gray-100">₹0</p>
-                )}
-                {tier !== 'free' && (
-                  <>
-                    <p className="text-3xl font-bold text-gray-100">
-                      {planType === 'monthly'
-                        ? (tier === 'pro' ? '₹499' : '₹899')
-                        : (tier === 'pro' ? '₹4,999' : '₹8,999')
-                      }
-                    </p>
-                    <p className="text-sm text-gray-400">
-                      {planType === 'monthly' ? 'per month' : 'per year'}
-                    </p>
-                  </>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <span className={`px-2 py-0.5 text-[11px] font-semibold rounded-md border ${style.badge}`}>
+                  {plan.name}
+                </span>
+                {isCurrent && (
+                  <span className="px-2 py-0.5 text-[11px] font-medium text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 rounded-md">
+                    Current
+                  </span>
                 )}
               </div>
 
-              <div className="mb-6 pb-6 border-b border-gray-700">
-                <p className="text-sm font-medium text-gray-300 mb-2">
-                  {plan.assets} Assets • {plan.users} Users
+              <div className="mb-3">
+                <p className={`text-2xl font-bold ${style.price}`}>{price}</p>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  {tier === 'free' ? 'forever' : planType === 'monthly' ? 'per month' : 'per year'}
                 </p>
               </div>
 
-              <ul className="space-y-2 mb-6">
+              <div className="grid grid-cols-2 gap-1.5 mb-3">
+                <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Assets</p>
+                  <p className="text-sm font-semibold text-gray-200">{plan.assets}</p>
+                </div>
+                <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Users</p>
+                  <p className="text-sm font-semibold text-gray-200">{plan.users}</p>
+                </div>
+              </div>
+
+              <ul className="space-y-1.5 mb-4">
                 {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-2 text-sm text-gray-300">
-                    <span className="text-green-400 mt-0.5">✓</span>
-                    {feature}
+                  <li key={feature} className="flex items-start gap-2 text-xs text-gray-400">
+                    <span className="text-emerald-400/80 mt-0.5 shrink-0">✓</span>
+                    <span>{feature}</span>
                   </li>
                 ))}
               </ul>
@@ -460,32 +448,47 @@ export default function SubscriptionsPage() {
                 <button
                   onClick={() => handleUpgrade(tier)}
                   disabled={upgrading === tier}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  className={`w-full px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${style.btn}`}
                 >
-                  {upgrading === tier ? 'Processing...' : `Upgrade to ${plan.name}`}
+                  {upgrading === tier ? 'Processing…' : `Upgrade to ${plan.name}`}
                 </button>
               )}
 
               {isCurrent && tier !== 'free' && (
-                <button disabled className="w-full px-4 py-2 bg-gray-700 text-gray-300 rounded-lg font-medium cursor-default">
-                  Current Plan
+                <button
+                  disabled
+                  className="w-full px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700/60 bg-gray-800/60 text-gray-500 cursor-default"
+                >
+                  Current plan
                 </button>
+              )}
+
+              {tier === 'free' && !isCurrent && (
+                <p className="text-[11px] text-gray-600 text-center">Included for all organizations</p>
               )}
             </div>
           );
         })}
       </div>
 
-      <div className="mt-12 bg-gray-800/50 rounded-lg border border-gray-700 p-6">
-        <h3 className="text-lg font-semibold text-gray-100 mb-4">Need help choosing?</h3>
-        <p className="text-gray-400 mb-4">
-          Start free and explore the basics.
-          Upgrade when you need more assets, users and advanced features.
+      <div className="mt-6 rounded-xl border border-gray-700/40 bg-gray-800/30 p-4">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Need help choosing?</p>
+        <p className="text-xs text-gray-500 mb-3">
+          Start free and explore the basics. Upgrade when you need more assets, users, and advanced features like KPIs, depreciation, and vendor management.
         </p>
-        <Link href="/dashboard" className="text-blue-400">
-          Go to Dashboard →
+        <Link href="/dashboard" className="text-xs text-blue-400 hover:underline">
+          Go to dashboard →
         </Link>
       </div>
+    </div>
+  );
+}
+
+function SummaryCard({ label, value, accent = 'text-gray-100' }: { label: string; value: string; accent?: string }) {
+  return (
+    <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
+      <p className="text-[10px] text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className={`text-sm font-semibold mt-0.5 ${accent}`}>{value}</p>
     </div>
   );
 }

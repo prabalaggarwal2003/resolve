@@ -1,5 +1,108 @@
-import { Asset, Issue, User } from '../models/index.js';
+import { Asset, Issue } from '../models/index.js';
 import mongoose from 'mongoose';
+
+const CONDITION_BUCKETS = ['excellent', 'good', 'fair', 'poor', 'critical', 'under_maintenance'];
+
+/**
+ * Estimate physical condition from operational data — independent of the Asset Health tab.
+ * Uses asset status, open/past issues, age, and warranty.
+ */
+function deriveAssetCondition(asset, now) {
+  const { status, purchaseDate, warrantyExpiry, openIssues = 0, pastIssues = 0 } = asset;
+
+  if (status === 'under_maintenance' || status === 'out_of_service') {
+    return 'under_maintenance';
+  }
+  if (status === 'needs_repair') {
+    return 'critical';
+  }
+
+  const ageYears =
+    purchaseDate != null
+      ? (now.getTime() - new Date(purchaseDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+      : null;
+
+  const warrantyExpired =
+    warrantyExpiry != null && new Date(warrantyExpiry).getTime() < now.getTime();
+  const warrantyActive =
+    warrantyExpiry != null && new Date(warrantyExpiry).getTime() >= now.getTime();
+
+  if (openIssues >= 2) return 'critical';
+  if (openIssues >= 1) return 'poor';
+
+  if (ageYears != null && ageYears >= 5) return 'poor';
+  if (pastIssues >= 5) return 'poor';
+
+  if (ageYears != null && ageYears >= 3 && (pastIssues >= 1 || warrantyExpired)) return 'fair';
+  if (pastIssues >= 3) return 'fair';
+  if (warrantyExpired && (pastIssues >= 1 || (ageYears != null && ageYears >= 2))) return 'fair';
+  if (warrantyExpired) return 'fair';
+
+  if (
+    ageYears != null &&
+    ageYears < 1 &&
+    openIssues === 0 &&
+    pastIssues === 0 &&
+    warrantyActive
+  ) {
+    return 'excellent';
+  }
+
+  if (status === 'retired') return 'fair';
+
+  return 'good';
+}
+
+function emptyConditionMap() {
+  return Object.fromEntries(CONDITION_BUCKETS.map((key) => [key, 0]));
+}
+
+async function computeConditionDistribution(orgId, now) {
+  const assets = await Asset.aggregate([
+    { $match: { organizationId: orgId } },
+    {
+      $lookup: {
+        from: 'issues',
+        localField: '_id',
+        foreignField: 'assetId',
+        as: 'issues',
+      },
+    },
+    {
+      $project: {
+        status: 1,
+        purchaseDate: 1,
+        warrantyExpiry: 1,
+        openIssues: {
+          $size: {
+            $filter: {
+              input: '$issues',
+              as: 'issue',
+              cond: { $in: ['$$issue.status', ['open', 'in_progress']] },
+            },
+          },
+        },
+        pastIssues: {
+          $size: {
+            $filter: {
+              input: '$issues',
+              as: 'issue',
+              cond: { $in: ['$$issue.status', ['completed', 'cancelled']] },
+            },
+          },
+        },
+      },
+    },
+  ]);
+
+  const conditionMap = emptyConditionMap();
+  for (const asset of assets) {
+    const bucket = deriveAssetCondition(asset, now);
+    conditionMap[bucket] = (conditionMap[bucket] || 0) + 1;
+  }
+
+  return conditionMap;
+}
 
 /**
  * Get comprehensive KPIs and metrics for an organization
@@ -7,6 +110,7 @@ import mongoose from 'mongoose';
 export async function getOrganizationKPIs(organizationId) {
   try {
     const orgId = new mongoose.Types.ObjectId(organizationId);
+    const now = new Date();
 
     // 1. Asset Status Distribution
     const statusDistribution = await Asset.aggregate([
@@ -20,16 +124,8 @@ export async function getOrganizationKPIs(organizationId) {
       }
     ]);
 
-    // 2. Asset Condition Distribution
-    const conditionDistribution = await Asset.aggregate([
-      { $match: { organizationId: orgId } },
-      {
-        $group: {
-          _id: '$condition',
-          count: { $sum: 1 }
-        }
-      }
-    ]);
+    // 2. Estimated condition from status, issues, age, and warranty
+    const conditionMap = await computeConditionDistribution(orgId, now);
 
     // 3. Category Distribution
     const categoryDistribution = await Asset.aggregate([
@@ -61,19 +157,21 @@ export async function getOrganizationKPIs(organizationId) {
     ]);
 
     // 5. Warranty Status
-    const now = new Date();
     const [warrantyActive, warrantyExpired, noWarranty] = await Promise.all([
       Asset.countDocuments({
         organizationId: orgId,
-        warrantyExpiry: { $gte: now }
+        warrantyExpiry: { $exists: true, $ne: null, $gte: now }
       }),
       Asset.countDocuments({
         organizationId: orgId,
-        warrantyExpiry: { $lt: now }
+        warrantyExpiry: { $exists: true, $ne: null, $lt: now }
       }),
       Asset.countDocuments({
         organizationId: orgId,
-        warrantyExpiry: { $exists: false }
+        $or: [
+          { warrantyExpiry: { $exists: false } },
+          { warrantyExpiry: null }
+        ]
       })
     ]);
 
@@ -217,21 +315,7 @@ export async function getOrganizationKPIs(organizationId) {
       };
     });
 
-    // Format condition distribution
-    const conditionMap = {
-      excellent: 0,
-      good: 0,
-      fair: 0,
-      poor: 0,
-      critical: 0,
-      under_maintenance: 0
-    };
-
-    conditionDistribution.forEach(item => {
-      const condition = item._id || 'good';
-      conditionMap[condition] = item.count;
-    });
-
+    // Format condition distribution (already computed)
     // Format issue metrics
     const issueMap = {
       open: 0,
@@ -245,6 +329,15 @@ export async function getOrganizationKPIs(organizationId) {
     });
 
     const totalIssues = Object.values(issueMap).reduce((a, b) => a + b, 0);
+
+    const AGE_RANGE_LABELS = {
+      0: '< 1 year',
+      1: '1–2 years',
+      2: '2–3 years',
+      3: '3–5 years',
+      5: '5+ years',
+      Unknown: 'Unknown',
+    };
 
     return {
       // Overall Metrics
@@ -317,7 +410,7 @@ export async function getOrganizationKPIs(organizationId) {
 
       // Age Distribution
       ageDistribution: assetAgeDistribution.map(bucket => ({
-        range: bucket._id === 'Unknown' ? 'Unknown' : `${bucket._id}-${bucket._id + 1} years`,
+        range: AGE_RANGE_LABELS[bucket._id] || String(bucket._id),
         count: bucket.count,
         percentage: totalAssets > 0 ? (bucket.count / totalAssets) * 100 : 0
       })),
