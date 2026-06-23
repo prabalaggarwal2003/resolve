@@ -1,8 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { UpgradePrompt } from '@/lib/subscriptionUtils';
 import LoadingSpinner from '@/components/LoadingSpinner';
+
+interface StatusEntry {
+  count: number;
+  value: number;
+  percentage: number;
+}
 
 interface KPIData {
   overview: {
@@ -12,13 +18,7 @@ interface KPIData {
     maxValue: number;
     minValue: number;
   };
-  status: {
-    [key: string]: {
-      count: number;
-      value: number;
-      percentage: number;
-    };
-  };
+  status: Record<string, StatusEntry>;
   utilization: {
     assigned: { count: number; percentage: number };
     unassigned: { count: number; percentage: number };
@@ -29,7 +29,7 @@ interface KPIData {
     expired: { count: number; percentage: number };
     none: { count: number; percentage: number };
   };
-  condition: { [key: string]: number };
+  condition: Record<string, number>;
   issues: {
     open: number;
     in_progress: number;
@@ -45,59 +45,221 @@ interface KPIData {
   departments: Array<{ name: string; count: number; percentage: number }>;
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  available: 'Available',
+  in_use: 'In use',
+  working: 'Working',
+  under_maintenance: 'Under maintenance',
+  needs_repair: 'Needs repair',
+  out_of_service: 'Out of service',
+  retired: 'Retired',
+};
+
+const CONDITION_LABELS: Record<string, string> = {
+  excellent: 'Excellent',
+  good: 'Good',
+  fair: 'Fair',
+  poor: 'Poor',
+  critical: 'Critical',
+  under_maintenance: 'Under maintenance',
+};
+
+const CHART_COLORS = {
+  emerald: '#34d399',
+  blue: '#60a5fa',
+  amber: '#fbbf24',
+  red: '#f87171',
+  violet: '#a78bfa',
+  gray: '#6b7280',
+  teal: '#2dd4bf',
+};
+
 function api(path: string) {
   const base = process.env.NEXT_PUBLIC_API_URL || '';
   return base ? `${base}${path}` : path;
 }
 
 function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
     minimumFractionDigits: 0,
-    maximumFractionDigits: 0
+    maximumFractionDigits: 0,
   }).format(amount);
 }
 
-function ProgressBar({ percentage, color }: { percentage: number; color: string }) {
+function statusCount(status: KPIData['status'], key: string): number {
+  return status[key]?.count ?? 0;
+}
+
+function deriveMetrics(kpis: KPIData) {
+  const activeIssues = kpis.issues.open + kpis.issues.in_progress;
+  const assetsInMaintenance =
+    statusCount(kpis.status, 'under_maintenance') +
+    statusCount(kpis.status, 'needs_repair') +
+    statusCount(kpis.status, 'out_of_service');
+  const operationalAssets =
+    statusCount(kpis.status, 'available') +
+    statusCount(kpis.status, 'in_use') +
+    statusCount(kpis.status, 'working');
+
+  return { activeIssues, assetsInMaintenance, operationalAssets };
+}
+
+function DonutChart({
+  segments,
+  size = 132,
+  centerLabel,
+  centerValue,
+}: {
+  segments: Array<{ label: string; value: number; color: string }>;
+  size?: number;
+  centerLabel?: string;
+  centerValue?: string | number;
+}) {
+  const total = segments.reduce((sum, seg) => sum + seg.value, 0);
+  const strokeWidth = 13;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const visible = segments.filter((seg) => seg.value > 0);
+
+  if (total === 0) {
+    return <p className="text-xs text-gray-500 py-6 text-center">No data yet</p>;
+  }
+
+  let offset = 0;
+
   return (
-    <div className="w-full bg-gray-700 rounded-full h-2">
-      <div
-        className={`h-2 rounded-full ${color}`}
-        style={{ width: `${Math.min(percentage, 100)}%` }}
-      ></div>
+    <div className="flex items-center gap-4">
+      <div className="relative shrink-0" style={{ width: size, height: size }}>
+        <svg width={size} height={size} className="-rotate-90">
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke="rgb(55 65 81 / 0.6)"
+            strokeWidth={strokeWidth}
+          />
+          {visible.map((seg) => {
+            const dash = (seg.value / total) * circumference;
+            const circle = (
+              <circle
+                key={seg.label}
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                fill="none"
+                stroke={seg.color}
+                strokeWidth={strokeWidth}
+                strokeDasharray={`${dash} ${circumference - dash}`}
+                strokeDashoffset={-offset}
+              />
+            );
+            offset += dash;
+            return circle;
+          })}
+        </svg>
+        {(centerLabel || centerValue !== undefined) && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+            {centerValue !== undefined && (
+              <p className="text-lg font-bold text-gray-100 leading-none">{centerValue}</p>
+            )}
+            {centerLabel && (
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide mt-0.5">{centerLabel}</p>
+            )}
+          </div>
+        )}
+      </div>
+      <div className="flex-1 space-y-1.5 min-w-0">
+        {visible.map((seg) => (
+          <div key={seg.label} className="flex items-center gap-2 text-xs">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: seg.color }} />
+            <span className="text-gray-400 truncate flex-1">{seg.label}</span>
+            <span className="text-gray-200 font-medium tabular-nums">{seg.value}</span>
+            <span className="text-gray-600 tabular-nums w-10 text-right">
+              {((seg.value / total) * 100).toFixed(0)}%
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-function StatCard({ title, value, subtitle, icon, color = 'blue' }: {
-  title: string;
-  value: string | number;
-  subtitle?: string;
-  icon: string;
-  color?: string;
+function HorizontalBars({
+  items,
+  valueFormatter = (v: number) => String(v),
+}: {
+  items: Array<{ label: string; value: number; color: string; hint?: string }>;
+  valueFormatter?: (value: number) => string;
 }) {
-  const colorClasses = {
-    blue: 'bg-blue-900/20 text-blue-400',
-    green: 'bg-green-900/20 text-green-400',
-    red: 'bg-red-900/20 text-red-400',
-    yellow: 'bg-yellow-900/20 text-yellow-400',
-    purple: 'bg-purple-50 text-purple-600',
-    gray: 'bg-gray-900 text-gray-400'
-  };
+  const max = Math.max(...items.map((i) => i.value), 1);
 
   return (
-    <div className="bg-gray-800 rounded-lg border border-gray-700 p-5">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-sm text-gray-400 mb-1">{title}</p>
-          <p className="text-2xl font-bold text-gray-100">{value}</p>
-          {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
+    <div className="space-y-2.5">
+      {items.map((item) => (
+        <div key={item.label}>
+          <div className="flex justify-between items-baseline gap-2 text-xs mb-1">
+            <span className="text-gray-300 truncate">{item.label}</span>
+            <span className="text-gray-400 shrink-0 tabular-nums">
+              {valueFormatter(item.value)}
+              {item.hint ? ` · ${item.hint}` : ''}
+            </span>
+          </div>
+          <div className="h-1.5 bg-gray-700/60 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${(item.value / max) * 100}%`, backgroundColor: item.color }}
+            />
+          </div>
         </div>
-        <div className={`p-3 rounded-lg ${colorClasses[color as keyof typeof colorClasses]}`}>
-          <span className="text-2xl">{icon}</span>
-        </div>
-      </div>
+      ))}
+    </div>
+  );
+}
+
+function SummaryCard({
+  label,
+  value,
+  hint,
+  accent = 'text-gray-100',
+}: {
+  label: string;
+  value: string | number;
+  hint?: string;
+  accent?: string;
+}) {
+  return (
+    <div className="px-3 py-2 rounded-lg border border-gray-700/40 bg-gray-900/30">
+      <p className="text-[10px] text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className={`text-lg font-semibold mt-0.5 tabular-nums ${accent}`}>{value}</p>
+      {hint && <p className="text-[11px] text-gray-600 mt-0.5">{hint}</p>}
+    </div>
+  );
+}
+
+function Section({
+  title,
+  subtitle,
+  accentClass,
+  titleClass,
+  children,
+  className = 'mb-4',
+}: {
+  title: string;
+  subtitle?: string;
+  accentClass: string;
+  titleClass: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`rounded-xl border border-gray-700/60 border-l-2 ${accentClass} bg-gray-800/40 px-4 py-4 ${className}`}>
+      <p className={`text-xs font-semibold uppercase tracking-widest ${titleClass}`}>{title}</p>
+      {subtitle && <p className="text-[11px] text-gray-500 mt-0.5 mb-3">{subtitle}</p>}
+      {!subtitle && <div className="mb-3" />}
+      {children}
     </div>
   );
 }
@@ -111,29 +273,38 @@ export default function KPIPage() {
   const [isExpired, setIsExpired] = useState(false);
 
   useEffect(() => {
-    fetchSubscription();
-    fetchKPIs();
+    const init = async () => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      if (!token) {
+        setLoading(false);
+        setError('Not authenticated');
+        return;
+      }
+
+      try {
+        const subRes = await fetch(api('/api/payments/subscription-status'), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const subData = await subRes.json();
+        if (subRes.ok) {
+          setTier(subData.tier);
+          setIsExpired(subData.isExpired || false);
+          if (subData.tier === 'free' || subData.isExpired) {
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (_) {}
+
+      await fetchKPIs(token);
+    };
+
+    init();
   }, []);
 
-  const fetchSubscription = async () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (!token) return;
-
-    try {
-      const res = await fetch(api('/api/payments/subscription-status'), {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setTier(data.tier);
-        setIsExpired(data.isExpired || false);
-      }
-    } catch (_) { }
-  };
-
-  const fetchKPIs = async () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (!token) {
+  const fetchKPIs = async (token?: string) => {
+    const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+    if (!authToken) {
       setLoading(false);
       setError('Not authenticated');
       return;
@@ -141,7 +312,7 @@ export default function KPIPage() {
 
     try {
       const res = await fetch(api('/api/kpis'), {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${authToken}` },
       });
       const data = await res.json();
       if (res.ok) {
@@ -149,20 +320,79 @@ export default function KPIPage() {
       } else {
         setError(data.message || 'Failed to load KPIs');
       }
-    } catch (err) {
+    } catch {
       setError('Network error');
     } finally {
       setLoading(false);
     }
   };
 
+  const metrics = useMemo(() => (kpis ? deriveMetrics(kpis) : null), [kpis]);
+
+  const statusChartSegments = useMemo(() => {
+    if (!kpis) return [];
+    return [
+      {
+        label: 'Operational',
+        value: metrics!.operationalAssets,
+        color: CHART_COLORS.emerald,
+      },
+      {
+        label: 'Needs attention',
+        value: metrics!.assetsInMaintenance,
+        color: CHART_COLORS.amber,
+      },
+      {
+        label: 'Retired',
+        value: statusCount(kpis.status, 'retired'),
+        color: CHART_COLORS.gray,
+      },
+    ];
+  }, [kpis, metrics]);
+
+  const issueChartSegments = useMemo(() => {
+    if (!kpis) return [];
+    return [
+      { label: 'Open', value: kpis.issues.open, color: CHART_COLORS.amber },
+      { label: 'In progress', value: kpis.issues.in_progress, color: CHART_COLORS.blue },
+      { label: 'Completed', value: kpis.issues.completed, color: CHART_COLORS.emerald },
+      { label: 'Cancelled', value: kpis.issues.cancelled, color: CHART_COLORS.gray },
+    ];
+  }, [kpis]);
+
+  const statusBreakdown = useMemo(() => {
+    if (!kpis) return [];
+    return Object.entries(kpis.status)
+      .filter(([, data]) => data.count > 0)
+      .sort((a, b) => b[1].count - a[1].count)
+      .map(([key, data], idx) => ({
+        label: STATUS_LABELS[key] || key.replace(/_/g, ' '),
+        value: data.count,
+        hint: `${data.percentage.toFixed(1)}%`,
+        color: [CHART_COLORS.blue, CHART_COLORS.emerald, CHART_COLORS.amber, CHART_COLORS.violet, CHART_COLORS.red, CHART_COLORS.teal, CHART_COLORS.gray][idx % 7],
+      }));
+  }, [kpis]);
+
+  const conditionBreakdown = useMemo(() => {
+    if (!kpis) return [];
+    const order = ['excellent', 'good', 'fair', 'poor', 'critical', 'under_maintenance'];
+    const colors = [CHART_COLORS.emerald, CHART_COLORS.teal, CHART_COLORS.blue, CHART_COLORS.amber, CHART_COLORS.red, CHART_COLORS.violet];
+    return order
+      .filter((key) => (kpis.condition[key] ?? 0) > 0)
+      .map((key, idx) => ({
+        label: CONDITION_LABELS[key] || key,
+        value: kpis.condition[key],
+        color: colors[idx % colors.length],
+      }));
+  }, [kpis]);
+
+  const showConditionSection = conditionBreakdown.length > 1;
+
   if (loading) {
-    return (
-      <LoadingSpinner message="Loading KPIs..." />
-    );
+    return <LoadingSpinner message="Loading KPIs..." />;
   }
 
-  if (error || !kpis) {
+  if (error || !kpis || !metrics) {
     return (
       <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
         <p className="text-red-400">{error || 'No data available'}</p>
@@ -172,12 +402,12 @@ export default function KPIPage() {
 
   if (tier === 'free' || isExpired) {
     return (
-      <div>
-        <h1 className="text-2xl font-bold text-gray-100 mb-6">📊 KPIs & Metrics</h1>
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-2xl font-bold text-gray-100 mb-6">KPIs & Metrics</h1>
         {isExpired && (
           <div className="bg-red-900/20 border border-red-800 rounded-lg p-4 mb-6">
-            <p className="text-red-400 font-medium">⚠️ Your subscription has expired</p>
-            <p className="text-red-300 text-sm mt-1">Renew your subscription to access KPIs & Metrics</p>
+            <p className="text-red-400 font-medium">Your subscription has expired</p>
+            <p className="text-red-300 text-sm mt-1">Renew your subscription to access KPIs and metrics</p>
           </div>
         )}
         <UpgradePrompt feature={isExpired ? 'KPIs & Metrics (Renew subscription to unlock)' : 'KPIs & Metrics Dashboard'} />
@@ -187,479 +417,325 @@ export default function KPIPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-100">KPIs & Metrics</h1>
-          <p className="text-gray-400 mt-1">
-            Comprehensive insights into asset utilization, status and performance.
-          </p>
-        </div>
-        <button
-          onClick={fetchKPIs}
-          className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-700 text-sm font-medium"
-        >
-          🔄 Refresh
-        </button>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-100">KPIs & Metrics</h1>
+        <p className="text-gray-400 mt-1 text-sm">
+          Quick health check for your asset portfolio — overview first, then drill into details.
+        </p>
       </div>
 
-      {/* View Toggle */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex flex-wrap gap-1.5 mb-4">
         <button
           onClick={() => setView('overview')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
             view === 'overview'
-              ? 'bg-gray-700 text-white'
-              : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              ? 'bg-blue-500/20 text-blue-200 border-blue-500/40'
+              : 'bg-gray-800/40 text-gray-400 border-gray-700/60 hover:bg-gray-700/60 hover:text-gray-200'
           }`}
         >
           Overview
         </button>
         <button
           onClick={() => setView('detailed')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
             view === 'detailed'
-              ? 'bg-gray-700 text-white'
-              : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              ? 'bg-violet-500/20 text-violet-200 border-violet-500/40'
+              : 'bg-gray-800/40 text-gray-400 border-gray-700/60 hover:bg-gray-700/60 hover:text-gray-200'
           }`}
         >
-          Detailed Analytics
+          Detailed analytics
         </button>
       </div>
 
       {view === 'overview' && (
         <>
-          {/* Key Metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <StatCard
-              title="Total Assets"
-              value={kpis.overview.totalAssets}
-              subtitle={`Avg value: ${formatCurrency(kpis.overview.averageValue)}`}
-              icon="📦"
-              color="blue"
-            />
-            <StatCard
-              title="Total Value"
-              value={formatCurrency(kpis.overview.totalValue)}
-              subtitle={`Max: ${formatCurrency(kpis.overview.maxValue)}`}
-              icon="💰"
-              color="green"
-            />
-            <StatCard
-              title="Utilization Rate"
-              value={`${kpis.utilization.utilizationRate.toFixed(1)}%`}
-              subtitle={`${kpis.utilization.assigned.count} assigned`}
-              icon="📈"
-              color="purple"
-            />
-            <StatCard
-              title="Open Issues"
-              value={kpis.issues.open}
-              subtitle={`${kpis.issues.openPercentage.toFixed(1)}% of total`}
-              icon="🔴"
-              color="red"
-            />
-          </div>
-
-          {/* Status Distribution */}
-          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-100 mb-4">Asset Status Distribution</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Object.entries(kpis.status).map(([status, data]) => (
-                data.count > 0 && (
-                  <div key={status} className="p-4 bg-gray-900 rounded-lg">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-gray-100 capitalize">
-                        {status.replace(/_/g, ' ')}
-                      </span>
-                      <span className="text-sm font-bold text-blue-400">
-                        {data.count}
-                      </span>
-                    </div>
-                    <ProgressBar percentage={data.percentage} color="bg-gray-700" />
-                    <div className="flex justify-between mt-2 text-xs text-gray-400">
-                      <span>{data.percentage.toFixed(1)}%</span>
-                      <span>{formatCurrency(data.value)}</span>
-                    </div>
-                  </div>
-                )
-              ))}
+          <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-blue-500/50 bg-gradient-to-r from-blue-950/20 to-gray-800/40 px-4 py-4 mb-4">
+            <p className="text-xs font-semibold text-blue-400/80 uppercase tracking-widest mb-3">At a glance</p>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+              <SummaryCard
+                label="Total assets"
+                value={kpis.overview.totalAssets}
+                hint={`${formatCurrency(kpis.overview.totalValue)} portfolio`}
+                accent="text-blue-300"
+              />
+              <SummaryCard
+                label="Active issues"
+                value={metrics.activeIssues}
+                hint={metrics.activeIssues > 0 ? 'Open or in progress' : 'Nothing pending'}
+                accent={metrics.activeIssues > 0 ? 'text-amber-300' : 'text-emerald-300'}
+              />
+              <SummaryCard
+                label="Assets needing attention"
+                value={metrics.assetsInMaintenance}
+                hint="Maintenance, repair, or offline"
+                accent={metrics.assetsInMaintenance > 0 ? 'text-red-300' : 'text-emerald-300'}
+              />
+              <SummaryCard
+                label="Assigned"
+                value={`${kpis.utilization.utilizationRate.toFixed(0)}%`}
+                hint={`${kpis.utilization.assigned.count} of ${kpis.overview.totalAssets} assets`}
+                accent="text-violet-300"
+              />
             </div>
           </div>
 
-          {/* Utilization & Warranty */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {/* Utilization */}
-            <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-              <h2 className="text-lg font-semibold text-gray-100 mb-4">Asset Utilization</h2>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-300">Assigned</span>
-                    <span className="text-sm font-bold text-green-400">
-                      {kpis.utilization.assigned.count} ({kpis.utilization.assigned.percentage.toFixed(1)}%)
-                    </span>
-                  </div>
-                  <ProgressBar percentage={kpis.utilization.assigned.percentage} color="bg-green-600" />
-                </div>
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-300">Unassigned</span>
-                    <span className="text-sm font-bold text-gray-400">
-                      {kpis.utilization.unassigned.count} ({kpis.utilization.unassigned.percentage.toFixed(1)}%)
-                    </span>
-                  </div>
-                  <ProgressBar percentage={kpis.utilization.unassigned.percentage} color="bg-gray-400" />
-                </div>
-              </div>
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+            <Section
+              title="Asset status"
+              subtitle="Grouped by operational health"
+              accentClass="border-l-emerald-500/50"
+              titleClass="text-emerald-400/80"
+              className="mb-0"
+            >
+              <DonutChart
+                segments={statusChartSegments}
+                centerValue={kpis.overview.totalAssets}
+                centerLabel="assets"
+              />
+            </Section>
 
-            {/* Warranty Status */}
-            <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-              <h2 className="text-lg font-semibold text-gray-100 mb-4">Warranty Status</h2>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-300">Active</span>
-                    <span className="text-sm font-bold text-green-400">
-                      {kpis.warranty.active.count} ({kpis.warranty.active.percentage.toFixed(1)}%)
-                    </span>
-                  </div>
-                  <ProgressBar percentage={kpis.warranty.active.percentage} color="bg-green-600" />
-                </div>
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-300">Expired</span>
-                    <span className="text-sm font-bold text-red-400">
-                      {kpis.warranty.expired.count} ({kpis.warranty.expired.percentage.toFixed(1)}%)
-                    </span>
-                  </div>
-                  <ProgressBar percentage={kpis.warranty.expired.percentage} color="bg-red-600" />
-                </div>
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-300">No Warranty</span>
-                    <span className="text-sm font-bold text-gray-400">
-                      {kpis.warranty.none.count} ({kpis.warranty.none.percentage.toFixed(1)}%)
-                    </span>
-                  </div>
-                  <ProgressBar percentage={kpis.warranty.none.percentage} color="bg-gray-400" />
-                </div>
-              </div>
+            <Section
+              title="Issue pipeline"
+              subtitle="Current maintenance tickets"
+              accentClass="border-l-amber-500/50"
+              titleClass="text-amber-400/80"
+              className="mb-0"
+            >
+              <DonutChart
+                segments={issueChartSegments}
+                centerValue={kpis.issues.total}
+                centerLabel="issues"
+              />
+            </Section>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
+            <div className="rounded-xl border border-gray-700/60 bg-gray-800/40 px-3 py-3">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Unassigned assets</p>
+              <p className={`text-base font-semibold mt-0.5 tabular-nums ${kpis.utilization.unassigned.count > 0 ? 'text-amber-300' : 'text-gray-300'}`}>
+                {kpis.utilization.unassigned.count}
+              </p>
+              <p className="text-[11px] text-gray-600 mt-0.5">Not linked to a user</p>
+            </div>
+            <div className="rounded-xl border border-gray-700/60 bg-gray-800/40 px-3 py-3">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Expired warranty</p>
+              <p className={`text-base font-semibold mt-0.5 tabular-nums ${kpis.warranty.expired.count > 0 ? 'text-red-300' : 'text-gray-300'}`}>
+                {kpis.warranty.expired.count}
+              </p>
+              <p className="text-[11px] text-gray-600 mt-0.5">May need renewal or review</p>
+            </div>
+            <div className="rounded-xl border border-gray-700/60 bg-gray-800/40 px-3 py-3">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Resolution rate</p>
+              <p className="text-base font-semibold mt-0.5 tabular-nums text-violet-300">
+                {kpis.issues.resolutionRate.toFixed(0)}%
+              </p>
+              <p className="text-[11px] text-gray-600 mt-0.5">
+                {kpis.issues.completed} of {kpis.issues.total} issues closed
+              </p>
             </div>
           </div>
 
-          {/* Issue Metrics */}
-          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-100 mb-4">Issue Metrics</h2>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div className="text-center p-4 bg-yellow-900/20 rounded-lg">
-                <div className="text-2xl font-bold text-yellow-400">{kpis.issues.open}</div>
-                <div className="text-xs text-gray-400 mt-1">Open</div>
-              </div>
-              <div className="text-center p-4 bg-blue-900/20 rounded-lg">
-                <div className="text-2xl font-bold text-blue-400">{kpis.issues.in_progress}</div>
-                <div className="text-xs text-gray-400 mt-1">In Progress</div>
-              </div>
-              <div className="text-center p-4 bg-green-900/20 rounded-lg">
-                <div className="text-2xl font-bold text-green-400">{kpis.issues.completed}</div>
-                <div className="text-xs text-gray-400 mt-1">Completed</div>
-              </div>
-              <div className="text-center p-4 bg-gray-900 rounded-lg">
-                <div className="text-2xl font-bold text-gray-400">{kpis.issues.cancelled}</div>
-                <div className="text-xs text-gray-400 mt-1">Cancelled</div>
-              </div>
-              <div className="text-center p-4 bg-purple-50 rounded-lg">
-                <div className="text-2xl font-bold text-purple-600">{kpis.issues.resolutionRate.toFixed(0)}%</div>
-                <div className="text-xs text-gray-400 mt-1">Resolution Rate</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Top Categories */}
-          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-            <h2 className="text-lg font-semibold text-gray-100 mb-4">Top Asset Categories</h2>
-            <div className="space-y-3">
-              {kpis.categories.slice(0, 5).map((cat, idx) => (
-                <div key={cat.name} className="flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-400 flex items-center justify-center font-bold text-sm">
-                    {idx + 1}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-100">{cat.name}</span>
-                      <span className="text-sm font-bold text-blue-400">{cat.count}</span>
-                    </div>
-                    <ProgressBar percentage={cat.percentage} color="bg-gray-700" />
-                  </div>
-                  <div className="text-sm text-gray-400">{formatCurrency(cat.value)}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+          {kpis.categories.length > 0 && (
+            <Section
+              title="Top categories"
+              subtitle="By asset count"
+              accentClass="border-l-blue-500/50"
+              titleClass="text-blue-400/80"
+              className="mb-0"
+            >
+              <HorizontalBars
+                items={kpis.categories.slice(0, 5).map((cat, idx) => ({
+                  label: cat.name,
+                  value: cat.count,
+                  hint: `${cat.percentage.toFixed(0)}%`,
+                  color: [CHART_COLORS.blue, CHART_COLORS.violet, CHART_COLORS.teal, CHART_COLORS.emerald, CHART_COLORS.amber][idx % 5],
+                }))}
+              />
+            </Section>
+          )}
         </>
       )}
 
       {view === 'detailed' && (
         <>
-          {/* Risk & Health Assessment */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            {/* Asset Health Risk */}
-            <div className="bg-gradient-to-br from-red-900/30 to-red-900/10 border border-red-700/60 rounded-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-red-300">🚨 At-Risk Assets</h2>
-                <span className="text-3xl font-bold text-red-400">{Math.max(kpis.issues.open, kpis.warranty.expired.count)}</span>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between text-red-300">
-                  <span>Open Issues requiring attention:</span>
-                  <span className="font-bold">{kpis.issues.open}</span>
-                </div>
-                <div className="flex justify-between text-red-300">
-                  <span>Expired warranties:</span>
-                  <span className="font-bold">{kpis.warranty.expired.count}</span>
-                </div>
-                <div className="mt-3 pt-3 border-t border-red-700/40">
-                  <p className="text-xs text-red-400">⚠️ Immediate action recommended for {Math.max(kpis.issues.open, kpis.warranty.expired.count)} assets</p>
-                </div>
-              </div>
+          <Section
+            title="Portfolio value"
+            subtitle="Financial summary across all assets"
+            accentClass="border-l-blue-500/50"
+            titleClass="text-blue-400/80"
+          >
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <SummaryCard label="Total value" value={formatCurrency(kpis.overview.totalValue)} accent="text-blue-300" />
+              <SummaryCard label="Average asset cost" value={formatCurrency(kpis.overview.averageValue)} accent="text-violet-300" />
+              <SummaryCard
+                label="Unassigned assets"
+                value={kpis.utilization.unassigned.count}
+                hint={`${kpis.utilization.unassigned.percentage.toFixed(1)}% of fleet`}
+                accent="text-amber-300"
+              />
             </div>
+          </Section>
 
-            {/* Maintenance Cost Impact */}
-            <div className="bg-gradient-to-br from-yellow-900/30 to-yellow-900/10 border border-yellow-700/60 rounded-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-yellow-300">📈 Maintenance Pressure</h2>
-                <span className="text-3xl font-bold text-yellow-400">{kpis.issues.in_progress}</span>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between text-yellow-300">
-                  <span>Currently in maintenance:</span>
-                  <span className="font-bold">{kpis.issues.in_progress}</span>
-                </div>
-                <div className="flex justify-between text-yellow-300">
-                  <span>Completion rate:</span>
-                  <span className="font-bold">{kpis.issues.resolutionRate.toFixed(0)}%</span>
-                </div>
-                <div className="mt-3 pt-3 border-t border-yellow-700/40">
-                  <p className="text-xs text-yellow-400">Estimated impact on operations</p>
-                </div>
-              </div>
-            </div>
+          <div className={`grid grid-cols-1 ${showConditionSection ? 'lg:grid-cols-2' : ''} gap-3 mb-4`}>
+            <Section
+              title="Status breakdown"
+              subtitle="Every asset status in your inventory"
+              accentClass="border-l-violet-500/50"
+              titleClass="text-violet-400/80"
+              className="mb-0"
+            >
+              <HorizontalBars items={statusBreakdown} />
+            </Section>
 
-            {/* Asset Optimization Score */}
-            <div className="bg-gradient-to-br from-green-900/30 to-green-900/10 border border-green-700/60 rounded-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-green-300">✅ Optimization Score</h2>
-                <span className="text-3xl font-bold text-green-400">{(kpis.utilization.utilizationRate + kpis.issues.resolutionRate) / 2 > 70 ? 'A' : 'B'}</span>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between text-green-300">
-                  <span>Utilization efficiency:</span>
-                  <span className="font-bold">{kpis.utilization.utilizationRate.toFixed(1)}%</span>
-                </div>
-                <div className="flex justify-between text-green-300">
-                  <span>Issue resolution rate:</span>
-                  <span className="font-bold">{kpis.issues.resolutionRate.toFixed(1)}%</span>
-                </div>
-                <div className="mt-3 pt-3 border-t border-green-700/40">
-                  <p className="text-xs text-green-400">📊 Pro tip: Track these metrics weekly</p>
-                </div>
-              </div>
-            </div>
+            {showConditionSection && (
+              <Section
+                title="Estimated condition"
+                subtitle="From status, open/past issues, age, and warranty — not the Asset Health tab"
+                accentClass="border-l-emerald-500/50"
+                titleClass="text-emerald-400/80"
+                className="mb-0"
+              >
+                <HorizontalBars items={conditionBreakdown} />
+              </Section>
+            )}
           </div>
 
-          {/* Cost Analysis & ROI */}
-          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-100 mb-4">💼 Cost & ROI Analysis</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="p-4 bg-gray-900 rounded-lg">
-                <p className="text-xs text-gray-400 mb-2">Total Asset Value</p>
-                <p className="text-2xl font-bold text-blue-400">{formatCurrency(kpis.overview.totalValue)}</p>
-                <div className="mt-3 text-xs text-gray-500">Portfolio value</div>
-              </div>
-              <div className="p-4 bg-gray-900 rounded-lg">
-                <p className="text-xs text-gray-400 mb-2">Average Asset Cost</p>
-                <p className="text-2xl font-bold text-purple-400">{formatCurrency(kpis.overview.averageValue)}</p>
-                <div className="mt-3 text-xs text-gray-500">Per asset investment</div>
-              </div>
-              <div className="p-4 bg-gray-900 rounded-lg">
-                <p className="text-xs text-gray-400 mb-2">Cost Per Active Asset</p>
-                <p className="text-2xl font-bold text-green-400">
-                  {formatCurrency(kpis.utilization.assigned.count > 0 ? kpis.overview.totalValue / kpis.utilization.assigned.count : 0)}
-                </p>
-                <div className="mt-3 text-xs text-gray-500">Utilization cost</div>
-              </div>
-              <div className="p-4 bg-gray-900 rounded-lg">
-                <p className="text-xs text-gray-400 mb-2">At-Risk Value</p>
-                <p className="text-2xl font-bold text-red-400">
-                  {formatCurrency((kpis.overview.totalValue / kpis.overview.totalAssets) * Math.max(kpis.issues.open, kpis.warranty.expired.count))}
-                </p>
-                <div className="mt-3 text-xs text-gray-500">Requires attention</div>
-              </div>
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+            <Section
+              title="Warranty coverage"
+              accentClass="border-l-amber-500/50"
+              titleClass="text-amber-400/80"
+              className="mb-0"
+            >
+              <HorizontalBars
+                items={[
+                  { label: 'Active', value: kpis.warranty.active.count, hint: `${kpis.warranty.active.percentage.toFixed(0)}%`, color: CHART_COLORS.emerald },
+                  { label: 'Expired', value: kpis.warranty.expired.count, hint: `${kpis.warranty.expired.percentage.toFixed(0)}%`, color: CHART_COLORS.red },
+                  { label: 'Not recorded', value: kpis.warranty.none.count, hint: `${kpis.warranty.none.percentage.toFixed(0)}%`, color: CHART_COLORS.gray },
+                ]}
+              />
+            </Section>
+
+            <Section
+              title="Asset age"
+              subtitle="Based on purchase date"
+              accentClass="border-l-teal-500/50"
+              titleClass="text-teal-400/80"
+              className="mb-0"
+            >
+              {kpis.ageDistribution.length > 0 ? (
+                <HorizontalBars
+                  items={kpis.ageDistribution.map((age, idx) => ({
+                    label: age.range,
+                    value: age.count,
+                    hint: `${age.percentage.toFixed(0)}%`,
+                    color: [CHART_COLORS.teal, CHART_COLORS.blue, CHART_COLORS.violet, CHART_COLORS.amber, CHART_COLORS.red][idx % 5],
+                  }))}
+                />
+              ) : (
+                <p className="text-xs text-gray-500">Add purchase dates to see age distribution</p>
+              )}
+            </Section>
           </div>
 
-          {/* Condition Distribution with Insights */}
-          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-100 mb-4">🔍 Asset Condition Breakdown</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {Object.entries(kpis.condition).map(([condition, count]) => (
-                count > 0 && (
-                  <div key={condition} className="text-center p-4 bg-gray-900 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors">
-                    <div className="text-3xl font-bold text-gray-100">{count}</div>
-                    <div className="text-xs text-gray-400 mt-1 capitalize font-medium">{condition.replace(/_/g, ' ')}</div>
-                    <div className="text-xs text-blue-400 mt-2">
-                      {((count / kpis.overview.totalAssets) * 100).toFixed(1)}%
-                    </div>
-                  </div>
-                )
-              ))}
+          <Section
+            title="Issue history"
+            subtitle="All maintenance tickets linked to your assets"
+            accentClass="border-l-red-500/50"
+            titleClass="text-red-400/80"
+          >
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
+              <DonutChart segments={issueChartSegments} centerValue={metrics.activeIssues} centerLabel="active" />
+              <div className="grid grid-cols-2 gap-2">
+                <SummaryCard label="Open" value={kpis.issues.open} accent="text-amber-300" />
+                <SummaryCard label="In progress" value={kpis.issues.in_progress} accent="text-blue-300" />
+                <SummaryCard label="Completed" value={kpis.issues.completed} accent="text-emerald-300" />
+                <SummaryCard label="Cancelled" value={kpis.issues.cancelled} accent="text-gray-400" />
+              </div>
             </div>
-            <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700/40 rounded-lg">
-              <p className="text-xs text-blue-300">💡 Monitor condition trends to prevent failures and reduce unexpected maintenance costs</p>
-            </div>
+          </Section>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+            <Section
+              title="By location"
+              subtitle="Where assets are deployed"
+              accentClass="border-l-blue-500/50"
+              titleClass="text-blue-400/80"
+              className="mb-0"
+            >
+              {kpis.locations.length > 0 ? (
+                <HorizontalBars
+                  items={kpis.locations.slice(0, 8).map((loc, idx) => ({
+                    label: loc.name,
+                    value: loc.count,
+                    hint: `${loc.percentage.toFixed(0)}%`,
+                    color: [CHART_COLORS.blue, CHART_COLORS.teal, CHART_COLORS.violet, CHART_COLORS.emerald][idx % 4],
+                  }))}
+                />
+              ) : (
+                <p className="text-xs text-gray-500">No location assignments yet</p>
+              )}
+            </Section>
+
+            <Section
+              title="By department"
+              subtitle="Ownership across teams"
+              accentClass="border-l-violet-500/50"
+              titleClass="text-violet-400/80"
+              className="mb-0"
+            >
+              {kpis.departments.length > 0 ? (
+                <HorizontalBars
+                  items={kpis.departments.slice(0, 8).map((dept, idx) => ({
+                    label: dept.name,
+                    value: dept.count,
+                    hint: `${dept.percentage.toFixed(0)}%`,
+                    color: [CHART_COLORS.violet, CHART_COLORS.blue, CHART_COLORS.amber, CHART_COLORS.emerald][idx % 4],
+                  }))}
+                />
+              ) : (
+                <p className="text-xs text-gray-500">No department assignments yet</p>
+              )}
+            </Section>
           </div>
 
-          {/* Age Distribution with Risk Assessment */}
-          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-100 mb-4">📅 Asset Age & Depreciation Timeline</h2>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              {kpis.ageDistribution.map((age, idx) => (
-                <div key={age.range} className="p-4 bg-gray-900 rounded-lg border border-gray-700">
-                  <div className="text-2xl font-bold text-gray-100">{age.count}</div>
-                  <div className="text-xs text-gray-400 mt-1 font-medium">{age.range}</div>
-                  <div className="text-xs text-blue-400 mt-2 font-bold">{age.percentage.toFixed(1)}%</div>
-                  <div className="mt-2 text-xs text-gray-500">
-                    {idx >= 3 ? '⚠️ High depreciation' : idx >= 2 ? '🟡 Moderate age' : '✅ Good condition'}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-700/40 rounded-lg">
-              <p className="text-xs text-yellow-300">📊 Older assets (3+ years) require more frequent maintenance and have higher failure rates</p>
-            </div>
-          </div>
-
-          {/* Performance by Location & Department */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {/* Locations Performance */}
-            <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-              <h2 className="text-lg font-semibold text-gray-100 mb-4">📍 Location Performance</h2>
-              <div className="space-y-3">
-                {kpis.locations.slice(0, 8).map((loc, idx) => (
-                  <div key={loc.name} className="p-3 bg-gray-900 rounded-lg">
-                    <div className="flex justify-between items-center mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-blue-400 w-6">{idx + 1}</span>
-                        <span className="text-sm font-medium text-gray-100">{loc.name}</span>
+          {kpis.categories.length > 0 && (
+            <Section
+              title="Categories"
+              subtitle="Count and value by asset type"
+              accentClass="border-l-blue-500/50"
+              titleClass="text-blue-400/80"
+              className="mb-0"
+            >
+              <div className="space-y-2">
+                {kpis.categories.map((cat, idx) => (
+                  <div key={cat.name} className="px-2 py-2 rounded-lg border border-gray-700/40 bg-gray-900/30">
+                    <div className="flex justify-between items-start gap-2 mb-1.5">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-gray-200 truncate">{cat.name}</p>
+                        <p className="text-[11px] text-gray-500">{formatCurrency(cat.value)} total value</p>
                       </div>
-                      <span className="text-sm font-bold text-blue-400">{loc.count} assets</span>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-semibold text-blue-300 tabular-nums">{cat.count}</p>
+                        <p className="text-[11px] text-gray-500">{cat.percentage.toFixed(1)}% of assets</p>
+                      </div>
                     </div>
-                    <ProgressBar percentage={loc.percentage} color="bg-blue-600" />
-                    <div className="text-xs text-gray-500 mt-1">{loc.percentage.toFixed(1)}% of total</div>
+                    <div className="h-1.5 bg-gray-700/60 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${cat.percentage}%`,
+                          backgroundColor: [CHART_COLORS.blue, CHART_COLORS.violet, CHART_COLORS.teal, CHART_COLORS.emerald, CHART_COLORS.amber][idx % 5],
+                        }}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700/40 rounded-lg">
-                <p className="text-xs text-blue-300">🎯 Allocate maintenance resources based on asset density</p>
-              </div>
-            </div>
-
-            {/* Department Performance */}
-            <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-              <h2 className="text-lg font-semibold text-gray-100 mb-4">👥 Department Asset Distribution</h2>
-              <div className="space-y-3">
-                {kpis.departments.slice(0, 8).map((dept, idx) => (
-                  <div key={dept.name} className="p-3 bg-gray-900 rounded-lg">
-                    <div className="flex justify-between items-center mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-purple-400 w-6">{idx + 1}</span>
-                        <span className="text-sm font-medium text-gray-100">{dept.name}</span>
-                      </div>
-                      <span className="text-sm font-bold text-purple-400">{dept.count} assets</span>
-                    </div>
-                    <ProgressBar percentage={dept.percentage} color="bg-purple-600" />
-                    <div className="text-xs text-gray-500 mt-1">{dept.percentage.toFixed(1)}% of total</div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 p-3 bg-purple-900/20 border border-purple-700/40 rounded-lg">
-                <p className="text-xs text-purple-300">📈 Track departmental asset usage for budget planning</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Issue Analytics */}
-          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-100 mb-4">🔧 Issue & Maintenance Analytics</h2>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div className="p-4 bg-yellow-900/20 border border-yellow-700/40 rounded-lg">
-                <div className="text-2xl font-bold text-yellow-400">{kpis.issues.open}</div>
-                <div className="text-xs text-gray-400 mt-2 font-medium">Open Issues</div>
-                <div className="text-xs text-yellow-400 mt-1">{kpis.issues.openPercentage.toFixed(1)}% pending</div>
-              </div>
-              <div className="p-4 bg-blue-900/20 border border-blue-700/40 rounded-lg">
-                <div className="text-2xl font-bold text-blue-400">{kpis.issues.in_progress}</div>
-                <div className="text-xs text-gray-400 mt-2 font-medium">In Progress</div>
-                <div className="text-xs text-blue-400 mt-1">Being resolved</div>
-              </div>
-              <div className="p-4 bg-green-900/20 border border-green-700/40 rounded-lg">
-                <div className="text-2xl font-bold text-green-400">{kpis.issues.completed}</div>
-                <div className="text-xs text-gray-400 mt-2 font-medium">Resolved</div>
-                <div className="text-xs text-green-400 mt-1">{((kpis.issues.completed / kpis.issues.total) * 100).toFixed(0)}% success</div>
-              </div>
-              <div className="p-4 bg-gray-900 border border-gray-700 rounded-lg">
-                <div className="text-2xl font-bold text-gray-400">{kpis.issues.cancelled}</div>
-                <div className="text-xs text-gray-400 mt-2 font-medium">Cancelled</div>
-                <div className="text-xs text-gray-500 mt-1">Not applicable</div>
-              </div>
-              <div className="p-4 bg-purple-900/20 border border-purple-700/40 rounded-lg">
-                <div className="text-2xl font-bold text-purple-400">{kpis.issues.resolutionRate.toFixed(0)}%</div>
-                <div className="text-xs text-gray-400 mt-2 font-medium">Resolution Rate</div>
-                <div className="text-xs text-purple-400 mt-1">Efficiency metric</div>
-              </div>
-            </div>
-            <div className="mt-4 p-3 bg-green-900/20 border border-green-700/40 rounded-lg">
-              <p className="text-xs text-green-300">✅ A resolution rate above 80% indicates efficient asset management</p>
-            </div>
-          </div>
-
-          {/* Top Asset Categories - Extended */}
-          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-            <h2 className="text-lg font-semibold text-gray-100 mb-4">📦 Asset Category Deep Dive</h2>
-            <div className="space-y-4">
-              {kpis.categories.slice(0, 10).map((cat, idx) => (
-                <div key={cat.name} className="p-4 bg-gray-900 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center font-bold text-sm text-white">
-                        {idx + 1}
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-gray-100">{cat.name}</p>
-                        <p className="text-xs text-gray-500">Total value: {formatCurrency(cat.value)}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-blue-400">{cat.count}</p>
-                      <p className="text-xs text-gray-400">{cat.percentage.toFixed(1)}%</p>
-                    </div>
-                  </div>
-                  <ProgressBar percentage={cat.percentage} color="bg-blue-600" />
-                  <div className="mt-2 flex justify-between text-xs text-gray-500">
-                    <span>Avg per unit: {formatCurrency(cat.value / cat.count)}</span>
-                    <span>Investment: {((cat.value / kpis.overview.totalValue) * 100).toFixed(1)}% of portfolio</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700/40 rounded-lg">
-              <p className="text-xs text-blue-300">💡 Focus maintenance efforts on high-value categories to minimize operational risk</p>
-            </div>
-          </div>
+            </Section>
+          )}
         </>
       )}
     </div>
   );
 }
-

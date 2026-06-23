@@ -62,11 +62,11 @@ const ACTION_LABELS: Record<string, string> = {
   maintenance_completed: 'Maint. Completed',
 };
 
-const SEVERITY_COLORS: Record<string, string> = {
-  low: 'text-gray-500',
-  medium: 'text-blue-400',
-  high: 'text-amber-400',
-  critical: 'text-red-400',
+const SEVERITY_BADGE: Record<string, string> = {
+  low: 'text-gray-300 bg-gray-500/15 border-gray-500/30',
+  medium: 'text-blue-300 bg-blue-500/15 border-blue-500/30',
+  high: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
+  critical: 'text-red-300 bg-red-500/15 border-red-500/30',
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -100,22 +100,24 @@ function api(path: string) {
   return base ? `${base}${path}` : path;
 }
 
+const inputClass = 'w-full px-3 py-1.5 text-xs border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-300 focus:ring-1 focus:ring-blue-500/40 focus:border-blue-500/40';
+const labelClass = 'block text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1';
+
 function AuditLogRow({ log }: { log: AuditLog }) {
   const resourceIcon = RESOURCE_ICONS[log.resource] || '📄';
   const resourceLabel = RESOURCE_LABELS[log.resource] || log.resource;
   const actionLabel = ACTION_LABELS[log.action] || log.action;
   const actionColor = ACTION_COLORS[log.action] || 'text-gray-300';
-  const severityColor = SEVERITY_COLORS[log.severity] || 'text-gray-500';
 
   return (
-    <tr className="border-t border-gray-800/60 hover:bg-gray-800/30 transition-colors">
+    <tr className="hover:bg-gray-800/40 transition-colors">
       <td className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">
         {new Date(log.createdAt).toLocaleDateString()}{' '}
-        <span className="text-gray-700">{new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        <span className="text-gray-600">{new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
       </td>
       <td className="px-3 py-2">
-        <span className="text-xs font-medium text-gray-300">{log.userId?.name || 'System'}</span>
-        <span className="ml-1 text-xs text-gray-600">({log.userId?.role || '—'})</span>
+        <span className="text-xs font-medium text-gray-200">{log.userId?.name || 'System'}</span>
+        <span className="ml-1 text-[11px] text-gray-500">({log.userId?.role || '—'})</span>
       </td>
       <td className="px-3 py-2">
         <span className={`text-xs font-semibold ${actionColor}`}>{actionLabel}</span>
@@ -123,34 +125,26 @@ function AuditLogRow({ log }: { log: AuditLog }) {
       <td className="px-3 py-2">
         <span className="text-xs text-gray-500">{resourceIcon} {resourceLabel}</span>
         {log.resourceName && (
-          <span className="ml-1 text-xs text-gray-400 font-medium">"{log.resourceName}"</span>
+          <span className="ml-1 text-xs text-gray-400 font-medium">&ldquo;{log.resourceName}&rdquo;</span>
         )}
       </td>
       <td className="px-3 py-2 text-xs text-gray-500 max-w-xs truncate" title={log.description}>
         {log.description || '—'}
       </td>
       <td className="px-3 py-2">
-        <span className={`text-xs font-medium ${severityColor}`}>{log.severity}</span>
+        <span className={`inline-flex px-2 py-0.5 text-[11px] font-medium rounded-md border ${SEVERITY_BADGE[log.severity] || SEVERITY_BADGE.low}`}>
+          {log.severity}
+        </span>
       </td>
     </tr>
   );
 }
 
-function StatsCard({ title, value, icon, color = 'bg-gray-900' }: {
-  title: string;
-  value: string | number;
-  icon: string;
-  color?: string;
-}) {
+function SummaryCard({ label, value, accent = 'text-gray-100' }: { label: string; value: string | number; accent?: string }) {
   return (
-    <div className={`${color} p-4 rounded-lg border`}>
-      <div className="flex items-center gap-3">
-        <div className="text-2xl">{icon}</div>
-        <div>
-          <p className="text-sm text-gray-500">{title}</p>
-          <p className="text-xl font-bold text-gray-400">{value}</p>
-        </div>
-      </div>
+    <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
+      <p className="text-[10px] text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className={`text-sm font-semibold mt-0.5 truncate ${accent}`}>{value}</p>
     </div>
   );
 }
@@ -299,72 +293,62 @@ export default function AuditLogsPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-100">Audit Logs</h1>
-          <p className="text-gray-400 mt-1">
-            Track all system activities and changes for compliance and security
+          <p className="text-gray-400 mt-1 text-sm">
+            Track system activity and changes for compliance, security, and troubleshooting.
           </p>
         </div>
-
-        <div className="flex gap-2">
-          <button
-            onClick={() => exportLogs('csv')}
-            disabled={exporting}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
-          >
-            {exporting ? 'Exporting...' : '📊 Export CSV'}
-          </button>
-        </div>
+        <button
+          onClick={() => exportLogs('csv')}
+          disabled={exporting}
+          className="px-2.5 py-1 text-xs font-medium rounded-lg border border-teal-500/40 bg-teal-500/10 text-teal-300 hover:bg-teal-500/20 hover:border-teal-400/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {exporting ? 'Exporting…' : 'Export CSV'}
+        </button>
       </div>
 
-      {/* Stats Cards */}
       {stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <StatsCard title="Total Logs" value={stats.totalLogs} icon="📊" />
-          <StatsCard
-            title="Most Active Resource"
-            value={stats.resourceStats[0] ? RESOURCE_LABELS[stats.resourceStats[0]._id] || stats.resourceStats[0]._id : 'None'}
-            icon="🎯"
-            color="bg-blue-900/20 border-blue-200"
-          />
-          <StatsCard
-            title="Common Action"
-            value={stats.actionStats[0] ? ACTION_LABELS[stats.actionStats[0]._id] || stats.actionStats[0]._id : 'None'}
-            icon="⚡"
-            color="bg-amber-50 border-amber-200"
-          />
-          <StatsCard
-            title="Top User"
-            value={stats.topUsers[0] ? stats.topUsers[0].user.name : 'None'}
-            icon="👤"
-            color="bg-green-900/20 border-green-800"
-          />
+        <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-blue-500/50 bg-gradient-to-r from-blue-950/20 to-gray-800/40 px-4 py-4 mb-4">
+          <p className="text-xs font-semibold text-blue-400/80 uppercase tracking-widest mb-2">Overview</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <SummaryCard label="Total logs" value={stats.totalLogs} accent="text-blue-300" />
+            <SummaryCard
+              label="Top resource"
+              value={stats.resourceStats[0] ? RESOURCE_LABELS[stats.resourceStats[0]._id] || stats.resourceStats[0]._id : '—'}
+              accent="text-violet-300"
+            />
+            <SummaryCard
+              label="Top action"
+              value={stats.actionStats[0] ? ACTION_LABELS[stats.actionStats[0]._id] || stats.actionStats[0]._id : '—'}
+              accent="text-amber-300"
+            />
+            <SummaryCard
+              label="Most active user"
+              value={stats.topUsers[0]?.user.name || '—'}
+              accent="text-emerald-300"
+            />
+          </div>
         </div>
       )}
 
-      {/* Filters */}
-      <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-sm font-medium text-gray-300">Filters:</span>
+      <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-violet-500/50 bg-gradient-to-r from-violet-950/15 to-gray-800/40 px-4 py-3 mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <p className="text-xs font-semibold text-violet-400/80 uppercase tracking-widest">Filters</p>
           <button
             onClick={clearFilters}
-            className="text-xs px-2 py-1 bg-gray-800 text-gray-400 rounded hover:bg-gray-700"
+            className="px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-700/60 bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 transition-colors"
           >
-            Clear All
+            Clear all
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">
           <div>
-            <label className="block text-xs font-medium text-gray-300 mb-1">Resource</label>
-            <select
-              value={resource}
-              onChange={(e) => setResource(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-700 rounded-md text-sm focus:ring-2 focus:ring-gray-600 focus:border-blue-500"
-            >
-              <option value="">All Resources</option>
+            <label className={labelClass}>Resource</label>
+            <select value={resource} onChange={(e) => setResource(e.target.value)} className={inputClass}>
+              <option value="">All resources</option>
               {Object.entries(RESOURCE_LABELS).map(([key, label]) => (
                 <option key={key} value={key}>{label}</option>
               ))}
@@ -372,13 +356,9 @@ export default function AuditLogsPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-300 mb-1">Action</label>
-            <select
-              value={action}
-              onChange={(e) => setAction(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-700 rounded-md text-sm focus:ring-2 focus:ring-gray-600 focus:border-blue-500"
-            >
-              <option value="">All Actions</option>
+            <label className={labelClass}>Action</label>
+            <select value={action} onChange={(e) => setAction(e.target.value)} className={inputClass}>
+              <option value="">All actions</option>
               {Object.entries(ACTION_LABELS).map(([key, label]) => (
                 <option key={key} value={key}>{label}</option>
               ))}
@@ -386,13 +366,9 @@ export default function AuditLogsPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-300 mb-1">Severity</label>
-            <select
-              value={severity}
-              onChange={(e) => setSeverity(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-700 rounded-md text-sm focus:ring-2 focus:ring-gray-600 focus:border-blue-500"
-            >
-              <option value="">All Levels</option>
+            <label className={labelClass}>Severity</label>
+            <select value={severity} onChange={(e) => setSeverity(e.target.value)} className={inputClass}>
+              <option value="">All levels</option>
               <option value="low">Low</option>
               <option value="medium">Medium</option>
               <option value="high">High</option>
@@ -401,106 +377,87 @@ export default function AuditLogsPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-300 mb-1">Start Date</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-700 rounded-md text-sm focus:ring-2 focus:ring-gray-600 focus:border-blue-500"
-            />
+            <label className={labelClass}>Start date</label>
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={inputClass} />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-300 mb-1">End Date</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-700 rounded-md text-sm focus:ring-2 focus:ring-gray-600 focus:border-blue-500"
-            />
+            <label className={labelClass}>End date</label>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={inputClass} />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-300 mb-1">Search</label>
+            <label className={labelClass}>Search</label>
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search logs..."
-              className="w-full px-3 py-2 border border-gray-700 rounded-md text-sm focus:ring-2 focus:ring-gray-600 focus:border-blue-500"
+              placeholder="Search logs…"
+              className={inputClass}
             />
           </div>
         </div>
       </div>
 
-      {/* Error Message */}
       {error && (
-        <div className="bg-red-900/20 border border-red-800 rounded-lg p-4 mb-6">
-          <p className="text-red-400">{error}</p>
+        <div className="mb-4 p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-400 text-sm">
+          {error}
         </div>
       )}
 
-      {/* Loading State */}
       {loading ? (
         <LoadingSpinner message="Loading audit logs..." />
       ) : logs.length === 0 ? (
-        <div className="text-center py-12 bg-gray-800 rounded-lg border border-gray-700">
-          <div className="text-4xl mb-4">📋</div>
-          <h3 className="text-lg font-medium text-gray-100 mb-2">No audit logs found</h3>
-          <p className="text-gray-400">No activity matches your current filters.</p>
+        <div className="rounded-xl border border-dashed border-violet-500/20 bg-violet-950/10 px-4 py-8 text-center">
+          <p className="text-sm font-medium text-gray-300 mb-1">No audit logs found</p>
+          <p className="text-xs text-gray-500">No activity matches your current filters.</p>
         </div>
       ) : (
         <>
-          {/* Results Info */}
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-gray-400">
-              Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total} logs
-            </p>
+          <div className="rounded-xl border border-gray-700/60 overflow-hidden mb-4">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-900/80 border-b border-gray-700/60">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Time</th>
+                    <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">User</th>
+                    <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Action</th>
+                    <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Resource</th>
+                    <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Details</th>
+                    <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Level</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700/40">
+                  {logs.map((log) => (
+                    <AuditLogRow key={log._id} log={log} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          {/* Audit Logs Table */}
-          <div className="bg-gray-900/40 rounded-lg border border-gray-700/60 overflow-hidden mb-6">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-950 text-left">
-                  <th className="px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Time</th>
-                  <th className="px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">User</th>
-                  <th className="px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Action</th>
-                  <th className="px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Resource</th>
-                  <th className="px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Details</th>
-                  <th className="px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Level</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((log) => (
-                  <AuditLogRow key={log._id} log={log} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-3 py-2 text-sm border border-gray-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-900"
-              >
-                Previous
-              </button>
-
-              <span className="px-3 py-2 text-sm text-gray-400">
-                Page {page} of {totalPages}
-              </span>
-
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="px-3 py-2 text-sm border border-gray-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-900"
-              >
-                Next
-              </button>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-xs text-gray-500">
+                {((page - 1) * limit) + 1}–{Math.min(page * limit, total)} of {total}
+              </p>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="px-2.5 py-1 text-xs font-medium border border-gray-700/60 bg-gray-800/60 text-gray-400 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700/60 hover:text-gray-200 transition-colors"
+                >
+                  Prev
+                </button>
+                <span className="px-2 text-xs text-gray-500">{page}/{totalPages}</span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="px-2.5 py-1 text-xs font-medium border border-gray-700/60 bg-gray-800/60 text-gray-400 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700/60 hover:text-gray-200 transition-colors"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           )}
         </>

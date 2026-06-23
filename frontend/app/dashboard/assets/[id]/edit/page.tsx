@@ -3,20 +3,66 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 const CATEGORIES = ['Projector', 'Whiteboard', 'Desktop', 'Laptop', 'AC', 'Furniture', 'Lab Equipment', 'Printer', 'Other'];
 const STATUSES = ['available', 'in_use', 'under_maintenance', 'retired', 'working', 'needs_repair', 'out_of_service'];
 
-const inputClassName = 'w-full px-3 py-2 border border-gray-700 rounded-lg bg-gray-800 text-gray-100';
+const STATUS_BADGE: Record<string, string> = {
+  available: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
+  in_use: 'text-blue-300 bg-blue-500/15 border-blue-500/30',
+  under_maintenance: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
+  retired: 'text-gray-400 bg-gray-500/15 border-gray-500/30',
+  working: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
+  needs_repair: 'text-red-300 bg-red-500/15 border-red-500/30',
+  out_of_service: 'text-red-300 bg-red-500/15 border-red-500/30',
+};
+
+const inputClass =
+  'w-full px-3 py-1.5 text-sm border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200 focus:ring-1 focus:ring-blue-500/40 focus:border-blue-500/40';
+const labelClass = 'block text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1';
+const buttonClass = 'px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors';
 
 function api(path: string) {
   const base = process.env.NEXT_PUBLIC_API_URL || '';
   return base ? `${base}${path}` : path;
 }
 
+function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className={labelClass}>
+        {label}
+        {required && ' *'}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function Section({
+  title,
+  accentClass,
+  titleClass,
+  children,
+}: {
+  title: string;
+  accentClass: string;
+  titleClass: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`rounded-xl border border-gray-700/60 border-l-2 ${accentClass} bg-gray-800/40 px-4 py-4 mb-4`}>
+      <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${titleClass}`}>{title}</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{children}</div>
+    </div>
+  );
+}
+
 export default function EditAssetPage() {
   const params = useParams();
   const router = useRouter();
+  const [pageLoading, setPageLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [loadErr, setLoadErr] = useState('');
   const [error, setError] = useState('');
@@ -42,7 +88,10 @@ export default function EditAssetPage() {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token || !params.id) return;
+    if (!token || !params.id) {
+      setPageLoading(false);
+      return;
+    }
     Promise.all([
       fetch(api(`/api/assets/${params.id}`), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       fetch(api('/api/users'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
@@ -65,38 +114,29 @@ export default function EditAssetPage() {
             vendorId: asset.vendorId?._id ?? (typeof asset.vendorId === 'string' ? asset.vendorId : ''),
             cost: asset.cost != null ? String(asset.cost) : '',
           });
-          setPhotos(Array.isArray(asset.photos) ? asset.photos.map((p: { url: string; caption?: string }) => ({ url: p.url, caption: p.caption ?? '' })) : []);
-          setDocuments(Array.isArray(asset.documents) ? asset.documents.map((d: { url: string; name: string; type?: string }) => ({ url: d.url, name: d.name, type: d.type ?? '' })) : []);
+          setPhotos(
+            Array.isArray(asset.photos)
+              ? asset.photos.map((p: { url: string; caption?: string }) => ({ url: p.url, caption: p.caption ?? '' }))
+              : []
+          );
+          setDocuments(
+            Array.isArray(asset.documents)
+              ? asset.documents.map((d: { url: string; name: string; type?: string }) => ({
+                  url: d.url,
+                  name: d.name,
+                  type: d.type ?? '',
+                }))
+              : []
+          );
         } else setLoadErr(asset.message || 'Not found');
         if (usersRes.users) setUsers(usersRes.users);
         if (locRes.locations) setLocations(locRes.locations);
         if (deptRes.departments) setDepartments(deptRes.departments);
-        if (Array.isArray(vendorsRes)) setVendors(vendorsRes.filter((v: any) => v.status === 'Active'));
+        if (Array.isArray(vendorsRes)) setVendors(vendorsRes.filter((v: { status: string }) => v.status === 'Active'));
       })
-      .catch(() => setLoadErr('Failed to load'));
+      .catch(() => setLoadErr('Failed to load'))
+      .finally(() => setPageLoading(false));
   }, [params.id]);
-
-  const addPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setPhotos((p) => [...p, { url: reader.result as string, caption: '' }]);
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
-  };
-
-  const addDocument = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setDocuments((d) => [...d, { url: reader.result as string, name: file.name, type: file.type }]);
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,6 +158,7 @@ export default function EditAssetPage() {
           assignedTo: form.assignedTo || undefined,
           locationId: form.locationId || undefined,
           departmentId: form.departmentId || undefined,
+          vendorId: form.vendorId || undefined,
           photos,
           documents,
         }),
@@ -131,68 +172,147 @@ export default function EditAssetPage() {
     }
   };
 
+  if (pageLoading) return <LoadingSpinner message="Loading asset..." />;
+
   if (loadErr) {
     return (
-      <div>
+      <div className="max-w-7xl mx-auto">
         <p className="text-red-400">{loadErr}</p>
-        <Link href="/dashboard/assets" className="text-primary hover:underline mt-2 inline-block">Back to assets</Link>
+        <Link href="/dashboard/assets" className={`${buttonClass} inline-block mt-3 border-gray-700/60 text-gray-400`}>
+          Back to assets
+        </Link>
       </div>
     );
   }
 
   return (
-    <div>
-      <Link href={`/dashboard/assets/${params.id}`} className="inline-block mb-4 text-gray-400 hover:text-gray-100">← Back to asset</Link>
-      <h1 className="text-2xl font-bold mb-2">Edit asset</h1>
-      <form onSubmit={handleSubmit} className="bg-gray-800 p-6 rounded-lg border border-gray-700 grid grid-cols-1 md:grid-cols-2 gap-6">
-        {error && <p className="mb-4 p-3 bg-red-900/20 text-red-400 rounded-lg text-sm">{error}</p>}
-        <Field label="Name" required><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className={inputClassName} /></Field>
-        <Field label="Category"><select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className={inputClassName}><option value="">Select</option>{CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></Field>
-        <Field label="Model"><input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className={inputClassName} /></Field>
-        <Field label="Serial number"><input value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value })} className={inputClassName} /></Field>
-        <Field label="Status"><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={inputClassName}>{STATUSES.map((s) => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}</select></Field>
-        <Field label="Assigned to"><select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className={inputClassName}><option value="">None</option>{users.map((u) => <option key={u._id} value={u._id}>{u.name}</option>)}</select></Field>
-        <Field label="Location"><select value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })} className={inputClassName}><option value="">None</option>{locations.map((l) => <option key={l._id} value={l._id}>{l.name} ({l.type})</option>)}</select></Field>
-        <Field label="Department"><select value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })} className={inputClassName}><option value="">None</option>{departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}</select></Field>
-        <Field label="Purchase date"><input type="date" value={form.purchaseDate} onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })} className={inputClassName} /></Field>
-        <Field label="Vendor"><select value={form.vendorId} onChange={(e) => setForm({ ...form, vendorId: e.target.value })} className={inputClassName}><option value="">None</option>{vendors.map((v) => <option key={v._id} value={v._id}>{v.vendorId} - {v.name}</option>)}</select></Field>
-        <Field label="Cost (₹)"><input type="number" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} className={inputClassName} /></Field>
-        {/*<Field label="Photos">*/}
-        {/*  <div className="space-y-2">*/}
-        {/*    <input type="file" accept="image/*" onChange={addPhoto} className="text-sm text-gray-400" />*/}
-        {/*    {photos.length > 0 && (*/}
-        {/*      <div className="flex flex-wrap gap-2 mt-2">*/}
-        {/*        {photos.map((p, i) => (*/}
-        {/*          <div key={i} className="relative">*/}
-        {/*            <img src={p.url} alt="" className="h-20 w-20 object-cover rounded border border-gray-700" />*/}
-        {/*            <button type="button" onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs leading-none">×</button>*/}
-        {/*          </div>*/}
-        {/*        ))}*/}
-        {/*      </div>*/}
-        {/*    )}*/}
-        {/*  </div>*/}
-        {/*</Field>*/}
-        {/*<Field label="Documents">*/}
-        {/*  <div className="space-y-2">*/}
-        {/*    <input type="file" accept=".pdf,.doc,.docx,image/*" onChange={addDocument} className="text-sm text-gray-400" />*/}
-        {/*    {documents.length > 0 && (*/}
-        {/*      <ul className="text-sm text-gray-400 mt-2 space-y-1">*/}
-        {/*        {documents.map((d, i) => (*/}
-        {/*          <li key={i} className="flex items-center gap-2">*/}
-        {/*            <span>{d.name}</span>*/}
-        {/*            <button type="button" onClick={() => setDocuments((prev) => prev.filter((_, j) => j !== i))} className="text-red-400 hover:underline">Remove</button>*/}
-        {/*          </li>*/}
-        {/*        ))}*/}
-        {/*      </ul>*/}
-        {/*    )}*/}
-        {/*  </div>*/}
-        {/*</Field>*/}
-        <button type="submit" disabled={loading} className="w-32 mt-4 px-6 py-3 bg-primary text-white rounded-lg font-semibold disabled:opacity-60 hover:bg-primary-hover md:col-span-2">{loading ? 'Saving…' : 'Save'}</button>
+    <div className="max-w-7xl mx-auto">
+      <Link
+        href={`/dashboard/assets/${params.id}`}
+        className={`${buttonClass} inline-block mb-4 border-gray-700/60 bg-gray-800/40 text-gray-400 hover:text-gray-200`}
+      >
+        Back to asset
+      </Link>
+
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-100">Edit asset</h1>
+        <p className="text-gray-400 mt-1 text-sm">Update asset details, assignment, and purchase information.</p>
+      </div>
+
+      {error && (
+        <div className="mb-4 p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-400 text-sm">{error}</div>
+      )}
+
+      <form onSubmit={handleSubmit}>
+        <Section title="Basic information" accentClass="border-l-blue-500/50" titleClass="text-blue-400/80">
+          <Field label="Name" required>
+            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className={inputClass} />
+          </Field>
+          <Field label="Category">
+            <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className={inputClass}>
+              <option value="">Select category</option>
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Model">
+            <input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className={inputClass} />
+          </Field>
+          <Field label="Serial number">
+            <input value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value })} className={inputClass} />
+          </Field>
+          <div className="md:col-span-2">
+            <label className={labelClass}>Status</label>
+            <div className="flex flex-wrap gap-1.5">
+              {STATUSES.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setForm({ ...form, status: s })}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border capitalize transition-colors ${
+                    form.status === s
+                      ? STATUS_BADGE[s]
+                      : 'border-gray-700/60 bg-gray-800/40 text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  {s.replace(/_/g, ' ')}
+                </button>
+              ))}
+            </div>
+          </div>
+        </Section>
+
+        <Section title="Assignment & location" accentClass="border-l-violet-500/50" titleClass="text-violet-400/80">
+          <Field label="Assigned to">
+            <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className={inputClass}>
+              <option value="">Unassigned</option>
+              {users.map((u) => (
+                <option key={u._id} value={u._id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Location">
+            <select value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })} className={inputClass}>
+              <option value="">No location</option>
+              {locations.map((l) => (
+                <option key={l._id} value={l._id}>
+                  {l.name} ({l.type})
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Department">
+            <select value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })} className={inputClass}>
+              <option value="">No department</option>
+              {departments.map((d) => (
+                <option key={d._id} value={d._id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </Section>
+
+        <Section title="Purchase & vendor" accentClass="border-l-emerald-500/50" titleClass="text-emerald-400/80">
+          <Field label="Purchase date">
+            <input type="date" value={form.purchaseDate} onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })} className={inputClass} />
+          </Field>
+          <Field label="Cost (INR)">
+            <input type="number" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} className={inputClass} />
+          </Field>
+          <Field label="Vendor">
+            <select value={form.vendorId} onChange={(e) => setForm({ ...form, vendorId: e.target.value })} className={inputClass}>
+              <option value="">No vendor</option>
+              {vendors.map((v) => (
+                <option key={v._id} value={v._id}>
+                  {v.vendorId} — {v.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </Section>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="submit"
+            disabled={loading}
+            className={`${buttonClass} border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50`}
+          >
+            {loading ? 'Saving…' : 'Save changes'}
+          </button>
+          <Link
+            href={`/dashboard/assets/${params.id}`}
+            className={`${buttonClass} border-gray-700/60 bg-gray-800/40 text-gray-400 hover:text-gray-200`}
+          >
+            Cancel
+          </Link>
+        </div>
       </form>
     </div>
   );
-}
-
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return <div><label className="block mb-1.5 font-medium text-gray-300">{label} {required && '*'}</label>{children}</div>;
 }
