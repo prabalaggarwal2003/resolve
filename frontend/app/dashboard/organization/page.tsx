@@ -42,6 +42,7 @@ const ESTIMATED_ASSETS = [
 
 const buttonClass = 'px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors';
 const inputClass = 'w-full px-3 py-1.5 text-sm border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200 focus:ring-1 focus:ring-blue-500/40 focus:border-blue-500/40';
+const textareaClass = `${inputClass} resize-none`;
 const labelClass = 'block text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1';
 
 function getLabel(options: { value: string; label: string }[], value?: string) {
@@ -65,6 +66,8 @@ export default function OrganizationPage() {
     companySize: '',
     country: '',
     region: '',
+    gstin: '',
+    registeredAddress: '',
     primaryGoal: '',
     estimatedAssets: '',
   });
@@ -98,6 +101,8 @@ export default function OrganizationPage() {
         companySize: data.organization.companySize || '',
         country: data.organization.country || '',
         region: data.organization.region || '',
+        gstin: data.organization.gstin || '',
+        registeredAddress: data.organization.registeredAddress || '',
         primaryGoal: data.organization.primaryGoal || '',
         estimatedAssets: data.organization.estimatedAssets || '',
       });
@@ -108,7 +113,7 @@ export default function OrganizationPage() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -127,6 +132,8 @@ export default function OrganizationPage() {
         companySize: formData.companySize || undefined,
         country: formData.country || undefined,
         region: formData.region || undefined,
+        gstin: formData.gstin.trim().toUpperCase() || undefined,
+        registeredAddress: formData.registeredAddress.trim() || undefined,
         primaryGoal: formData.primaryGoal || undefined,
         estimatedAssets: formData.estimatedAssets || undefined,
       };
@@ -164,6 +171,8 @@ export default function OrganizationPage() {
         companySize: organization.companySize || '',
         country: organization.country || '',
         region: organization.region || '',
+        gstin: organization.gstin || '',
+        registeredAddress: organization.registeredAddress || '',
         primaryGoal: organization.primaryGoal || '',
         estimatedAssets: organization.estimatedAssets || '',
       });
@@ -321,6 +330,18 @@ export default function OrganizationPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
+                  <label className={labelClass}>GSTIN</label>
+                  <input
+                    type="text"
+                    name="gstin"
+                    value={formData.gstin}
+                    onChange={handleInputChange}
+                    className={`${inputClass} uppercase`}
+                    placeholder="e.g. 22AAAAA0000A1Z5"
+                    maxLength={15}
+                  />
+                </div>
+                <div>
                   <label className={labelClass}>Primary goal</label>
                   <select name="primaryGoal" value={formData.primaryGoal} onChange={handleInputChange} className={inputClass}>
                     <option value="">Select goal</option>
@@ -329,15 +350,28 @@ export default function OrganizationPage() {
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className={labelClass}>Estimated assets</label>
-                  <select name="estimatedAssets" value={formData.estimatedAssets} onChange={handleInputChange} className={inputClass}>
-                    <option value="">Select range</option>
-                    {ESTIMATED_ASSETS.map((range) => (
-                      <option key={range.value} value={range.value}>{range.label}</option>
-                    ))}
-                  </select>
-                </div>
+              </div>
+
+              <div>
+                <label className={labelClass}>Full registered address</label>
+                <textarea
+                  name="registeredAddress"
+                  value={formData.registeredAddress}
+                  onChange={handleInputChange}
+                  className={textareaClass}
+                  rows={3}
+                  placeholder="Building, street, city, state, PIN code"
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>Estimated assets</label>
+                <select name="estimatedAssets" value={formData.estimatedAssets} onChange={handleInputChange} className={inputClass}>
+                  <option value="">Select range</option>
+                  {ESTIMATED_ASSETS.map((range) => (
+                    <option key={range.value} value={range.value}>{range.label}</option>
+                  ))}
+                </select>
               </div>
             </form>
           ) : (
@@ -347,8 +381,15 @@ export default function OrganizationPage() {
               <InfoField label="Company size" value={getLabel(COMPANY_SIZES, organization?.companySize)} />
               <InfoField label="Country" value={organization?.country} />
               <InfoField label="Region / state" value={organization?.region} />
+              <InfoField label="GSTIN" value={organization?.gstin} valueClassName="font-mono tracking-wide" />
               <InfoField label="Primary goal" value={getLabel(PRIMARY_GOALS, organization?.primaryGoal)} />
-              <InfoField label="Estimated assets" value={getLabel(ESTIMATED_ASSETS, organization?.estimatedAssets)} className="sm:col-span-2" />
+              <InfoField label="Estimated assets" value={getLabel(ESTIMATED_ASSETS, organization?.estimatedAssets)} />
+              <InfoField
+                label="Full registered address"
+                value={organization?.registeredAddress}
+                className="sm:col-span-2"
+                valueClassName="whitespace-pre-wrap font-normal"
+              />
             </div>
           )}
         </div>
@@ -391,11 +432,21 @@ function SummaryCard({ label, value, accent = 'text-gray-100' }: { label: string
   );
 }
 
-function InfoField({ label, value, className = '' }: { label: string; value?: string; className?: string }) {
+function InfoField({
+  label,
+  value,
+  className = '',
+  valueClassName = '',
+}: {
+  label: string;
+  value?: string;
+  className?: string;
+  valueClassName?: string;
+}) {
   return (
     <div className={`px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30 ${className}`}>
       <p className="text-[10px] text-gray-500 uppercase tracking-wide">{label}</p>
-      <p className="text-sm font-semibold text-gray-200 mt-0.5">{value || '—'}</p>
+      <p className={`text-sm font-semibold text-gray-200 mt-0.5 ${valueClassName}`}>{value || '—'}</p>
     </div>
   );
 }
