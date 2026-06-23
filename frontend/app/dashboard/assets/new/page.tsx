@@ -18,8 +18,52 @@ const CATEGORIES = [
 
 const STATUSES = ['available', 'in_use', 'under_maintenance', 'retired', 'working', 'needs_repair', 'out_of_service'];
 
-const inputClassName =
-  'w-full px-3 py-2 border border-gray-700 rounded-lg bg-gray-800 text-gray-100';
+const STATUS_BADGE: Record<string, string> = {
+  available: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
+  in_use: 'text-blue-300 bg-blue-500/15 border-blue-500/30',
+  under_maintenance: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
+  retired: 'text-gray-400 bg-gray-500/15 border-gray-500/30',
+  working: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
+  needs_repair: 'text-red-300 bg-red-500/15 border-red-500/30',
+  out_of_service: 'text-red-300 bg-red-500/15 border-red-500/30',
+};
+
+const inputClass =
+  'w-full px-3 py-1.5 text-sm border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200 focus:ring-1 focus:ring-blue-500/40 focus:border-blue-500/40';
+const labelClass = 'block text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1';
+const buttonClass = 'px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors';
+
+function Field({ label, required, hint, children }: { label: string; required?: boolean; hint?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className={labelClass}>
+        {label}
+        {required && ' *'}
+      </label>
+      {children}
+      {hint && <p className="text-[11px] text-gray-600 mt-1">{hint}</p>}
+    </div>
+  );
+}
+
+function Section({
+  title,
+  accentClass,
+  titleClass,
+  children,
+}: {
+  title: string;
+  accentClass: string;
+  titleClass: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`rounded-xl border border-gray-700/60 border-l-2 ${accentClass} bg-gray-800/40 px-4 py-4 mb-4`}>
+      <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${titleClass}`}>{title}</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{children}</div>
+    </div>
+  );
+}
 
 export default function NewAssetPage() {
   const router = useRouter();
@@ -64,99 +108,51 @@ export default function NewAssetPage() {
 
     try {
       const base = process.env.NEXT_PUBLIC_API_URL || '';
-
-      // Fetch organization info and ALL assets to find the highest ID
       const [orgRes, assetsRes] = await Promise.all([
         fetch(base ? `${base}/api/organization` : '/api/organization', {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         }),
         fetch(base ? `${base}/api/assets?limit=9999&sort=createdAt&order=desc` : '/api/assets?limit=9999&sort=createdAt&order=desc', {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
 
       const orgData = await orgRes.json();
       const assetsData = await assetsRes.json();
 
-      if (!orgRes.ok || !orgData.organization || !orgData.organization.name) {
+      if (!orgRes.ok || !orgData.organization?.name) {
         throw new Error('Failed to fetch organization details');
       }
 
-      // Get category from form - if not selected, use default "ASS" for Asset
       const selectedCategory = form.category || 'Asset';
-
-      // Get organization prefix (first 3 letters of organization name, or full if shorter)
-      const orgName = orgData.organization.name.replace(/[^A-Za-z]/g, ''); // Remove non-letters
+      const orgName = orgData.organization.name.replace(/[^A-Za-z]/g, '');
       const orgPrefix = orgName.substring(0, 3).toUpperCase() || 'ORG';
-
-      // Get category prefix (first 3 letters of category, or full if shorter)
-      const categoryName = selectedCategory.replace(/[^A-Za-z]/g, ''); // Remove non-letters
+      const categoryName = selectedCategory.replace(/[^A-Za-z]/g, '');
       const categoryPrefix = categoryName.substring(0, 3).toUpperCase() || 'ASS';
 
-      // Create the expected format: ORG-CAT-001
-      const expectedPrefix = `${orgPrefix}-${categoryPrefix}`;
-
-      // Find the highest asset number from existing assets with same org and category prefix
       let highestNumber = 0;
-
-      if (assetsData.assets && assetsData.assets.length > 0) {
-        // Extract numbers from all asset IDs that match our org and category prefix
-        assetsData.assets.forEach((asset: any) => {
-          if (asset.assetId && typeof asset.assetId === 'string') {
-            // Expected format: ORG-CAT-123
+      if (assetsData.assets?.length) {
+        assetsData.assets.forEach((asset: { assetId?: string }) => {
+          if (asset.assetId) {
             const parts = asset.assetId.split('-');
             if (parts.length === 3 && parts[0] === orgPrefix && parts[1] === categoryPrefix) {
               const num = parseInt(parts[2], 10);
-              if (!isNaN(num) && num > highestNumber) {
-                highestNumber = num;
-              }
+              if (!isNaN(num) && num > highestNumber) highestNumber = num;
             }
           }
         });
       }
 
-      // Next number is highest + 1
       const nextNumber = highestNumber + 1;
-
-      // Dynamic padding: minimum 3 digits, but grows as needed
-      const minDigits = 3;
-      const numberLength = String(nextNumber).length;
-      const paddingLength = Math.max(minDigits, numberLength);
+      const paddingLength = Math.max(3, String(nextNumber).length);
       const paddedNumber = String(nextNumber).padStart(paddingLength, '0');
-
-      // Generate ID in format: ORG-CAT-001 (e.g., ABC-PRO-001 for ABC School, Projector category)
-      const generatedId = `${orgPrefix}-${categoryPrefix}-${paddedNumber}`;
-
-      setForm({ ...form, assetId: generatedId });
+      setForm({ ...form, assetId: `${orgPrefix}-${categoryPrefix}-${paddedNumber}` });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate Asset ID');
       setTimeout(() => setError(''), 3000);
     } finally {
       setGeneratingAssetId(false);
     }
-  };
-
-  const addPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const url = reader.result as string;
-      setPhotos((p) => [...p, { url, caption: '' }]);
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
-  };
-
-  const addDocument = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setDocuments((d) => [...d, { url: reader.result as string, name: file.name, type: file.type }]);
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
   };
 
   const addNewCategory = () => {
@@ -167,33 +163,20 @@ export default function NewAssetPage() {
       setTimeout(() => setError(''), 3000);
       return;
     }
-
     const updatedCategories = [...categories, trimmed];
     setCategories(updatedCategories);
     setForm({ ...form, category: trimmed });
     setNewCategory('');
-
-    // Save only custom categories (those not in the default CATEGORIES list)
-    const customCategories = updatedCategories.filter(cat => !CATEGORIES.includes(cat));
+    const customCategories = updatedCategories.filter((cat) => !CATEGORIES.includes(cat));
     localStorage.setItem('assetCategories', JSON.stringify(customCategories));
   };
 
   const generateSequentialId = (baseId: string, index: number): string => {
-    // Extract prefix and current number from base ID (e.g., "ABC-PRO-001")
     const parts = baseId.split('-');
     if (parts.length !== 3) return `${baseId}-${index + 1}`;
-
-    const orgPrefix = parts[0]; // "ABC"
-    const categoryPrefix = parts[1]; // "PRO"
-    const baseNumber = parseInt(parts[2], 10); // 1
-
-    const newNumber = baseNumber + index;
-    const minDigits = 3;
-    const numberLength = String(newNumber).length;
-    const paddingLength = Math.max(minDigits, numberLength);
-    const paddedNumber = String(newNumber).padStart(paddingLength, '0');
-
-    return `${orgPrefix}-${categoryPrefix}-${paddedNumber}`;
+    const newNumber = parseInt(parts[2], 10) + index;
+    const paddingLength = Math.max(3, String(newNumber).length);
+    return `${parts[0]}-${parts[1]}-${String(newNumber).padStart(paddingLength, '0')}`;
   };
 
   useEffect(() => {
@@ -210,32 +193,22 @@ export default function NewAssetPage() {
         if (usersRes.users) setUsers(usersRes.users);
         if (locsRes.locations) setLocations(locsRes.locations);
         if (deptRes.departments) setDepartments(deptRes.departments);
-        if (Array.isArray(vendorsRes)) setVendors(vendorsRes.filter((v: any) => v.status === 'Active'));
+        if (Array.isArray(vendorsRes)) setVendors(vendorsRes.filter((v: { status: string }) => v.status === 'Active'));
       })
       .catch(() => {});
 
-    // Load custom categories from localStorage
     const saved = localStorage.getItem('assetCategories');
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
-        // Merge default categories with saved custom ones, removing duplicates
-        const merged = CATEGORIES.concat(parsed);
-        setCategories(Array.from(new Set(merged)));
-      } catch {
-        // If parsing fails, keep default categories
-      }
+        setCategories(Array.from(new Set(CATEGORIES.concat(JSON.parse(saved)))));
+      } catch (_) {}
     }
 
-    // Auto-generate Asset ID on mount
     generateAssetId();
   }, []);
 
-  // Regenerate asset ID when category changes
   useEffect(() => {
-    if (form.category && form.assetId) {
-      generateAssetId();
-    }
+    if (form.category && form.assetId) generateAssetId();
   }, [form.category]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -254,28 +227,28 @@ export default function NewAssetPage() {
       return;
     }
 
+    const payload = (assetId?: string) => ({
+      ...form,
+      assetId: assetId ?? form.assetId,
+      cost: form.cost ? Number(form.cost) : undefined,
+      purchaseDate: form.purchaseDate || undefined,
+      warrantyExpiry: form.warrantyExpiry || undefined,
+      assignedTo: form.assignedTo || undefined,
+      locationId: form.locationId || undefined,
+      departmentId: form.departmentId || undefined,
+      vendorId: form.vendorId || undefined,
+      photos: photos.length ? photos : undefined,
+      documents: documents.length ? documents : undefined,
+    });
+
     if (quantity === 1) {
-      // Single asset creation (existing logic)
       setLoading(true);
       try {
         const url = process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/api/assets` : '/api/assets';
         const res = await fetch(url, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            ...form,
-            cost: form.cost ? Number(form.cost) : undefined,
-            purchaseDate: form.purchaseDate || undefined,
-            warrantyExpiry: form.warrantyExpiry || undefined,
-            assignedTo: form.assignedTo || undefined,
-            locationId: form.locationId || undefined,
-            departmentId: form.departmentId || undefined,
-            photos: photos.length ? photos : undefined,
-            documents: documents.length ? documents : undefined,
-          }),
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(payload()),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || 'Failed to create');
@@ -285,348 +258,252 @@ export default function NewAssetPage() {
       } finally {
         setLoading(false);
       }
-    } else {
-      // Bulk asset creation
-      setBulkCreating(true);
-      setBulkProgress({ current: 0, total: quantity });
+      return;
+    }
 
-      try {
-        const baseAssetId = form.assetId;
-        const createdAssets: string[] = [];
-        const failedAssets: { id: string; error: string }[] = [];
+    setBulkCreating(true);
+    setBulkProgress({ current: 0, total: quantity });
+    try {
+      const createdAssets: string[] = [];
+      const failedAssets: { id: string; error: string }[] = [];
+      const url = process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/api/assets` : '/api/assets';
 
-        for (let i = 0; i < quantity; i++) {
-          setBulkProgress({ current: i + 1, total: quantity });
-
-          // Generate sequential asset ID
-          const currentAssetId = generateSequentialId(baseAssetId, i);
-
-          try {
-            const url = process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/api/assets` : '/api/assets';
-            const res = await fetch(url, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                ...form,
-                assetId: currentAssetId,
-                cost: form.cost ? Number(form.cost) : undefined,
-                purchaseDate: form.purchaseDate || undefined,
-                warrantyExpiry: form.warrantyExpiry || undefined,
-                assignedTo: form.assignedTo || undefined,
-                locationId: form.locationId || undefined,
-                departmentId: form.departmentId || undefined,
-                photos: photos.length ? photos : undefined,
-                documents: documents.length ? documents : undefined,
-              }),
-            });
-
-            const data = await res.json();
-            if (!res.ok) {
-              failedAssets.push({ id: currentAssetId, error: data.message || 'Failed' });
-            } else {
-              createdAssets.push(currentAssetId);
-            }
-          } catch (err) {
-            failedAssets.push({ id: currentAssetId, error: err instanceof Error ? err.message : 'Network error' });
-          }
+      for (let i = 0; i < quantity; i++) {
+        setBulkProgress({ current: i + 1, total: quantity });
+        const currentAssetId = generateSequentialId(form.assetId, i);
+        try {
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify(payload(currentAssetId)),
+          });
+          const data = await res.json();
+          if (!res.ok) failedAssets.push({ id: currentAssetId, error: data.message || 'Failed' });
+          else createdAssets.push(currentAssetId);
+        } catch (err) {
+          failedAssets.push({ id: currentAssetId, error: err instanceof Error ? err.message : 'Network error' });
         }
-
-        // Show summary
-        if (failedAssets.length === 0) {
-          alert(`✅ Successfully created ${createdAssets.length} assets!\n\nIDs: ${createdAssets[0]} to ${createdAssets[createdAssets.length - 1]}`);
-          router.push('/dashboard/assets');
-        } else {
-          const summary = `Created: ${createdAssets.length}\nFailed: ${failedAssets.length}\n\nFailed Assets:\n${failedAssets.slice(0, 10).map(f => `${f.id}: ${f.error}`).join('\n')}${failedAssets.length > 10 ? '\n...and more' : ''}`;
-          alert(summary);
-          if (createdAssets.length > 0) {
-            router.push('/dashboard/assets');
-          }
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Bulk creation failed');
-      } finally {
-        setBulkCreating(false);
-        setBulkProgress({ current: 0, total: 0 });
       }
+
+      if (failedAssets.length === 0) {
+        alert(`Successfully created ${createdAssets.length} assets (${createdAssets[0]} to ${createdAssets[createdAssets.length - 1]})`);
+        router.push('/dashboard/assets');
+      } else {
+        alert(`Created: ${createdAssets.length}, Failed: ${failedAssets.length}`);
+        if (createdAssets.length > 0) router.push('/dashboard/assets');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Bulk creation failed');
+    } finally {
+      setBulkCreating(false);
+      setBulkProgress({ current: 0, total: 0 });
     }
   };
 
   return (
-    <div>
-      <Link href="/dashboard/assets" className="inline-block mb-4 text-gray-400 hover:text-gray-100">
-        ← Back to assets
-      </Link>
-      <h1 className="text-2xl font-bold mb-2">Add asset</h1>
-      <p className="text-gray-400 mb-6">
-        Add new assets to your inventory. You can add a single asset or multiple identical assets at once. Asset IDs are auto-generated based on your organization name and selected category.
-      </p>
-
-      <form
-        onSubmit={handleSubmit}
-        className="bg-gray-800 p-6 rounded-lg border border-gray-700 grid grid-cols-1 md:grid-cols-2 gap-6"
+    <div className="max-w-7xl mx-auto">
+      <Link
+        href="/dashboard/assets"
+        className={`${buttonClass} inline-block mb-4 border-gray-700/60 bg-gray-800/40 text-gray-400 hover:text-gray-200`}
       >
-        {error && (
-          <p className="mb-4 p-3 bg-red-900/20 text-red-400 rounded-lg text-sm">{error}</p>
-        )}
-        <Field label="Asset ID (auto-generated)" required>
-          <input
-            value={form.assetId}
-            readOnly
-            required
-            placeholder="Generating..."
-            className="w-full px-3 py-2.5 border border-slate-300 rounded-lg bg-gray-900 text-gray-300 cursor-not-allowed"
-            title="Auto-generated based on your organization name and asset category"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Format: [ORG]-[CATEGORY]-[NUMBER]
-          </p>
-        </Field>
-        <Field label="Quantity (How many identical assets?)" required>
-          <input
-            type="number"
-            min="1"
-            max="1000"
-            value={quantity}
-            onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-            className={inputClassName}
-            placeholder="1"
-          />
-          {quantity > 1 && form.assetId ? (
-            <p className="text-xs text-green-400 mt-1 font-medium">
-              ✓ Will create {quantity} assets with IDs: {form.assetId} to {generateSequentialId(form.assetId, quantity - 1)}
-            </p>
-          ) : (
-            <p className="text-xs text-gray-500 mt-1">
-              Enter 1 for single asset or more for bulk creation (max 1000)
-            </p>
-          )}
-        </Field>
-        <Field label="Name" required>
-          <input
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            required
-            placeholder="e.g. Projector Room 201"
-            className={inputClassName}
-          />
-        </Field>
-        <Field label="Category">
-          <select
-            value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value })}
-            className={inputClassName}
-          >
-            <option value="">Select</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-          <div className="mt-2 flex gap-2">
+        Back to assets
+      </Link>
+
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-100">Add asset</h1>
+        <p className="text-gray-400 mt-1 text-sm">
+          Add one asset or create multiple identical assets. IDs are auto-generated from your org and category.
+        </p>
+      </div>
+
+      {error && (
+        <div className="mb-4 p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-400 text-sm">{error}</div>
+      )}
+
+      <form onSubmit={handleSubmit}>
+        <Section title="Asset ID & quantity" accentClass="border-l-blue-500/50" titleClass="text-blue-400/80">
+          <Field label="Asset ID" required hint="Format: ORG-CAT-NUMBER (auto-generated)">
             <input
-              type="text"
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addNewCategory();
-                }
-              }}
-              placeholder="Add new category..."
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-gray-900 text-gray-100"
+              value={form.assetId}
+              readOnly
+              required
+              placeholder="Generating..."
+              className={`${inputClass} bg-gray-900/50 text-gray-400 cursor-not-allowed`}
             />
-            <button
-              type="button"
-              onClick={addNewCategory}
-              className="px-4 py-2 bg-slate-600 text-white rounded-lg font-medium text-sm hover:bg-slate-700"
-            >
-              Add
-            </button>
+          </Field>
+          <Field label="Quantity" required hint={quantity > 1 && form.assetId ? `Creates ${form.assetId} to ${generateSequentialId(form.assetId, quantity - 1)}` : '1 for single asset, up to 1000 for bulk'}>
+            <input
+              type="number"
+              min={1}
+              max={1000}
+              value={quantity}
+              onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 1)}
+              className={inputClass}
+            />
+          </Field>
+        </Section>
+
+        <Section title="Basic information" accentClass="border-l-violet-500/50" titleClass="text-violet-400/80">
+          <Field label="Name" required>
+            <input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              required
+              placeholder="e.g. Projector Room 201"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Category">
+            <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className={inputClass}>
+              <option value="">Select category</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <div className="mt-2 flex gap-2">
+              <input
+                type="text"
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addNewCategory();
+                  }
+                }}
+                placeholder="New category…"
+                className={inputClass}
+              />
+              <button
+                type="button"
+                onClick={addNewCategory}
+                className={`${buttonClass} shrink-0 border-violet-500/40 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20`}
+              >
+                Add
+              </button>
+            </div>
+          </Field>
+          <Field label="Model">
+            <input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className={inputClass} placeholder="e.g. Epson EB-X06" />
+          </Field>
+          <Field label="Serial number">
+            <input value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value })} className={inputClass} />
+          </Field>
+          <div className="md:col-span-2">
+            <label className={labelClass}>Status</label>
+            <div className="flex flex-wrap gap-1.5">
+              {STATUSES.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setForm({ ...form, status: s })}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border capitalize transition-colors ${
+                    form.status === s
+                      ? STATUS_BADGE[s]
+                      : 'border-gray-700/60 bg-gray-800/40 text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  {s.replace(/_/g, ' ')}
+                </button>
+              ))}
+            </div>
           </div>
-        </Field>
-        <Field label="Model">
-          <input
-            value={form.model}
-            onChange={(e) => setForm({ ...form, model: e.target.value })}
-            placeholder="e.g. Epson EB-X06"
-            className={inputClassName}
-          />
-        </Field>
-        <Field label="Serial number">
-          <input
-            value={form.serialNumber}
-            onChange={(e) => setForm({ ...form, serialNumber: e.target.value })}
-            className={inputClassName}
-          />
-        </Field>
-        <Field label="Status">
-          <select
-            value={form.status}
-            onChange={(e) => setForm({ ...form, status: e.target.value })}
-            className={inputClassName}
+        </Section>
+
+        <Section title="Assignment & location" accentClass="border-l-amber-500/50" titleClass="text-amber-400/80">
+          <Field label="Assigned to">
+            <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className={inputClass}>
+              <option value="">Unassigned</option>
+              {users.map((u) => (
+                <option key={u._id} value={u._id}>
+                  {u.name} ({u.email})
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Location">
+            <select value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })} className={inputClass}>
+              <option value="">No location</option>
+              {locations.map((l) => (
+                <option key={l._id} value={l._id}>
+                  {l.name} ({l.type})
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Department">
+            <select value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })} className={inputClass}>
+              <option value="">No department</option>
+              {departments.map((d) => (
+                <option key={d._id} value={d._id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </Section>
+
+        <Section title="Purchase & warranty" accentClass="border-l-emerald-500/50" titleClass="text-emerald-400/80">
+          <Field label="Purchase date">
+            <input type="date" value={form.purchaseDate} onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })} className={inputClass} />
+          </Field>
+          <Field label="Warranty expiry">
+            <input type="date" value={form.warrantyExpiry} onChange={(e) => setForm({ ...form, warrantyExpiry: e.target.value })} className={inputClass} />
+          </Field>
+          <Field label="Vendor">
+            <select value={form.vendorId} onChange={(e) => setForm({ ...form, vendorId: e.target.value })} className={inputClass}>
+              <option value="">No vendor</option>
+              {vendors.map((v) => (
+                <option key={v._id} value={v._id}>
+                  {v.vendorId} — {v.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-gray-600 mt-1">
+              <Link href="/dashboard/vendors" className="text-blue-400 hover:text-blue-300">
+                Manage vendors
+              </Link>
+            </p>
+          </Field>
+          <Field label="Cost (INR)">
+            <input type="number" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} placeholder="0" className={inputClass} />
+          </Field>
+        </Section>
+
+        <div className="flex flex-wrap gap-2 items-center">
+          <button
+            type="submit"
+            disabled={loading || bulkCreating || generatingAssetId}
+            className={`${buttonClass} border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50`}
           >
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>{s.replace('_', ' ')}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Assigned to (optional)">
-          <select
-            value={form.assignedTo}
-            onChange={(e) => setForm({ ...form, assignedTo: e.target.value })}
-            className={inputClassName}
-          >
-            <option value="">None</option>
-            {users.map((u) => (
-              <option key={u._id} value={u._id}>{u.name} ({u.email})</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Location (optional)">
-          <select
-            value={form.locationId}
-            onChange={(e) => setForm({ ...form, locationId: e.target.value })}
-            className={inputClassName}
-          >
-            <option value="">None</option>
-            {locations.map((l) => (
-              <option key={l._id} value={l._id}>{l.name} ({l.type})</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Department (optional)">
-          <select
-            value={form.departmentId}
-            onChange={(e) => setForm({ ...form, departmentId: e.target.value })}
-            className={inputClassName}
-          >
-            <option value="">None</option>
-            {departments.map((d) => (
-              <option key={d._id} value={d._id}>{d.name}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Purchase date">
-          <input
-            type="date"
-            value={form.purchaseDate}
-            onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })}
-            className="w-full px-3 py-2.5 border border-slate-300 bg-gray-800 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-          />
-        </Field>
-        <Field label="Warranty expiry">
-          <input
-            type="date"
-            value={form.warrantyExpiry}
-            onChange={(e) => setForm({ ...form, warrantyExpiry: e.target.value })}
-            className="w-full px-3 py-2.5 border border-slate-300 bg-gray-800 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-          />
-          {/*<p className="text-xs text-gray-500 mt-1">*/}
-          {/*  You'll be notified when warranty expires*/}
-          {/*</p>*/}
-        </Field>
-        <Field label="Vendor">
-          <select
-            value={form.vendorId}
-            onChange={(e) => setForm({ ...form, vendorId: e.target.value })}
-            className={inputClassName}
-          >
-            <option value="">Select vendor (optional)</option>
-            {vendors.map((v) => (
-              <option key={v._id} value={v._id}>
-                {v.vendorId} - {v.name}
-              </option>
-            ))}
-          </select>
-          <p className="text-sm text-gray-500 mt-1">
-            <Link href="/dashboard/vendors" className="text-blue-400 hover:underline">
-              Manage vendors
-            </Link> to add new vendors
-          </p>
-        </Field>
-        <Field label="Cost (₹)">
-          <input
-            type="number"
-            value={form.cost}
-            onChange={(e) => setForm({ ...form, cost: e.target.value })}
-            placeholder="0"
-            className={inputClassName}
-          />
-        </Field>
-        {/*<Field label="Photos (optional)">*/}
-        {/*  <div className="space-y-2">*/}
-        {/*    <input type="file" accept="image/*" onChange={addPhoto} className="text-sm text-gray-400" />*/}
-        {/*    {photos.length > 0 && (*/}
-        {/*      <div className="flex flex-wrap gap-2 mt-2">*/}
-        {/*        {photos.map((p, i) => (*/}
-        {/*          <div key={i} className="relative">*/}
-        {/*            <img src={p.url} alt="" className="h-20 w-20 object-cover rounded border border-gray-700" />*/}
-        {/*            <button type="button" onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs leading-none">×</button>*/}
-        {/*          </div>*/}
-        {/*        ))}*/}
-        {/*      </div>*/}
-        {/*    )}*/}
-        {/*  </div>*/}
-        {/*</Field>*/}
-        {/*<Field label="Documents (optional)">*/}
-        {/*  <div className="space-y-2">*/}
-        {/*    <input type="file" accept=".pdf,.doc,.docx,image/*" onChange={addDocument} className="text-sm text-gray-400" />*/}
-        {/*    {documents.length > 0 && (*/}
-        {/*      <ul className="text-sm text-gray-400 mt-2 space-y-1">*/}
-        {/*        {documents.map((d, i) => (*/}
-        {/*          <li key={i} className="flex items-center gap-2">*/}
-        {/*            <span>{d.name}</span>*/}
-        {/*            <button type="button" onClick={() => setDocuments((prev) => prev.filter((_, j) => j !== i))} className="text-red-400 hover:underline">Remove</button>*/}
-        {/*          </li>*/}
-        {/*        ))}*/}
-        {/*      </ul>*/}
-        {/*    )}*/}
-        {/*  </div>*/}
-        {/*</Field>*/}
-        <button
-          type="submit"
-          disabled={loading || bulkCreating || generatingAssetId}
-          className="w-32 mt-4 px-6 py-3 bg-primary text-white rounded-lg font-semibold disabled:opacity-60 hover:bg-primary-hover md:col-span-2"
-        >
-          {bulkCreating
-            ? `Creating ${bulkProgress.current} of ${bulkProgress.total}...`
-            : loading
-            ? 'Creating asset...'
-            : generatingAssetId
-            ? 'Generating ID...'
-            : quantity > 1
-            ? `Create ${quantity} Assets`
-            : 'Add asset'}
-        </button>
+            {bulkCreating
+              ? `Creating ${bulkProgress.current} of ${bulkProgress.total}…`
+              : loading
+              ? 'Creating…'
+              : generatingAssetId
+              ? 'Generating ID…'
+              : quantity > 1
+              ? `Create ${quantity} assets`
+              : 'Add asset'}
+          </button>
+        </div>
 
         {bulkCreating && (
-          <div className="mt-4 md:col-span-2">
-            <div className="w-full bg-slate-200 rounded-full h-2.5">
+          <div className="mt-4">
+            <div className="w-full bg-gray-700/60 rounded-full h-1.5">
               <div
-                className="bg-primary h-2.5 rounded-full transition-all duration-300"
+                className="bg-emerald-500/70 h-1.5 rounded-full transition-all duration-300"
                 style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
               />
             </div>
-            <p className="text-sm text-gray-400 text-center mt-2">
-              Creating asset {bulkProgress.current} of {bulkProgress.total}...
+            <p className="text-xs text-gray-500 mt-2">
+              Creating asset {bulkProgress.current} of {bulkProgress.total}
             </p>
           </div>
         )}
       </form>
-    </div>
-  );
-}
-
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block mb-1.5 font-medium text-gray-300">
-        {label} {required && '*'}
-      </label>
-      {children}
     </div>
   );
 }

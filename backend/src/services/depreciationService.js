@@ -419,3 +419,4 @@ export async function calculateOrganizationDepreciation(organizationId) {
 }
 
 export const DEPRECIATION_CONFIG = { CATEGORY_CONFIG, REPLACEMENT_PRIORITY };
+export { calculateSLM, getCategoryConfig, calculateAssetAge };

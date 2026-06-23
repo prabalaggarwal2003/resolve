@@ -64,11 +64,11 @@ function api(path: string) {
 }
 
 function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('en-IN', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'INR',
     minimumFractionDigits: 0,
-    maximumFractionDigits: 0
+    maximumFractionDigits: 0,
   }).format(amount);
 }
 
@@ -76,8 +76,79 @@ function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
-    day: 'numeric'
+    day: 'numeric',
   });
+}
+
+const inputClass = 'w-full px-3 py-1.5 text-sm border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200 focus:ring-1 focus:ring-blue-500/40 focus:border-blue-500/40';
+const labelClass = 'block text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1';
+
+const STATUS_BADGE: Record<string, string> = {
+  Active: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
+  Inactive: 'text-gray-300 bg-gray-500/15 border-gray-500/30',
+  Blacklisted: 'text-red-300 bg-red-500/15 border-red-500/30',
+  Paid: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
+  Pending: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
+  Overdue: 'text-red-300 bg-red-500/15 border-red-500/30',
+  Cancelled: 'text-gray-300 bg-gray-500/15 border-gray-500/30',
+};
+
+function SummaryCard({ label, value, accent = 'text-gray-100' }: { label: string; value: string | number; accent?: string }) {
+  return (
+    <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
+      <p className="text-[10px] text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className={`text-sm font-semibold mt-0.5 truncate ${accent}`}>{value}</p>
+    </div>
+  );
+}
+
+function InfoField({ label, value, className = '' }: { label: string; value?: React.ReactNode; className?: string }) {
+  return (
+    <div className={`px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30 ${className}`}>
+      <p className="text-[10px] text-gray-500 uppercase tracking-wide">{label}</p>
+      <div className="text-sm font-semibold text-gray-200 mt-0.5">{value || '—'}</div>
+    </div>
+  );
+}
+
+function PaginationBar({
+  page,
+  totalItems,
+  itemsPerPage,
+  onPageChange,
+}: {
+  page: number;
+  totalItems: number;
+  itemsPerPage: number;
+  onPageChange: (page: number) => void;
+}) {
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="flex items-center justify-between gap-3 flex-wrap mt-3">
+      <p className="text-xs text-gray-500">
+        {(page - 1) * itemsPerPage + 1}–{Math.min(page * itemsPerPage, totalItems)} of {totalItems}
+      </p>
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => onPageChange(Math.max(1, page - 1))}
+          disabled={page === 1}
+          className="px-2.5 py-1 text-xs font-medium border border-gray-700/60 bg-gray-800/60 text-gray-400 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700/60 hover:text-gray-200 transition-colors"
+        >
+          Prev
+        </button>
+        <span className="px-2 text-xs text-gray-500">{page}/{totalPages}</span>
+        <button
+          onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+          disabled={page >= totalPages}
+          className="px-2.5 py-1 text-xs font-medium border border-gray-700/60 bg-gray-800/60 text-gray-400 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700/60 hover:text-gray-200 transition-colors"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function VendorDetailPage() {
@@ -302,12 +373,12 @@ export default function VendorDetailPage() {
 
   if (tier === 'free' || isExpired) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-100 mb-6">🏢 Vendor Details</h1>
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-2xl font-bold text-gray-100 mb-6">Vendor details</h1>
         {isExpired && (
           <div className="bg-red-900/20 border border-red-800 rounded-lg p-4 mb-6">
-            <p className="text-red-400 font-medium">⚠️ Your subscription has expired</p>
-            <p className="text-red-300 text-sm mt-1">Renew your subscription to access Vendor Management</p>
+            <p className="text-red-400 font-medium">Your subscription has expired</p>
+            <p className="text-red-300 text-sm mt-1">Renew your subscription to access vendor management</p>
           </div>
         )}
         <UpgradePrompt feature={isExpired ? 'Vendor Management (Renew subscription to unlock)' : 'Vendor Management'} />
@@ -317,284 +388,277 @@ export default function VendorDetailPage() {
 
   if (error || !vendor) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-red-900/20 border border-red-800 rounded-lg p-4 mb-4">
-          <p className="text-red-400">{error || 'Vendor not found'}</p>
+      <div className="max-w-7xl mx-auto">
+        <div className="p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-400 text-sm mb-4">
+          {error || 'Vendor not found'}
         </div>
-        <Link href="/dashboard/vendors" className="text-gray-300 hover:text-white no-underline">← Back to vendors</Link>
+        <Link href="/dashboard/vendors" className="text-xs text-blue-400 hover:underline no-underline">← Back to vendors</Link>
       </div>
     );
   }
 
+  const address = vendor.address
+    ? [vendor.address.street, vendor.address.city, vendor.address.state, vendor.address.zipCode, vendor.address.country].filter(Boolean).join(', ')
+    : '';
+
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="mb-6">
-        <Link href="/dashboard/vendors" className="text-gray-400 hover:text-gray-200 mb-3 inline-block no-underline">← Back to vendors</Link>
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-100">{vendor.name}</h1>
-            <p className="text-gray-400 mt-1">{vendor.vendorId}</p>
-          </div>
-          <span className={`px-4 py-2 rounded-full text-sm font-medium ${
-            vendor.status === 'Active' ? 'bg-green-900/30 text-green-400' :
-            vendor.status === 'Inactive' ? 'bg-gray-700 text-gray-400' :
-            'bg-red-900/30 text-red-400'
-          }`}>{vendor.status}</span>
+    <div className="max-w-7xl mx-auto">
+      <Link href="/dashboard/vendors" className="text-xs text-gray-500 hover:text-gray-300 mb-3 inline-block no-underline">← Back to vendors</Link>
+
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-100">{vendor.name}</h1>
+          <p className="text-gray-400 mt-1 text-sm font-mono">{vendor.vendorId}</p>
         </div>
+        <span className={`px-2 py-0.5 text-[11px] font-semibold rounded-md border ${STATUS_BADGE[vendor.status] || STATUS_BADGE.Inactive}`}>
+          {vendor.status}
+        </span>
       </div>
 
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-          <div className="bg-gray-800 p-5 rounded-lg border border-gray-700">
-            <p className="text-sm text-gray-400">Total Assets</p>
-            <p className="text-2xl font-bold text-blue-400">{stats.totalAssets}</p>
-          </div>
-          <div className="bg-gray-800 p-5 rounded-lg border border-gray-700">
-            <p className="text-sm text-gray-400">Total Invoices</p>
-            <p className="text-2xl font-bold text-purple-400">{stats.totalInvoices}</p>
-          </div>
-          <div className="bg-gray-800 p-5 rounded-lg border border-gray-700">
-            <p className="text-sm text-gray-400">Total Purchased</p>
-            <p className="text-2xl font-bold text-green-400">{formatCurrency(stats.totalPurchased)}</p>
-          </div>
-          <div className="bg-gray-800 p-5 rounded-lg border border-gray-700">
-            <p className="text-sm text-gray-400">Total Paid</p>
-            <p className="text-2xl font-bold text-gray-400">{formatCurrency(stats.totalPaid)}</p>
-          </div>
-          <div className="bg-gray-800 p-5 rounded-lg border border-gray-700">
-            <p className="text-sm text-gray-400">Pending</p>
-            <p className="text-2xl font-bold text-orange-400">{formatCurrency(stats.pendingPayment)}</p>
+        <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-blue-500/50 bg-gradient-to-r from-blue-950/20 to-gray-800/40 px-4 py-4 mb-4">
+          <p className="text-xs font-semibold text-blue-400/80 uppercase tracking-widest mb-2">Financial overview</p>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <SummaryCard label="Assets" value={stats.totalAssets} accent="text-blue-300" />
+            <SummaryCard label="Invoices" value={stats.totalInvoices} accent="text-violet-300" />
+            <SummaryCard label="Purchased" value={formatCurrency(stats.totalPurchased)} accent="text-emerald-300" />
+            <SummaryCard label="Paid" value={formatCurrency(stats.totalPaid)} accent="text-gray-300" />
+            <SummaryCard
+              label="Pending"
+              value={stats.pendingPayment > 0 ? formatCurrency(stats.pendingPayment) : 'No pending payment'}
+              accent={stats.pendingPayment > 0 ? 'text-amber-300' : 'text-gray-500'}
+            />
           </div>
         </div>
       )}
 
-      <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-100 mb-4">Vendor Information</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div><p className="text-sm text-gray-400">Category</p><p className="font-medium text-gray-100">{vendor.category}</p></div>
-          {vendor.contactPerson && <div><p className="text-sm text-gray-400">Contact Person</p><p className="font-medium text-gray-100">{vendor.contactPerson}</p></div>}
-          {vendor.email && <div><p className="text-sm text-gray-400">Email</p><p className="font-medium text-gray-100">{vendor.email}</p></div>}
-          {vendor.phone && <div><p className="text-sm text-gray-400">Phone</p><p className="font-medium text-gray-100">{vendor.phone}</p></div>}
-          {vendor.website && <div><p className="text-sm text-gray-400">Website</p><a href={vendor.website} target="_blank" rel="noopener noreferrer" className="font-medium text-gray-300 hover:text-white no-underline">{vendor.website}</a></div>}
-          {vendor.address && (vendor.address.street || vendor.address.city) && (
-            <div className="md:col-span-2">
-              <p className="text-sm text-gray-400">Address</p>
-              <p className="font-medium text-gray-100">{[vendor.address.street, vendor.address.city, vendor.address.state, vendor.address.zipCode, vendor.address.country].filter(Boolean).join(', ')}</p>
-            </div>
-          )}
-          {vendor.notes && <div className="md:col-span-2"><p className="text-sm text-gray-400">Notes</p><p className="font-medium text-gray-100">{vendor.notes}</p></div>}
+      <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-violet-500/50 bg-gray-800/40 px-4 py-4 mb-4">
+        <p className="text-xs font-semibold text-violet-400/80 uppercase tracking-widest mb-3">Vendor information</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <InfoField label="Category" value={vendor.category} />
+          <InfoField label="Contact person" value={vendor.contactPerson} />
+          <InfoField label="Email" value={vendor.email} />
+          <InfoField label="Phone" value={vendor.phone} />
+          <InfoField
+            label="Website"
+            value={vendor.website ? (
+              <a href={vendor.website} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline font-normal text-sm no-underline">
+                {vendor.website}
+              </a>
+            ) : undefined}
+            className="sm:col-span-2"
+          />
+          {address && <InfoField label="Address" value={address} className="sm:col-span-2" />}
+          {vendor.notes && <InfoField label="Notes" value={vendor.notes} className="sm:col-span-2" />}
         </div>
       </div>
 
-      <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-100">Invoices ({invoices.length})</h2>
-          <button onClick={() => setShowInvoiceModal(true)} className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 font-medium text-sm">+ Upload Invoice</button>
+      <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-amber-500/50 bg-gray-800/40 px-4 py-4 mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <p className="text-xs font-semibold text-amber-400/80 uppercase tracking-widest">Invoices ({invoices.length})</p>
+          <button
+            onClick={() => setShowInvoiceModal(true)}
+            className="px-2.5 py-1 text-xs font-medium rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 transition-colors"
+          >
+            + Upload invoice
+          </button>
         </div>
+
         {invoices.length > 0 ? (
           <>
-            <div className="overflow-x-auto mb-4">
-              <table className="w-full">
-                <thead className="bg-gray-900 border-b border-gray-700">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Invoice #</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Purchase Date</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Amount</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Paid</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Balance</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase">Status</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase">File</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-700">
-                  {invoices
-                    .slice((invoicePage - 1) * itemsPerPage, invoicePage * itemsPerPage)
-                    .map((invoice) => (
-                      <tr key={invoice._id} className="hover:bg-gray-700/50">
-                        <td className="px-4 py-3 text-sm font-medium text-gray-100">{invoice.invoiceNumber}</td>
-                        <td className="px-4 py-3 text-sm text-gray-400">{formatDate(invoice.purchaseDate)}</td>
-                        <td className="px-4 py-3 text-sm text-right font-medium text-gray-100">{formatCurrency(invoice.totalAmount)}</td>
-                        <td className="px-4 py-3 text-sm text-right text-green-400">{formatCurrency(invoice.paidAmount)}</td>
-                        <td className="px-4 py-3 text-sm text-right text-orange-400 font-medium">{formatCurrency(invoice.totalAmount - invoice.paidAmount)}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${invoice.status === 'Paid' ? 'bg-green-900/30 text-green-400' : invoice.status === 'Overdue' ? 'bg-red-900/30 text-red-400' : 'bg-yellow-900/30 text-yellow-400'}`}>{invoice.status}</span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {invoice.invoiceFileUrl ? <a href={invoice.invoiceFileUrl} target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-white text-sm no-underline">View</a> : <span className="text-gray-500 text-sm">-</span>}
-                        </td>
-                        <td className="px-4 py-3 text-center flex gap-2 justify-center">
-                          <button onClick={() => handleEditInvoice(invoice)} className="px-2 py-1 bg-gray-700 text-gray-200 rounded text-xs hover:bg-gray-600 font-medium">Edit</button>
-                          <button onClick={() => handleDeleteInvoice(invoice._id)} className="px-2 py-1 bg-red-900/30 text-red-400 rounded text-xs hover:bg-red-900/50 font-medium">Delete</button>
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-            {/* Pagination */}
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-400">
-                Showing {(invoicePage - 1) * itemsPerPage + 1} to {Math.min(invoicePage * itemsPerPage, invoices.length)} of {invoices.length}
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setInvoicePage(p => Math.max(1, p - 1))}
-                  disabled={invoicePage === 1}
-                  className="px-3 py-1.5 text-sm border border-gray-700 text-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-900"
-                >
-                  Previous
-                </button>
-                <span className="px-3 py-1.5 text-sm text-gray-100">
-                  Page {invoicePage} of {Math.ceil(invoices.length / itemsPerPage)}
-                </span>
-                <button
-                  onClick={() => setInvoicePage(p => Math.min(Math.ceil(invoices.length / itemsPerPage), p + 1))}
-                  disabled={invoicePage >= Math.ceil(invoices.length / itemsPerPage)}
-                  className="px-3 py-1.5 text-sm border border-gray-700 text-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-900"
-                >
-                  Next
-                </button>
+            <div className="rounded-xl border border-gray-700/60 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-900/80 border-b border-gray-700/60">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Invoice #</th>
+                      <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Date</th>
+                      <th className="px-3 py-2 text-right text-[10px] uppercase tracking-wide text-gray-500">Amount</th>
+                      <th className="px-3 py-2 text-right text-[10px] uppercase tracking-wide text-gray-500">Paid</th>
+                      <th className="px-3 py-2 text-right text-[10px] uppercase tracking-wide text-gray-500">Balance</th>
+                      <th className="px-3 py-2 text-center text-[10px] uppercase tracking-wide text-gray-500">Status</th>
+                      <th className="px-3 py-2 text-center text-[10px] uppercase tracking-wide text-gray-500">File</th>
+                      <th className="px-3 py-2 text-center text-[10px] uppercase tracking-wide text-gray-500">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-700/40">
+                    {invoices
+                      .slice((invoicePage - 1) * itemsPerPage, invoicePage * itemsPerPage)
+                      .map((invoice) => (
+                        <tr key={invoice._id} className="hover:bg-gray-800/40">
+                          <td className="px-3 py-2 text-xs font-medium text-gray-200">{invoice.invoiceNumber}</td>
+                          <td className="px-3 py-2 text-xs text-gray-500">{formatDate(invoice.purchaseDate)}</td>
+                          <td className="px-3 py-2 text-xs text-right text-gray-200">{formatCurrency(invoice.totalAmount)}</td>
+                          <td className="px-3 py-2 text-xs text-right text-emerald-400">{formatCurrency(invoice.paidAmount)}</td>
+                          <td className="px-3 py-2 text-xs text-right text-amber-300">{formatCurrency(invoice.totalAmount - invoice.paidAmount)}</td>
+                          <td className="px-3 py-2 text-center">
+                            <span className={`inline-flex px-2 py-0.5 text-[11px] font-medium rounded-md border ${STATUS_BADGE[invoice.status] || STATUS_BADGE.Pending}`}>
+                              {invoice.status}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            {invoice.invoiceFileUrl ? (
+                              <a href={invoice.invoiceFileUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline no-underline">View</a>
+                            ) : (
+                              <span className="text-xs text-gray-600">—</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            <div className="flex gap-1 justify-center">
+                              <button onClick={() => handleEditInvoice(invoice)} className="px-2 py-0.5 text-[11px] font-medium rounded-md border border-gray-700/60 bg-gray-800/60 text-gray-400 hover:bg-gray-700/60">Edit</button>
+                              <button onClick={() => handleDeleteInvoice(invoice._id)} className="px-2 py-0.5 text-[11px] font-medium rounded-md border border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20">Delete</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
               </div>
             </div>
+            <PaginationBar page={invoicePage} totalItems={invoices.length} itemsPerPage={itemsPerPage} onPageChange={setInvoicePage} />
           </>
         ) : (
-          <div className="text-center py-8">
-            <p className="text-gray-400 mb-4">No invoices uploaded yet</p>
-            <button onClick={() => setShowInvoiceModal(true)} className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 font-medium text-sm">Upload First Invoice</button>
+          <div className="rounded-xl border border-dashed border-amber-500/20 bg-amber-950/10 px-4 py-6 text-center">
+            <p className="text-sm font-medium text-gray-300 mb-1">No invoices yet</p>
+            <p className="text-xs text-gray-500 mb-3">Upload the first invoice for this vendor.</p>
+            <button
+              onClick={() => setShowInvoiceModal(true)}
+              className="px-2.5 py-1 text-xs font-medium rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 transition-colors"
+            >
+              + Upload invoice
+            </button>
           </div>
         )}
       </div>
 
-      <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-        <h2 className="text-xl font-semibold text-gray-100 mb-4">Assets from this Vendor ({assets.length})</h2>
+      <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-emerald-500/50 bg-gray-800/40 px-4 py-4">
+        <p className="text-xs font-semibold text-emerald-400/80 uppercase tracking-widest mb-3">Assets ({assets.length})</p>
+
         {assets.length > 0 ? (
           <>
-            <div className="overflow-x-auto mb-4">
-              <table className="w-full">
-                <thead className="bg-gray-900 border-b border-gray-700">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Asset ID</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Category</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Cost</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Purchase Date</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-700">
-                  {assets
-                    .slice((assetsPage - 1) * itemsPerPage, assetsPage * itemsPerPage)
-                    .map((asset) => (
-                      <tr key={asset._id} className="hover:bg-gray-700/50">
-                        <td className="px-4 py-3 text-sm font-medium text-gray-100"><Link href={`/dashboard/assets/${asset._id}`} className="text-gray-300 hover:text-white no-underline">{asset.assetId}</Link></td>
-                        <td className="px-4 py-3 text-sm text-gray-100">{asset.name}</td>
-                        <td className="px-4 py-3 text-sm text-gray-400">{asset.category}</td>
-                        <td className="px-4 py-3 text-sm text-right font-medium text-gray-100">{formatCurrency(asset.cost)}</td>
-                        <td className="px-4 py-3 text-center"><span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-900/30 text-blue-400">{asset.status}</span></td>
-                        <td className="px-4 py-3 text-sm text-gray-400">{asset.purchaseDate ? formatDate(asset.purchaseDate) : '-'}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-            {/* Pagination */}
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-400">
-                Showing {(assetsPage - 1) * itemsPerPage + 1} to {Math.min(assetsPage * itemsPerPage, assets.length)} of {assets.length}
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setAssetsPage(p => Math.max(1, p - 1))}
-                  disabled={assetsPage === 1}
-                  className="px-3 py-1.5 text-sm border border-gray-700 text-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-900"
-                >
-                  Previous
-                </button>
-                <span className="px-3 py-1.5 text-sm text-gray-100">
-                  Page {assetsPage} of {Math.ceil(assets.length / itemsPerPage)}
-                </span>
-                <button
-                  onClick={() => setAssetsPage(p => Math.min(Math.ceil(assets.length / itemsPerPage), p + 1))}
-                  disabled={assetsPage >= Math.ceil(assets.length / itemsPerPage)}
-                  className="px-3 py-1.5 text-sm border border-gray-700 text-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-900"
-                >
-                  Next
-                </button>
+            <div className="rounded-xl border border-gray-700/60 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-900/80 border-b border-gray-700/60">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Asset ID</th>
+                      <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Name</th>
+                      <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Category</th>
+                      <th className="px-3 py-2 text-right text-[10px] uppercase tracking-wide text-gray-500">Cost</th>
+                      <th className="px-3 py-2 text-center text-[10px] uppercase tracking-wide text-gray-500">Status</th>
+                      <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Purchased</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-700/40">
+                    {assets
+                      .slice((assetsPage - 1) * itemsPerPage, assetsPage * itemsPerPage)
+                      .map((asset) => (
+                        <tr key={asset._id} className="hover:bg-gray-800/40">
+                          <td className="px-3 py-2 text-xs font-medium">
+                            <Link href={`/dashboard/assets/${asset._id}`} className="text-blue-400 hover:underline no-underline">{asset.assetId}</Link>
+                          </td>
+                          <td className="px-3 py-2 text-xs text-gray-200">{asset.name}</td>
+                          <td className="px-3 py-2 text-xs text-gray-500">{asset.category}</td>
+                          <td className="px-3 py-2 text-xs text-right text-gray-200">{formatCurrency(asset.cost)}</td>
+                          <td className="px-3 py-2 text-center">
+                            <span className="inline-flex px-2 py-0.5 text-[11px] font-medium rounded-md border text-blue-300 bg-blue-500/15 border-blue-500/30">
+                              {asset.status}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-xs text-gray-500">{asset.purchaseDate ? formatDate(asset.purchaseDate) : '—'}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
               </div>
             </div>
+            <PaginationBar page={assetsPage} totalItems={assets.length} itemsPerPage={itemsPerPage} onPageChange={setAssetsPage} />
           </>
         ) : (
-          <div className="text-center py-8"><p className="text-gray-400">No assets purchased from this vendor yet</p></div>
+          <div className="rounded-xl border border-dashed border-emerald-500/20 bg-emerald-950/10 px-4 py-6 text-center">
+            <p className="text-sm font-medium text-gray-300 mb-1">No assets linked</p>
+            <p className="text-xs text-gray-500">Assets purchased from this vendor will appear here.</p>
+          </div>
         )}
       </div>
 
       {showInvoiceModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50" onClick={() => { setShowInvoiceModal(false); resetInvoiceForm(); }}>
-          <div className="bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-700" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <h2 className="text-xl font-bold text-gray-100 mb-4">{editingInvoice ? 'Edit Invoice' : 'Upload Invoice'}</h2>
-              <form onSubmit={handleInvoiceSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Invoice Number *</label>
-                    <input type="text" required value={invoiceForm.invoiceNumber} onChange={(e) => setInvoiceForm({ ...invoiceForm, invoiceNumber: e.target.value })} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Purchase Date *</label>
-                    <input type="date" required value={invoiceForm.purchaseDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, purchaseDate: e.target.value })} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Total Amount *</label>
-                    <input type="number" required step="0.01" value={invoiceForm.totalAmount} onChange={(e) => setInvoiceForm({ ...invoiceForm, totalAmount: e.target.value })} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Paid Amount</label>
-                    <input type="number" step="0.01" value={invoiceForm.paidAmount} onChange={(e) => setInvoiceForm({ ...invoiceForm, paidAmount: e.target.value })} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Status</label>
-                    <select value={invoiceForm.status} onChange={(e) => setInvoiceForm({ ...invoiceForm, status: e.target.value })} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent">
-                      <option value="Pending">Pending</option>
-                      <option value="Paid">Paid</option>
-                      <option value="Overdue">Overdue</option>
-                      <option value="Cancelled">Cancelled</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Payment Method</label>
-                    <select value={invoiceForm.paymentMethod} onChange={(e) => setInvoiceForm({ ...invoiceForm, paymentMethod: e.target.value })} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent">
-                      <option value="Cash">Cash</option>
-                      <option value="Cheque">Cheque</option>
-                      <option value="Bank Transfer">Bank Transfer</option>
-                      <option value="Credit Card">Credit Card</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Due Date</label>
-                  <input type="date" value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent" />
-                </div>
-                {/*<div>*/}
-                {/*  <label className="block text-sm font-medium text-gray-300 mb-1">Invoice File (PDF/Image)</label>*/}
-                {/*  <input type="file" accept=".pdf,image/*" onChange={(e) => setInvoiceForm({ ...invoiceForm, invoiceFile: e.target.files?.[0] || null })} className="w-full text-sm text-gray-400" />*/}
-                {/*  {invoiceForm.invoiceFile && <p className="text-sm text-gray-400 mt-1">Selected: {invoiceForm.invoiceFile.name}</p>}*/}
-                {/*</div>*/}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Notes</label>
-                  <textarea value={invoiceForm.notes} onChange={(e) => setInvoiceForm({ ...invoiceForm, notes: e.target.value })} rows={3} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent" />
-                </div>
-                <div className="flex gap-3 pt-4">
-                  <button type="submit" disabled={uploadingInvoice} className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 font-medium disabled:opacity-50">{uploadingInvoice ? (editingInvoice ? 'Updating...' : 'Uploading...') : (editingInvoice ? 'Update Invoice' : 'Upload Invoice')}</button>
-                  <button type="button" onClick={() => { setShowInvoiceModal(false); resetInvoiceForm(); }} className="px-4 py-2 bg-gray-900 text-gray-300 rounded-lg hover:bg-gray-600 font-medium">Cancel</button>
-                </div>
-              </form>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={() => { setShowInvoiceModal(false); resetInvoiceForm(); }}>
+          <div className="bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-700 p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-100">{editingInvoice ? 'Edit invoice' : 'Upload invoice'}</h2>
+                <p className="text-[11px] text-gray-500 mt-0.5">{vendor.name}</p>
+              </div>
+              <button onClick={() => { setShowInvoiceModal(false); resetInvoiceForm(); }} className="text-gray-400 hover:text-gray-200 text-xl">✕</button>
             </div>
+            <form onSubmit={handleInvoiceSubmit} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>Invoice number *</label>
+                  <input type="text" required value={invoiceForm.invoiceNumber} onChange={(e) => setInvoiceForm({ ...invoiceForm, invoiceNumber: e.target.value })} className={inputClass} />
+                </div>
+                <div>
+                  <label className={labelClass}>Purchase date *</label>
+                  <input type="date" required value={invoiceForm.purchaseDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, purchaseDate: e.target.value })} className={inputClass} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>Total amount *</label>
+                  <input type="number" required step="0.01" value={invoiceForm.totalAmount} onChange={(e) => setInvoiceForm({ ...invoiceForm, totalAmount: e.target.value })} className={inputClass} />
+                </div>
+                <div>
+                  <label className={labelClass}>Paid amount</label>
+                  <input type="number" step="0.01" value={invoiceForm.paidAmount} onChange={(e) => setInvoiceForm({ ...invoiceForm, paidAmount: e.target.value })} className={inputClass} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>Status</label>
+                  <select value={invoiceForm.status} onChange={(e) => setInvoiceForm({ ...invoiceForm, status: e.target.value })} className={inputClass}>
+                    <option value="Pending">Pending</option>
+                    <option value="Paid">Paid</option>
+                    <option value="Overdue">Overdue</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Payment method</label>
+                  <select value={invoiceForm.paymentMethod} onChange={(e) => setInvoiceForm({ ...invoiceForm, paymentMethod: e.target.value })} className={inputClass}>
+                    <option value="Cash">Cash</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Credit Card">Credit Card</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className={labelClass}>Due date</label>
+                <input type="date" value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })} className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Notes</label>
+                <textarea value={invoiceForm.notes} onChange={(e) => setInvoiceForm({ ...invoiceForm, notes: e.target.value })} rows={3} className={inputClass} />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="submit"
+                  disabled={uploadingInvoice}
+                  className="flex-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                >
+                  {uploadingInvoice ? (editingInvoice ? 'Updating…' : 'Uploading…') : (editingInvoice ? 'Update invoice' : 'Upload invoice')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowInvoiceModal(false); resetInvoiceForm(); }}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700/60 bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

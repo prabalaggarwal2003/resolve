@@ -8,56 +8,29 @@ const ROLES = [
 	{
 		value: 'super_admin',
 		label: 'Super Admin',
-		color: 'text-red-400 bg-red-900/30 border-red-800/50',
+		badge: 'text-red-300 bg-red-500/15 border-red-500/30',
+		accent: 'border-l-red-500/60',
 		dot: 'bg-red-400',
-		privileges: [
-			{ label: 'Full dashboard access', granted: true },
-			{ label: 'Create / edit / delete users', granted: true },
-			{ label: 'Assign roles to users', granted: true },
-			{ label: 'Assign assets to users', granted: true },
-			{ label: 'Manage all assets (all departments)', granted: true },
-			{ label: 'Manage issues', granted: true },
-			{ label: 'Manage locations & departments', granted: true },
-			{ label: 'View audit logs & reports', granted: true },
-			{ label: 'Edit organisation settings', granted: true },
-		],
-		scope: 'All assets & data within the organisation',
+		summary: 'Full access — users, roles, org settings, audit logs, all departments.',
+		scope: 'Organisation-wide',
 	},
 	{
 		value: 'admin',
 		label: 'Admin',
-		color: 'text-amber-400 bg-amber-900/30 border-amber-800/50',
+		badge: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
+		accent: 'border-l-amber-500/60',
 		dot: 'bg-amber-400',
-		privileges: [
-			{ label: 'Full dashboard access', granted: true },
-			{ label: 'Create / edit / delete users', granted: false },
-			{ label: 'Assign roles to users', granted: false },
-			{ label: 'Assign assets to users', granted: false },
-			{ label: 'Manage all assets (all departments)', granted: true },
-			{ label: 'Manage issues', granted: true },
-			{ label: 'Manage locations & departments', granted: true },
-			{ label: 'View audit logs & reports', granted: true },
-			{ label: 'Edit organisation settings', granted: false },
-		],
-		scope: 'All assets & data within the organisation',
+		summary: 'Manage assets, issues, locations, and reports across all departments. No user or org settings access.',
+		scope: 'Organisation-wide',
 	},
 	{
 		value: 'manager',
 		label: 'Manager',
-		color: 'text-blue-400 bg-blue-900/30 border-blue-800/50',
+		badge: 'text-blue-300 bg-blue-500/15 border-blue-500/30',
+		accent: 'border-l-blue-500/60',
 		dot: 'bg-blue-400',
-		privileges: [
-			{ label: 'Full dashboard access', granted: true },
-			{ label: 'Create / edit / delete users', granted: false },
-			{ label: 'Assign roles to users', granted: false },
-			{ label: 'Assign assets to users', granted: false },
-			{ label: 'Manage all assets (all departments)', granted: false },
-			{ label: 'Manage assets in own department only', granted: true },
-			{ label: 'Manage issues in own department only', granted: true },
-			{ label: 'View locations', granted: true },
-			{ label: 'View audit logs & reports', granted: false },
-		],
-		scope: 'Only assets & issues in their assigned department',
+		summary: 'View and manage assets and issues in their assigned department only.',
+		scope: 'Department only',
 	},
 ];
 
@@ -75,9 +48,19 @@ type User = {
 };
 
 const inputClass =
-	'w-full px-3 py-2 border border-gray-700 rounded-lg bg-gray-800 text-gray-100';
+	'w-full px-3 py-1.5 text-sm border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200 focus:ring-1 focus:ring-blue-500/40 focus:border-blue-500/40';
 const labelClass =
-	'block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2';
+	'block text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1';
+const buttonClass = 'px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors';
+
+function SummaryCard({ label, value, accent = 'text-gray-100' }: { label: string; value: string | number; accent?: string }) {
+	return (
+		<div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
+			<p className="text-[10px] text-gray-500 uppercase tracking-wide">{label}</p>
+			<p className={`text-sm font-semibold mt-0.5 ${accent}`}>{value}</p>
+		</div>
+	);
+}
 
 export default function RolesPage() {
 	const [users, setUsers] = useState<User[]>([]);
@@ -87,7 +70,6 @@ export default function RolesPage() {
 	const [showForm, setShowForm] = useState(false);
 	const [editing, setEditing] = useState<User | null>(null);
 	const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-	const [selectedRole, setSelectedRole] = useState<string | null>(null);
 	const [form, setForm] = useState({
 		email: '',
 		name: '',
@@ -229,106 +211,61 @@ export default function RolesPage() {
 
 	const getRoleMeta = (value: string) => ROLES.find((r) => r.value === value);
 
-	if (loading)
-		return (
-			<div>
-				<h1 className="text-2xl font-bold mb-2">Users & Roles</h1>
-				<LoadingSpinner message="Loading users..." />
-			</div>
-		);
+	if (loading) return <LoadingSpinner message="Loading users..." />;
+
+	const superAdminCount = users.filter((u) => u.role === 'super_admin').length;
+	const adminCount = users.filter((u) => u.role === 'admin').length;
+	const managerCount = users.filter((u) => u.role === 'manager').length;
 
 	return (
-		<div style={{ fontFamily: 'var(--font-manrope, Manrope, sans-serif)' }}>
-			<div className="mb-6">
-				<h1 className="text-2xl font-bold text-gray-100 mb-1">Users & Roles</h1>
-				<p className="text-gray-500 text-sm">
-					{isSuperAdmin
-						? 'Create users and assign roles.'
-						: 'Contact your Super Admin to manage users and roles.'}
-				</p>
+		<div className="max-w-7xl mx-auto">
+			<div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+				<div>
+					<h1 className="text-2xl font-bold text-gray-100">Users & Roles</h1>
+					<p className="text-gray-400 mt-1 text-sm">
+						{isSuperAdmin
+							? 'Create users, assign roles, and control access across your organization.'
+							: 'Contact your super admin to manage users and roles.'}
+					</p>
+				</div>
+				{isSuperAdmin && (
+					<button
+						type="button"
+						onClick={() => {
+							setEditing(null);
+							setForm({ email: '', name: '', role: 'admin', password: '', departmentId: '' });
+							setShowForm(true);
+							setError('');
+						}}
+						className={`${buttonClass} border-blue-500/40 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 hover:border-blue-400/50`}
+					>
+						+ Add user
+					</button>
+				)}
 			</div>
 
 			{error && (
-				<div className="mb-4 p-3 bg-red-900/20 border border-red-800/60 text-red-400 rounded-xl text-sm">
+				<div className="mb-4 p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-400 text-sm">
 					{error}
 				</div>
 			)}
 
-			{/* ── Role reference cards ── */}
-			<div className="mb-8">
-				<p className="text-xs font-semibold text-gray-600 uppercase tracking-widest mb-3">
-					Role Privileges
-				</p>
-				<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-					{ROLES.map((role) => (
-						<button
-							key={role.value}
-							type="button"
-							onClick={() => setSelectedRole(selectedRole === role.value ? null : role.value)}
-							className={`text-left rounded-2xl border p-4 transition-all cursor-pointer ${role.color} ${
-								selectedRole === role.value ? 'ring-2 ring-gray-500' : 'hover:brightness-110'
-							}`}
-						>
-							<div className="flex items-center gap-2 mb-2">
-								<div className={`w-2 h-2 rounded-full ${role.dot} shrink-0`} />
-								<span className="font-bold text-sm">{role.label}</span>
-							</div>
-							<p className="text-xs opacity-70 mb-3 leading-relaxed">{role.scope}</p>
-							{selectedRole === role.value && (
-								<ul className="space-y-1.5 mt-3 border-t border-current/20 pt-3">
-									{role.privileges.map((p) => (
-										<li key={p.label} className="flex items-start gap-2 text-xs">
-											<span
-												className={`mt-0.5 shrink-0 font-bold ${
-													p.granted ? 'text-green-400' : 'text-gray-600'
-												}`}
-											>
-												{p.granted ? '✓' : '✗'}
-											</span>
-											<span className={p.granted ? 'opacity-90' : 'opacity-40'}>
-												{p.label}
-											</span>
-										</li>
-									))}
-								</ul>
-							)}
-							{selectedRole !== role.value && (
-								<p className="text-xs opacity-50">Click to see privileges →</p>
-							)}
-						</button>
-					))}
+			<div className="rounded-xl border border-gray-700/60 border-l-2 border-l-blue-500/50 bg-gradient-to-r from-blue-950/20 to-gray-800/40 px-4 py-4 mb-4">
+				<p className="text-xs font-semibold text-blue-400/80 uppercase tracking-widest mb-2">Overview</p>
+				<div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+					<SummaryCard label="Total users" value={users.length} accent="text-blue-300" />
+					<SummaryCard label="Super admins" value={superAdminCount} accent="text-red-300" />
+					<SummaryCard label="Admins" value={adminCount} accent="text-amber-300" />
+					<SummaryCard label="Managers" value={managerCount} accent="text-violet-300" />
 				</div>
 			</div>
 
-			{/* ── Add user ── */}
-			{isSuperAdmin && (
-				<div className="flex flex-wrap gap-4 mb-6">
-
-					{/* Add user button */}
-					<div className="flex items-end">
-						<button
-							type="button"
-							onClick={() => {
-								setEditing(null);
-								setForm({ email: '', name: '', role: 'admin', password: '', departmentId: '' });
-								setShowForm(true);
-								setError('');
-							}}
-							className="px-6 py-3 bg-gray-100 text-gray-950 rounded-xl font-bold text-sm hover:bg-white transition-all"
-						>
-							+ Add user
-						</button>
-					</div>
-				</div>
-			)}
-
-			{/* ── Add / Edit form ── */}
 			{showForm && isSuperAdmin && (
-				<div className="rounded-2xl border border-gray-700/60 bg-gray-900/40 backdrop-blur-sm p-6 mb-6 max-w-lg">
-					<h2 className="text-lg font-bold text-gray-100 mb-5">
+				<div className="rounded-xl border border-gray-700/60 border-l-2 border-l-emerald-500/50 bg-gray-800/40 px-4 py-4 mb-4 max-w-xl">
+					<p className="text-xs font-semibold text-emerald-400/80 uppercase tracking-widest mb-3">
 						{editing ? 'Edit user' : 'New user'}
-					</h2>
-					<form onSubmit={handleSubmit} className="space-y-4">
+					</p>
+					<form onSubmit={handleSubmit} className="space-y-3">
 						{!editing && (
 							<div>
 								<label className={labelClass}>Email *</label>
@@ -353,26 +290,27 @@ export default function RolesPage() {
 							/>
 						</div>
 
-						{/* Role selector with inline badge */}
 						<div>
 							<label className={labelClass}>Role *</label>
-							<div className="grid grid-cols-2 gap-2">
+							<div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
 								{ROLES.map((r) => (
 									<button
 										key={r.value}
 										type="button"
 										onClick={() => setForm({ ...form, role: r.value })}
-										className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all text-left
-                      ${form.role === r.value ? `${r.color} ring-1 ring-current` : 'border-gray-700/60 bg-gray-800/40 text-gray-500 hover:text-gray-300'}`}
+										className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-colors text-left ${
+											form.role === r.value
+												? `${r.badge} ring-1 ring-current/30`
+												: 'border-gray-700/60 bg-gray-800/40 text-gray-500 hover:text-gray-300'
+										}`}
 									>
-										<div className={`w-2 h-2 rounded-full ${form.role === r.value ? r.dot : 'bg-gray-600'} shrink-0`} />
+										<div className={`w-1.5 h-1.5 rounded-full ${form.role === r.value ? r.dot : 'bg-gray-600'} shrink-0`} />
 										{r.label}
 									</button>
 								))}
 							</div>
 						</div>
 
-						{/* Department — shown for manager */}
 						{form.role === 'manager' && (
 							<div>
 								<label className={labelClass}>Department</label>
@@ -388,8 +326,8 @@ export default function RolesPage() {
 										</option>
 									))}
 								</select>
-								<p className="text-xs text-gray-600 mt-1">
-									Manager will only see assets & issues in this department.
+								<p className="text-[11px] text-gray-600 mt-1">
+									Managers only see assets and issues in this department.
 								</p>
 							</div>
 						)}
@@ -405,19 +343,16 @@ export default function RolesPage() {
 										required
 										minLength={6}
 										placeholder="Min 6 characters"
-										className={inputClass + ' pr-12'}
+										className={`${inputClass} pr-12`}
 									/>
 									<button
 										type="button"
-										onClick={() => setShowFormPassword(v => !v)}
-										className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors text-xs font-semibold select-none"
+										onClick={() => setShowFormPassword((v) => !v)}
+										className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-500 hover:text-gray-300 font-semibold transition-colors select-none"
 									>
-										{showFormPassword ? 'HIDE' : 'SHOW'}
+										{showFormPassword ? 'Hide' : 'Show'}
 									</button>
 								</div>
-								{/*<p className="text-xs text-gray-600 mt-1">*/}
-								{/*	User can change this after first login.*/}
-								{/*</p>*/}
 							</div>
 						)}
 
@@ -425,7 +360,7 @@ export default function RolesPage() {
 							<button
 								type="submit"
 								disabled={submitLoading}
-								className="px-6 py-3 bg-gray-100 text-gray-950 rounded-xl font-bold text-sm hover:bg-white disabled:opacity-50"
+								className={`${buttonClass} border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-400/50 disabled:opacity-50`}
 							>
 								{submitLoading ? 'Saving…' : editing ? 'Save changes' : 'Add user'}
 							</button>
@@ -435,7 +370,7 @@ export default function RolesPage() {
 									setShowForm(false);
 									setEditing(null);
 								}}
-								className="px-4 py-3 rounded-xl border border-gray-700/60 text-gray-400 hover:text-gray-200 text-sm font-medium transition-all"
+								className={`${buttonClass} border-gray-700/60 bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200`}
 							>
 								Cancel
 							</button>
@@ -444,125 +379,97 @@ export default function RolesPage() {
 				</div>
 			)}
 
-			{/* ── Users table ── */}
-			<div className="rounded-2xl border border-gray-700/60 bg-gray-900/40 overflow-hidden">
-				<div className="px-5 py-4 border-b border-gray-800/60 flex items-center justify-between">
-					<p className="text-sm font-semibold text-gray-300">
-						Users{' '}
-						<span className="text-gray-600 font-normal">({users.length})</span>
+			<div className="rounded-xl border border-gray-700/60 overflow-hidden mb-4">
+				<div className="px-4 py-3 border-b border-gray-700/60 bg-gray-900/40">
+					<p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+						Users <span className="text-gray-600 font-normal">({users.length})</span>
 					</p>
 				</div>
 				{users.length === 0 ? (
-					<div className="p-12 text-center text-gray-600">
-						No users yet. Add your first user above.
+					<div className="rounded-b-xl border-t border-dashed border-violet-500/20 bg-violet-950/10 px-4 py-8 text-center">
+						<p className="text-sm font-medium text-gray-300 mb-1">No users yet</p>
+						<p className="text-xs text-gray-500">
+							{isSuperAdmin ? 'Add your first user using the button above.' : 'Ask a super admin to add users.'}
+						</p>
 					</div>
 				) : (
 					<div className="overflow-x-auto">
 						<table className="w-full text-sm">
-							<thead>
-								<tr className="border-b border-gray-800/60">
-									<th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-widest">
-										Name
-									</th>
-									<th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-widest">
-										Email
-									</th>
-									<th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-widest">
-										Role
-									</th>
-									<th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-widest">
-										Department
-									</th>
-									<th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-widest">
-										Scope
-									</th>
+							<thead className="bg-gray-900/80 border-b border-gray-700/60">
+								<tr>
+									<th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Name</th>
+									<th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Email</th>
+									<th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Role</th>
+									<th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Department</th>
+									<th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Scope</th>
 									{isSuperAdmin && (
-										<th className="px-5 py-3 text-xs font-semibold text-gray-600 uppercase tracking-widest">
-											Actions
-										</th>
+										<th className="px-3 py-2 text-center text-[10px] uppercase tracking-wide text-gray-500">Actions</th>
 									)}
 								</tr>
 							</thead>
-							<tbody>
+							<tbody className="divide-y divide-gray-700/40">
 								{users.map((u) => {
 									const meta = getRoleMeta(u.role);
 									return (
-										<tr
-											key={u._id}
-											className="border-t border-gray-800/40 hover:bg-gray-800/20 transition-colors"
-										>
-											<td className="px-5 py-3 font-medium text-gray-200">
-												{u.name}
-											</td>
-											<td className="px-5 py-3">
-												<p className="text-gray-500 text-sm">{u.email}</p>
+										<tr key={u._id} className="hover:bg-gray-800/40 transition-colors">
+											<td className="px-3 py-2 text-xs font-medium text-gray-200">{u.name}</td>
+											<td className="px-3 py-2">
+												<p className="text-xs text-gray-400">{u.email}</p>
 												{isSuperAdmin && storedPasswords[u._id] && (
 													<div className="flex items-center gap-1.5 mt-1">
-														<span className="text-xs text-gray-600 font-mono tracking-wider">
+														<span className="text-[11px] text-gray-600 font-mono tracking-wider">
 															{showPasswords[u._id] ? storedPasswords[u._id] : '••••••••'}
 														</span>
 														<button
 															type="button"
-															onClick={() => setShowPasswords(v => ({ ...v, [u._id]: !v[u._id] }))}
-															className="text-[10px] text-gray-700 hover:text-gray-400 font-semibold transition-colors select-none"
+															onClick={() => setShowPasswords((v) => ({ ...v, [u._id]: !v[u._id] }))}
+															className="text-[10px] text-gray-600 hover:text-gray-400 font-semibold transition-colors select-none"
 														>
-															{showPasswords[u._id] ? 'HIDE' : 'SHOW'}
+															{showPasswords[u._id] ? 'Hide' : 'Show'}
 														</button>
 													</div>
 												)}
 											</td>
-											<td className="px-5 py-3">
-												<span
-													className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
-														meta?.color ?? 'bg-gray-800 text-gray-400 border-gray-700'
-													}`}
-												>
-													<div
-														className={`w-1.5 h-1.5 rounded-full ${
-															meta?.dot ?? 'bg-gray-500'
-														}`}
-													/>
+											<td className="px-3 py-2">
+												<span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${meta?.badge ?? 'text-gray-300 bg-gray-500/15 border-gray-500/30'}`}>
+													<div className={`w-1.5 h-1.5 rounded-full ${meta?.dot ?? 'bg-gray-500'}`} />
 													{meta?.label ?? u.role}
 												</span>
 											</td>
-											<td className="px-5 py-3 text-gray-500 text-xs">
-												{u.departmentId?.name ?? '—'}
-											</td>
-											<td className="px-5 py-3 text-gray-600 text-xs">
-												{meta?.scope ?? '—'}
-											</td>
+											<td className="px-3 py-2 text-xs text-gray-500">{u.departmentId?.name ?? '—'}</td>
+											<td className="px-3 py-2 text-xs text-gray-500 max-w-xs">{meta?.scope ?? '—'}</td>
 											{isSuperAdmin && (
-												<td className="px-5 py-3">
-													<div className="flex items-center gap-2">
+												<td className="px-3 py-2">
+													<div className="flex items-center justify-center gap-1.5">
 														<button
 															type="button"
 															onClick={() => openEdit(u)}
-															className="text-xs text-gray-400 hover:text-gray-100 transition-colors font-medium"
+															className={`${buttonClass} border-gray-700/60 bg-gray-800/60 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200`}
 														>
 															Edit
 														</button>
 														{deleteConfirm === u._id ? (
-															<div className="flex items-center gap-1">
+															<>
 																<button
 																	type="button"
 																	onClick={() => handleDelete(u._id)}
-																	className="text-xs text-red-400 hover:text-red-300 font-bold"
+																	className={`${buttonClass} border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20`}
 																>
 																	Confirm
 																</button>
 																<button
 																	type="button"
 																	onClick={() => setDeleteConfirm(null)}
-																	className="text-xs text-gray-600 hover:text-gray-300"
+																	className={`${buttonClass} border-gray-700/60 bg-gray-800/40 text-gray-500 hover:text-gray-300`}
 																>
 																	Cancel
 																</button>
-															</div>
+															</>
 														) : (
 															<button
 																type="button"
 																onClick={() => setDeleteConfirm(u._id)}
-																className="text-xs text-gray-600 hover:text-red-400 transition-colors"
+																className={`${buttonClass} border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20`}
 															>
 																Delete
 															</button>
@@ -577,6 +484,26 @@ export default function RolesPage() {
 						</table>
 					</div>
 				)}
+			</div>
+
+			<div className="rounded-xl border border-gray-700/40 bg-gray-800/30 px-4 py-4">
+				<p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Role guide</p>
+				<div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+					{ROLES.map((role) => (
+						<div
+							key={role.value}
+							className={`rounded-lg border border-gray-700/40 bg-gray-900/30 border-l-2 ${role.accent} px-3 py-8`}
+						>
+							<div className="flex items-center justify-between gap-2 mb-1">
+								<span className={`px-2 py-0.5 text-[11px] font-semibold rounded-md border ${role.badge}`}>
+									{role.label}
+								</span>
+								<span className="text-[10px] text-gray-600 ">{role.scope}</span>
+							</div>
+							<p className="text-[11px] text-gray-500 leading-relaxed mt-4">{role.summary}</p>
+						</div>
+					))}
+				</div>
 			</div>
 		</div>
 	);

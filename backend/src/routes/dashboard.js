@@ -1,7 +1,8 @@
 import express from 'express';
 import { Asset, Issue } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
-import { canViewAll, canReportOnly, isHod, isLabTechnician, assetFilterForUser, issueFilterForUser } from '../services/permissions.js';
+import { canReportOnly, isHod, isLabTechnician, assetFilterForUser, issueFilterForUser } from '../services/permissions.js';
+import { getDashboardOverview } from '../services/dashboardOverviewService.js';
 
 const router = express.Router();
 
@@ -40,7 +41,7 @@ router.get('/summary', async (req, res) => {
       ? { organizationId: req.user.organizationId, assetId: { $in: deptAssetIds } }
       : (issueFilterForUser(req.user, deptAssetIds) || { _id: { $exists: false } });
 
-    const [totalAssets, openIssues, inProgressIssues, completedToday, myAssets, myReports, pendingReports] = await Promise.all([
+    const [totalAssets, openIssues, inProgressIssues, completedToday, myAssets, myReports, pendingReports, underMaintenance] = await Promise.all([
       Asset.countDocuments(assetFilter),
       Issue.countDocuments({ ...baseIssueFilter, status: 'open' }),
       Issue.countDocuments({ ...baseIssueFilter, status: 'in_progress' }),
@@ -48,6 +49,7 @@ router.get('/summary', async (req, res) => {
       canReportOnly(req.user) ? Asset.countDocuments({ ...assetFilter, assignedTo: userId }) : Asset.countDocuments(assetFilter),
       Issue.countDocuments({ ...baseIssueFilter, $or: [{ reportedBy: userId }, { reporterEmail: userEmail }] }),
       Issue.countDocuments({ ...baseIssueFilter, status: { $in: ['open', 'in_progress'] } }),
+      Asset.countDocuments({ ...assetFilter, status: 'under_maintenance' }),
     ]);
 
     res.json({
@@ -58,9 +60,19 @@ router.get('/summary', async (req, res) => {
       myAssets: myAssets ?? 0,
       myReports: myReports ?? 0,
       pendingReports: pendingReports ?? 0,
+      underMaintenance: underMaintenance ?? 0,
       role: req.user.role || 'unknown',
       canReportOnly: canReportOnly(req.user),
     });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.get('/overview', async (req, res) => {
+  try {
+    const overview = await getDashboardOverview(req.user);
+    res.json(overview);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
