@@ -22,18 +22,18 @@ export function getOtpExpiry() {
   return new Date(Date.now() + OTP_EXPIRY_MS);
 }
 
-function buildOtpEmailHtml(code) {
+function buildOtpEmailHtml(code, { title, description }) {
   return `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px; color: #e5e7eb; background: #111827; border-radius: 16px;">
-      <h1 style="margin: 0 0 8px; font-size: 22px; color: #f9fafb;">Verify your Resolve account</h1>
-      <p style="margin: 0 0 24px; font-size: 14px; color: #9ca3af;">Use this code to complete your organisation signup. It expires in 10 minutes.</p>
+      <h1 style="margin: 0 0 8px; font-size: 22px; color: #f9fafb;">${title}</h1>
+      <p style="margin: 0 0 24px; font-size: 14px; color: #9ca3af;">${description}</p>
       <div style="font-size: 32px; font-weight: 700; letter-spacing: 0.35em; text-align: center; padding: 20px; background: #1f2937; border: 1px solid #374151; border-radius: 12px; color: #f9fafb;">${code}</div>
       <p style="margin: 24px 0 0; font-size: 12px; color: #6b7280;">If you didn't request this, you can safely ignore this email.</p>
     </div>
   `;
 }
 
-export async function sendOtpEmail(email, code) {
+async function sendOtpEmailWithContent(email, code, { subject, title, description, textPrefix }) {
   if (!env.brevoApiKey) {
     throw new Error('Brevo API key is not configured (BREVO_API_KEY)');
   }
@@ -51,9 +51,9 @@ export async function sendOtpEmail(email, code) {
         email: env.brevoFromEmail,
       },
       to: [{ email }],
-      subject: 'Your Resolve verification code',
-      htmlContent: buildOtpEmailHtml(code),
-      textContent: `Your Resolve verification code is ${code}. It expires in 10 minutes.`,
+      subject,
+      htmlContent: buildOtpEmailHtml(code, { title, description }),
+      textContent: `${textPrefix} ${code}. It expires in 10 minutes.`,
     }),
   });
 
@@ -63,5 +63,23 @@ export async function sendOtpEmail(email, code) {
     throw new Error('Failed to send verification email');
   }
 
-  console.log(`[OTP] Verification email sent to ${email}`);
+  console.log(`[OTP] Email sent to ${email}: ${subject}`);
+}
+
+export async function sendOtpEmail(email, code) {
+  return sendOtpEmailWithContent(email, code, {
+    subject: 'Your Resolve verification code',
+    title: 'Verify your Resolve account',
+    description: 'Use this code to complete your organisation signup. It expires in 10 minutes.',
+    textPrefix: 'Your Resolve verification code is',
+  });
+}
+
+export async function sendPasswordResetOtpEmail(email, code) {
+  return sendOtpEmailWithContent(email, code, {
+    subject: 'Reset your Resolve password',
+    title: 'Reset your password',
+    description: 'Use this code to reset your Resolve password. It expires in 10 minutes.',
+    textPrefix: 'Your Resolve password reset code is',
+  });
 }
