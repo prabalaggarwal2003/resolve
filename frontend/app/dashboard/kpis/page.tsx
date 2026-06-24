@@ -392,14 +392,6 @@ export default function KPIPage() {
     return <LoadingSpinner message="Loading KPIs..." />;
   }
 
-  if (error || !kpis || !metrics) {
-    return (
-      <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
-        <p className="text-red-400">{error || 'No data available'}</p>
-      </div>
-    );
-  }
-
   if (tier === 'free' || isExpired) {
     return (
       <div className="max-w-7xl mx-auto">
@@ -411,6 +403,14 @@ export default function KPIPage() {
           </div>
         )}
         <UpgradePrompt feature={isExpired ? 'KPIs & Metrics (Renew subscription to unlock)' : 'KPIs & Metrics Dashboard'} />
+      </div>
+    );
+  }
+
+  if (error || !kpis || !metrics) {
+    return (
+      <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
+        <p className="text-red-400">{error || 'No data available'}</p>
       </div>
     );
   }
