@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiUrl } from '@/lib/api';
+import { validatePassword } from '@/lib/validation';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import TwoFactorSection from '@/components/TwoFactorSection';
 
 type Profile = {
   id: string;
@@ -27,6 +29,8 @@ type Profile = {
     subscriptionEndDate?: string;
   };
   usage: { assets: number; users: number };
+  emailVerified: boolean;
+  twoFactorEnabled: boolean;
 };
 
 const TIER_BADGE: Record<string, string> = {
@@ -85,12 +89,29 @@ function UsageCard({ label, used, limit }: { label: string; used: number; limit:
 }
 
 export default function ProfilePage() {
-  const { user, login, token } = useAuth();
+  const { user, login, logout, token } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showDeleteForm, setShowDeleteForm] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [form, setForm] = useState({
     name: '',
     phone: '',
@@ -162,6 +183,83 @@ export default function ProfilePage() {
       setError(err instanceof Error ? err.message : 'Failed to save');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    const newPasswordError = validatePassword(passwordForm.newPassword);
+    if (newPasswordError) {
+      setPasswordError(newPasswordError);
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('New passwords do not match');
+      return;
+    }
+
+    setChangingPassword(true);
+    const authToken = token || localStorage.getItem('token');
+    try {
+      const res = await fetch(apiUrl('/auth/change-password'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to update password');
+
+      setPasswordSuccess(data.message);
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setShowPasswordForm(false);
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : 'Failed to update password');
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  const handleDeleteAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDeleteError('');
+
+    if (!deletePassword.trim()) {
+      setDeleteError('Enter your password to confirm deletion');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'This will permanently delete your account, organization, and all associated data. This cannot be undone. Continue?'
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    const authToken = token || localStorage.getItem('token');
+    try {
+      const res = await fetch(apiUrl('/auth/account'), {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ password: deletePassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to delete account');
+
+      await logout();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete account');
+      setDeleting(false);
     }
   };
 
@@ -284,6 +382,227 @@ export default function ProfilePage() {
           </button>
         </form>
       </div>
+
+      <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-amber-500/50 bg-gray-800/40 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-400/80">Security</p>
+          {!showPasswordForm && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowPasswordForm(true);
+                setPasswordError('');
+                setPasswordSuccess('');
+              }}
+              className={`${buttonClass} border-amber-500/40 bg-amber-600/15 text-amber-200 hover:bg-amber-600/25`}
+            >
+              Change password
+            </button>
+          )}
+        </div>
+
+        {passwordSuccess && !showPasswordForm && (
+          <p className="text-[11px] text-emerald-400 px-2.5 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 mb-3">
+            {passwordSuccess}
+          </p>
+        )}
+
+        {showPasswordForm && (
+          <form onSubmit={handleChangePassword} className="space-y-3">
+            {passwordError && (
+              <p className="text-[11px] text-red-400 px-2.5 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10">
+                {passwordError}
+              </p>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2">
+                <label className={labelClass}>Current password</label>
+                <div className="relative">
+                  <input
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                    required
+                    className={`${inputClass} pr-9`}
+                    placeholder="Enter current password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs"
+                    tabIndex={-1}
+                  >
+                    {showCurrentPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className={labelClass}>New password</label>
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                    required
+                    className={`${inputClass} pr-9`}
+                    placeholder="Enter new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs"
+                    tabIndex={-1}
+                  >
+                    {showNewPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className={labelClass}>Confirm new password</label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                    required
+                    className={`${inputClass} pr-9`}
+                    placeholder="Confirm new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs"
+                    tabIndex={-1}
+                  >
+                    {showConfirmPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="submit"
+                disabled={changingPassword}
+                className={`${buttonClass} border-amber-500/40 bg-amber-600/20 text-amber-200 hover:bg-amber-600/30 disabled:opacity-50 py-2 px-4`}
+              >
+                {changingPassword ? 'Updating…' : 'Update password'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPasswordForm(false);
+                  setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                  setPasswordError('');
+                }}
+                className={`${buttonClass} border-gray-700/60 bg-gray-800/40 text-gray-400 hover:text-gray-200`}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+
+        {!showPasswordForm && (
+          <p className="text-xs text-gray-500">Update your password using your current credentials.</p>
+        )}
+
+        {profile && (
+          <TwoFactorSection
+            emailVerified={profile.emailVerified}
+            twoFactorEnabled={profile.twoFactorEnabled}
+            token={token}
+            onStatusChange={fetchProfile}
+          />
+        )}
+      </div>
+
+      {profile.isOrgOwner && (
+        <div className="rounded-xl border border-red-500/30 border-l-2 border-l-red-500/60 bg-red-950/20 px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-red-400/90">Danger zone</p>
+            {!showDeleteForm && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteForm(true);
+                  setDeleteError('');
+                  setDeletePassword('');
+                }}
+                className={`${buttonClass} border-red-500/40 bg-red-600/15 text-red-300 hover:bg-red-600/25`}
+              >
+                Delete account
+              </button>
+            )}
+          </div>
+
+          {!showDeleteForm && (
+            <p className="text-xs text-gray-500">
+              Permanently delete your account, organization, and all assets, users, issues, and related data.
+            </p>
+          )}
+
+          {showDeleteForm && (
+            <form onSubmit={handleDeleteAccount} className="space-y-3">
+              <p className="text-xs text-red-300/90 leading-relaxed">
+                This action is permanent. Your organization, all users, assets, issues, vendors, invoices, audit logs,
+                and other data will be removed and cannot be recovered.
+              </p>
+
+              {deleteError && (
+                <p className="text-[11px] text-red-400 px-2.5 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10">
+                  {deleteError}
+                </p>
+              )}
+
+              <div>
+                <label className={labelClass}>Confirm with your password</label>
+                <div className="relative max-w-sm">
+                  <input
+                    type={showDeletePassword ? 'text' : 'password'}
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    className={`${inputClass} pr-9`}
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowDeletePassword((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs"
+                    tabIndex={-1}
+                  >
+                    {showDeletePassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="submit"
+                  disabled={deleting || !deletePassword.trim()}
+                  className={`${buttonClass} border-red-500/50 bg-red-600/25 text-red-200 hover:bg-red-600/35 disabled:opacity-40 disabled:cursor-not-allowed py-2 px-4`}
+                >
+                  {deleting ? 'Deleting…' : 'Delete account permanently'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDeleteForm(false);
+                    setDeletePassword('');
+                    setDeleteError('');
+                  }}
+                  disabled={deleting}
+                  className={`${buttonClass} border-gray-700/60 bg-gray-800/40 text-gray-400 hover:text-gray-200 disabled:opacity-50`}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
 
       <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-violet-500/50 bg-gray-800/40 px-4 py-3">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-violet-400/80 mb-3">Organization</p>
