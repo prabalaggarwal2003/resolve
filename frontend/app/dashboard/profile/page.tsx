@@ -7,6 +7,7 @@ import { apiUrl } from '@/lib/api';
 import { validatePassword } from '@/lib/validation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import TwoFactorSection from '@/components/TwoFactorSection';
+import ProfileLegalSection from '@/components/ProfileLegalSection';
 
 type Profile = {
   id: string;
@@ -518,6 +519,39 @@ export default function ProfilePage() {
         )}
       </div>
 
+      <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-violet-500/50 bg-gray-800/40 px-4 py-3">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-violet-400/80 mb-3">Organization</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Organization name</p>
+            <p className="text-xs font-medium text-gray-200 mt-0.5">{profile.organizationName || '—'}</p>
+          </div>
+          <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Member since</p>
+            <p className="text-xs font-medium text-gray-200 mt-0.5">{formatDateTime(profile.memberSince)}</p>
+          </div>
+          <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Last login</p>
+            <p className="text-xs font-medium text-gray-200 mt-0.5">{formatDateTime(profile.lastLogin)}</p>
+          </div>
+          <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Subscription</p>
+            <p className="text-xs font-medium text-gray-200 mt-0.5 capitalize">
+              {tier} · {profile.subscription.plan}
+              {profile.subscription.isExpired ? ' (expired)' : ''}
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/dashboard/subscriptions"
+          className={`${buttonClass} inline-block mt-3 no-underline border-gray-700/60 bg-gray-800/40 text-gray-400 hover:text-gray-200`}
+        >
+          Manage subscription →
+        </Link>
+      </div>
+
+      <ProfileLegalSection />
+
       {profile.isOrgOwner && (
         <div className="rounded-xl border border-red-500/30 border-l-2 border-l-red-500/60 bg-red-950/20 px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -603,37 +637,6 @@ export default function ProfilePage() {
           )}
         </div>
       )}
-
-      <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-violet-500/50 bg-gray-800/40 px-4 py-3">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-violet-400/80 mb-3">Organization</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Organization name</p>
-            <p className="text-xs font-medium text-gray-200 mt-0.5">{profile.organizationName || '—'}</p>
-          </div>
-          <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Member since</p>
-            <p className="text-xs font-medium text-gray-200 mt-0.5">{formatDateTime(profile.memberSince)}</p>
-          </div>
-          <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Last login</p>
-            <p className="text-xs font-medium text-gray-200 mt-0.5">{formatDateTime(profile.lastLogin)}</p>
-          </div>
-          <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Subscription</p>
-            <p className="text-xs font-medium text-gray-200 mt-0.5 capitalize">
-              {tier} · {profile.subscription.plan}
-              {profile.subscription.isExpired ? ' (expired)' : ''}
-            </p>
-          </div>
-        </div>
-        <Link
-          href="/dashboard/subscriptions"
-          className={`${buttonClass} inline-block mt-3 no-underline border-gray-700/60 bg-gray-800/40 text-gray-400 hover:text-gray-200`}
-        >
-          Manage subscription →
-        </Link>
-      </div>
     </div>
   );
 }
