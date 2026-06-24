@@ -3,7 +3,16 @@
 /** Update this date whenever the legal copy below is changed. */
 const LEGAL_LAST_UPDATED = '2026-06-24';
 
-const legalDocs = [
+type LegalDoc = {
+  id: string;
+  title: string;
+  intro: string;
+  body?: string[];
+  bullets?: string[];
+  footer?: string;
+};
+
+const legalDocs: LegalDoc[] = [
   {
     id: 'privacy',
     title: 'Privacy Policy',
@@ -61,7 +70,7 @@ const legalDocs = [
     ],
     footer: 'All intellectual property rights for the Resolve platform remain with its owner.',
   },
-] as const;
+];
 
 function formatLegalDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-IN', {
