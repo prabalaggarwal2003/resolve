@@ -89,7 +89,7 @@ router.post('/send-admin-otp', async (req, res) => {
       return res.status(400).json({ message: 'Email already registered' });
     }
     
-    await Otp.deleteMany({ email: sanitizedEmail });
+    await Otp.deleteMany({ email: sanitizedEmail, purpose: 'signup' });
 
     const code = generateOtp();
     const codeHash = await hashOtp(code);
@@ -100,6 +100,7 @@ router.post('/send-admin-otp', async (req, res) => {
 
     const otpRecord = await Otp.create({
       email: sanitizedEmail,
+      purpose: 'signup',
       codeHash,
       expiresAt: getOtpExpiry(),
       tempData,
@@ -144,7 +145,7 @@ router.post('/verify-admin-otp', async (req, res) => {
     
     const sanitizedEmail = email.toLowerCase().trim();
     
-    const otp = await Otp.findOne({ email: sanitizedEmail }).sort({ createdAt: -1 });
+    const otp = await Otp.findOne({ email: sanitizedEmail, purpose: 'signup' }).sort({ createdAt: -1 });
 
     if (!otp) return res.status(400).json({ message: 'Invalid or expired code' });
     if (new Date() > otp.expiresAt) {
@@ -257,12 +258,13 @@ router.post('/resend-otp', async (req, res) => {
       expiresAt: { $lt: new Date() }
     });
     
-    const existingOtp = await Otp.findOne({ email: sanitizedEmail }).sort({ createdAt: -1 });
+    const existingOtp = await Otp.findOne({ email: sanitizedEmail, purpose: 'signup' }).sort({ createdAt: -1 });
     const code = generateOtp();
     const codeHash = await hashOtp(code);
 
     const otpRecord = await Otp.create({
       email: sanitizedEmail,
+      purpose: 'signup',
       codeHash,
       expiresAt: getOtpExpiry(),
       tempData: existingOtp?.tempData,
