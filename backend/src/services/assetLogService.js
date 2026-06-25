@@ -19,6 +19,24 @@ const FIELD_LABELS = {
 
 const REFERENCE_FIELDS = new Set(['assignedTo', 'locationId', 'departmentId', 'vendorId']);
 
+const SKIP_FIELDS = new Set([
+  '_id',
+  '__v',
+  'organizationId',
+  'createdAt',
+  'updatedAt',
+  'createdBy',
+  'updatedBy',
+  'assignedAt',
+  'qrCodeUrl',
+  'photos',
+  'documents',
+  'maintenanceHistory',
+  'maintenanceStartDate',
+  'maintenanceCompletedDate',
+  'maintenanceReason',
+]);
+
 function normalizeId(value) {
   if (value == null || value === '') return null;
   if (typeof value === 'object' && value._id) return String(value._id);
