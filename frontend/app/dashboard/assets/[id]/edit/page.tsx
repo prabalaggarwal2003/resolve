@@ -66,7 +66,6 @@ export default function EditAssetPage() {
   const [loading, setLoading] = useState(false);
   const [loadErr, setLoadErr] = useState('');
   const [error, setError] = useState('');
-  const [users, setUsers] = useState<{ _id: string; name: string; email: string }[]>([]);
   const [departments, setDepartments] = useState<{ _id: string; name: string }[]>([]);
   const [vendors, setVendors] = useState<{ _id: string; vendorId: string; name: string }[]>([]);
   const [form, setForm] = useState({
@@ -75,7 +74,8 @@ export default function EditAssetPage() {
     category: '',
     serialNumber: '',
     status: 'available',
-    assignedTo: '' as string,
+    assignedToName: '',
+    assignedToEmployeeCode: '',
     locationId: '' as string,
     departmentId: '' as string,
     purchaseDate: '',
@@ -94,12 +94,11 @@ export default function EditAssetPage() {
     }
     Promise.all([
       fetch(api(`/api/assets/${params.id}`), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
-      fetch(api('/api/users'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       fetch(api('/api/locations'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       fetch(api('/api/departments'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       fetch(api('/api/vendors?status=Active'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
     ])
-      .then(([asset, usersRes, locRes, deptRes, vendorsRes]) => {
+      .then(([asset, locRes, deptRes, vendorsRes]) => {
         if (asset._id) {
           setForm({
             name: asset.name ?? '',
@@ -107,7 +106,8 @@ export default function EditAssetPage() {
             category: asset.category ?? '',
             serialNumber: asset.serialNumber ?? '',
             status: asset.status ?? 'available',
-            assignedTo: asset.assignedTo?._id ?? '',
+            assignedToName: asset.assignedToName ?? asset.assignedTo?.name ?? '',
+            assignedToEmployeeCode: asset.assignedToEmployeeCode ?? '',
             locationId: asset.locationId?._id ?? (typeof asset.locationId === 'string' ? asset.locationId : ''),
             departmentId: asset.departmentId?._id ?? (typeof asset.departmentId === 'string' ? asset.departmentId : ''),
             purchaseDate: asset.purchaseDate ? asset.purchaseDate.slice(0, 10) : '',
@@ -129,7 +129,6 @@ export default function EditAssetPage() {
               : []
           );
         } else setLoadErr(asset.message || 'Not found');
-        if (usersRes.users) setUsers(usersRes.users);
         if (locRes.locations) setLocations(locRes.locations);
         if (deptRes.departments) setDepartments(deptRes.departments);
         if (Array.isArray(vendorsRes)) setVendors(vendorsRes.filter((v: { status: string }) => v.status === 'Active'));
@@ -155,7 +154,8 @@ export default function EditAssetPage() {
           ...form,
           cost: form.cost ? Number(form.cost) : undefined,
           purchaseDate: form.purchaseDate || undefined,
-          assignedTo: form.assignedTo || undefined,
+          assignedToName: form.assignedToName.trim(),
+          assignedToEmployeeCode: form.assignedToEmployeeCode.trim(),
           locationId: form.locationId || undefined,
           departmentId: form.departmentId || undefined,
           vendorId: form.vendorId || undefined,
@@ -246,15 +246,23 @@ export default function EditAssetPage() {
         </Section>
 
         <Section title="Assignment & location" accentClass="border-l-violet-500/50" titleClass="text-violet-400/80">
-          <Field label="Assigned to">
-            <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className={inputClass}>
-              <option value="">Unassigned</option>
-              {users.map((u) => (
-                <option key={u._id} value={u._id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
+          <Field label="Assigned to (name)" required>
+            <input
+              value={form.assignedToName}
+              onChange={(e) => setForm({ ...form, assignedToName: e.target.value })}
+              className={inputClass}
+              placeholder="e.g. Rahul Sharma"
+              required
+            />
+          </Field>
+          <Field label="Employee code" required>
+            <input
+              value={form.assignedToEmployeeCode}
+              onChange={(e) => setForm({ ...form, assignedToEmployeeCode: e.target.value })}
+              className={inputClass}
+              placeholder="e.g. EMP-1024"
+              required
+            />
           </Field>
           <Field label="Location">
             <select value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })} className={inputClass}>

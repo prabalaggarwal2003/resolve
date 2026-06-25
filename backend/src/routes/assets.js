@@ -129,11 +129,25 @@ router.post('/', requireCanEdit, async (req, res) => {
       return res.status(403).json({ message });
     }
 
+    const assignedToName = req.body.assignedToName !== undefined ? String(req.body.assignedToName).trim() : '';
+    const assignedToEmployeeCode =
+      req.body.assignedToEmployeeCode !== undefined ? String(req.body.assignedToEmployeeCode).trim() : '';
+
+    if (!assignedToName) {
+      return res.status(400).json({ message: 'Assigned to (name) is required' });
+    }
+    if (!assignedToEmployeeCode) {
+      return res.status(400).json({ message: 'Employee code is required' });
+    }
+
     const body = {
       ...req.body, 
       createdBy: req.user._id, 
       updatedBy: req.user._id,
       organizationId: req.user.organizationId,
+      assignedToName,
+      assignedToEmployeeCode,
+      assignedAt: new Date(),
     };
 
     // Convert empty strings to null for ObjectId fields to prevent casting errors
@@ -209,20 +223,25 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
     let auditDescription = `Updated asset "${prev.name}"`;
     let auditSeverity = 'low';
 
-    // Handle assignment timestamp
-    if (update.assignedTo !== undefined) {
-      update.assignedAt = update.assignedTo ? new Date() : null;
+    // Assignment (name + employee code)
+    if (update.assignedToName !== undefined) {
+      update.assignedToName = String(update.assignedToName).trim();
+      if (!update.assignedToName) {
+        return res.status(400).json({ message: 'Assigned to (name) is required' });
+      }
+    }
+    if (update.assignedToEmployeeCode !== undefined) {
+      update.assignedToEmployeeCode = String(update.assignedToEmployeeCode).trim();
+      if (!update.assignedToEmployeeCode) {
+        return res.status(400).json({ message: 'Employee code is required' });
+      }
+    }
 
-      if (prev.assignedTo && !update.assignedTo) {
-        auditAction = AUDIT_ACTIONS.ASSET_UNASSIGNED;
-        auditDescription = `Unassigned asset "${prev.name}" from user`;
-        auditSeverity = 'medium';
-      }
-      if (update.assignedTo) {
-        auditAction = AUDIT_ACTIONS.ASSET_ASSIGNED;
-        auditDescription = `Assigned asset "${prev.name}" to user`;
-        auditSeverity = 'medium';
-      }
+    if (update.assignedToName !== undefined || update.assignedToEmployeeCode !== undefined) {
+      update.assignedAt = new Date();
+      auditAction = AUDIT_ACTIONS.ASSET_ASSIGNED;
+      auditDescription = `Updated assignment for asset "${prev.name}"`;
+      auditSeverity = 'medium';
     }
 
     // Track maintenance history when status changes
@@ -291,7 +310,7 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
     await logAudit(req.user._id, auditAction, AUDIT_RESOURCES.ASSET, asset._id, {
       resourceName: `${asset.name} (${asset.assetId})`,
       description: auditDescription,
-      details: { changes: changedFields, assignedTo: asset.assignedTo?.name },
+      details: { changes: changedFields, assignedTo: asset.assignedToName || asset.assignedTo?.name },
       severity: auditSeverity,
       ...getRequestMetadata(req)
     });

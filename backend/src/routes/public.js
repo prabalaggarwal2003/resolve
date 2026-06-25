@@ -13,7 +13,9 @@ router.get('/assets/:id', async (req, res) => {
     const asset = await Asset.findById(req.params.id)
       .populate('locationId', 'name path type code')
       .populate('departmentId', 'name')
-      .select('name assetId category model serialNumber status condition maintenanceReason purchaseDate vendor cost warrantyExpiry amcExpiry nextMaintenanceDate photos documents locationId departmentId')
+      .select(
+        'name assetId category model serialNumber status condition maintenanceReason maintenanceStartDate maintenanceCompletedDate maintenanceHistory purchaseDate vendor cost warrantyExpiry amcExpiry nextMaintenanceDate photos documents locationId departmentId assignedToName assignedToEmployeeCode'
+      )
       .lean();
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
     
@@ -59,7 +61,9 @@ router.get('/report', async (req, res) => {
     const asset = await Asset.findById(assetId)
       .populate('locationId', 'name path type code')
       .populate('departmentId', 'name')
-      .select('name assetId category model serialNumber status condition maintenanceReason purchaseDate vendor cost warrantyExpiry amcExpiry nextMaintenanceDate photos documents locationId departmentId')
+      .select(
+        'name assetId category model serialNumber status condition maintenanceReason maintenanceStartDate maintenanceCompletedDate maintenanceHistory purchaseDate vendor cost warrantyExpiry amcExpiry nextMaintenanceDate photos documents locationId departmentId assignedToName assignedToEmployeeCode'
+      )
       .lean();
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
     
