@@ -27,6 +27,8 @@ type Asset = {
   locationId?: { name: string; path?: string };
   departmentId?: { name: string };
   assignedTo?: { _id: string; name: string; email: string };
+  assignedToName?: string;
+  assignedToEmployeeCode?: string;
 };
 
 const STATUS_BADGE: Record<string, string> = {
@@ -133,7 +135,10 @@ function AssetCard({
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
         <DetailTile label="Category" value={asset.category ?? '—'} />
         <DetailTile label="Department" value={asset.departmentId?.name ?? '—'} />
-        <DetailTile label="Assigned to" value={asset.assignedTo?.name ?? 'Unassigned'} />
+        <DetailTile
+          label="Assigned to"
+          value={asset.assignedToName || asset.assignedTo?.name || '—'}
+        />
         <DetailTile
           label="Location"
           value={asset.locationId?.path || asset.locationId?.name || '—'}

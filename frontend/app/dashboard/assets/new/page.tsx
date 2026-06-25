@@ -76,7 +76,8 @@ export default function NewAssetPage() {
     category: '',
     serialNumber: '',
     status: 'available',
-    assignedTo: '' as string,
+    assignedToName: '',
+    assignedToEmployeeCode: '',
     locationId: '' as string,
     departmentId: '' as string,
     purchaseDate: '',
@@ -86,7 +87,6 @@ export default function NewAssetPage() {
   });
   const [photos, setPhotos] = useState<{ url: string; caption: string }[]>([]);
   const [documents, setDocuments] = useState<{ url: string; name: string; type: string }[]>([]);
-  const [users, setUsers] = useState<{ _id: string; name: string; email: string }[]>([]);
   const [locations, setLocations] = useState<{ _id: string; name: string; type: string }[]>([]);
   const [departments, setDepartments] = useState<{ _id: string; name: string }[]>([]);
   const [vendors, setVendors] = useState<{ _id: string; vendorId: string; name: string }[]>([]);
@@ -184,13 +184,11 @@ export default function NewAssetPage() {
     if (!token) return;
     const base = process.env.NEXT_PUBLIC_API_URL || '';
     Promise.all([
-      fetch(base ? `${base}/api/users` : '/api/users', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       fetch(base ? `${base}/api/locations` : '/api/locations', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       fetch(base ? `${base}/api/departments` : '/api/departments', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       fetch(base ? `${base}/api/vendors?status=Active` : '/api/vendors?status=Active', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
     ])
-      .then(([usersRes, locsRes, deptRes, vendorsRes]) => {
-        if (usersRes.users) setUsers(usersRes.users);
+      .then(([locsRes, deptRes, vendorsRes]) => {
         if (locsRes.locations) setLocations(locsRes.locations);
         if (deptRes.departments) setDepartments(deptRes.departments);
         if (Array.isArray(vendorsRes)) setVendors(vendorsRes.filter((v: { status: string }) => v.status === 'Active'));
@@ -233,7 +231,8 @@ export default function NewAssetPage() {
       cost: form.cost ? Number(form.cost) : undefined,
       purchaseDate: form.purchaseDate || undefined,
       warrantyExpiry: form.warrantyExpiry || undefined,
-      assignedTo: form.assignedTo || undefined,
+      assignedToName: form.assignedToName.trim(),
+      assignedToEmployeeCode: form.assignedToEmployeeCode.trim(),
       locationId: form.locationId || undefined,
       departmentId: form.departmentId || undefined,
       vendorId: form.vendorId || undefined,
@@ -413,15 +412,23 @@ export default function NewAssetPage() {
         </Section>
 
         <Section title="Assignment & location" accentClass="border-l-amber-500/50" titleClass="text-amber-400/80">
-          <Field label="Assigned to">
-            <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className={inputClass}>
-              <option value="">Unassigned</option>
-              {users.map((u) => (
-                <option key={u._id} value={u._id}>
-                  {u.name} ({u.email})
-                </option>
-              ))}
-            </select>
+          <Field label="Assigned to (name)" required>
+            <input
+              value={form.assignedToName}
+              onChange={(e) => setForm({ ...form, assignedToName: e.target.value })}
+              className={inputClass}
+              placeholder="e.g. Rahul Sharma"
+              required
+            />
+          </Field>
+          <Field label="Employee code" required>
+            <input
+              value={form.assignedToEmployeeCode}
+              onChange={(e) => setForm({ ...form, assignedToEmployeeCode: e.target.value })}
+              className={inputClass}
+              placeholder="e.g. EMP-1024"
+              required
+            />
           </Field>
           <Field label="Location">
             <select value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })} className={inputClass}>

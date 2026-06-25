@@ -13,6 +13,8 @@ const assetSchema = new mongoose.Schema(
     departmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
     organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    assignedToName: { type: String, trim: true },
+    assignedToEmployeeCode: { type: String, trim: true },
     assignedAt: Date,
     status: {
       type: String,
