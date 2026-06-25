@@ -90,6 +90,10 @@ export const AUDIT_ACTIONS = {
   LOGIN_SUCCESS: 'login_success',
   LOGIN_FAILED: 'login_failed',
   LOGOUT: 'logout',
+  PASSWORD_CHANGED: 'password_changed',
+  TWO_FACTOR_ENABLED: '2fa_enabled',
+  TWO_FACTOR_DISABLED: '2fa_disabled',
+  RECOVERY_CODES_REGENERATED: 'recovery_codes_regenerated',
 
   // Reports
   REPORT_GENERATED: 'generated',
@@ -110,8 +114,10 @@ export const AUDIT_RESOURCES = {
   VENDOR: 'vendor',
   INVOICE: 'invoice',
   AUTH: 'authentication',
+  PROFILE: 'profile',
   REPORT: 'report',
   MAINTENANCE: 'maintenance',
+  AUDIT: 'audit',
 };
 
 export const AUDIT_SEVERITY = {
@@ -120,4 +126,16 @@ export const AUDIT_SEVERITY = {
   HIGH: 'high',
   CRITICAL: 'critical'
 };
+
+export async function logFileDownload(userId, req, { fileName, resource, resourceId, resourceName }) {
+  if (!fileName) return;
+
+  await logAudit(userId, AUDIT_ACTIONS.REPORT_DOWNLOADED, resource, resourceId || req.user?.organizationId, {
+    resourceName: resourceName || fileName,
+    description: `Downloaded ${fileName}`,
+    details: { fileName },
+    severity: AUDIT_SEVERITY.LOW,
+    ...getRequestMetadata(req),
+  });
+}
 

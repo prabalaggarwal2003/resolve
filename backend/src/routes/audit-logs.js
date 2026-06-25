@@ -1,8 +1,44 @@
 import express from 'express';
 import { protect } from '../middleware/auth.js';
+import {
+  logFileDownload,
+  AUDIT_RESOURCES,
+} from '../services/auditService.js';
 import { AuditLog, User } from '../models/index.js';
 
 const router = express.Router();
+
+const ALLOWED_DOWNLOAD_RESOURCES = new Set(Object.values(AUDIT_RESOURCES));
+
+/**
+ * Track a client-side file download (e.g. browser-generated PDF)
+ * POST /api/audit-logs/track-download
+ */
+router.post('/track-download', protect, async (req, res) => {
+  try {
+    const { fileName, resource = AUDIT_RESOURCES.REPORT, resourceId, resourceName } = req.body;
+
+    if (!fileName || typeof fileName !== 'string') {
+      return res.status(400).json({ message: 'fileName is required' });
+    }
+
+    if (!ALLOWED_DOWNLOAD_RESOURCES.has(resource)) {
+      return res.status(400).json({ message: 'Invalid resource' });
+    }
+
+    await logFileDownload(req.user._id, req, {
+      fileName: fileName.trim(),
+      resource,
+      resourceId,
+      resourceName,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Track download error:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
 
 /**
  * Get audit logs with filtering and pagination
@@ -246,14 +282,25 @@ router.get('/export', protect, async (req, res) => {
 
       const csvContent = csvHeader + csvRows;
 
-      // Set headers for file download
       const filename = `audit-logs-${new Date().toISOString().split('T')[0]}.csv`;
+      await logFileDownload(req.user._id, req, {
+        fileName: filename,
+        resource: AUDIT_RESOURCES.AUDIT,
+        resourceName: 'Audit logs export',
+      });
+
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
       res.send(csvContent);
     } else {
-      // Return JSON format
+      const filename = `audit-logs-${new Date().toISOString().split('T')[0]}.json`;
+      await logFileDownload(req.user._id, req, {
+        fileName: filename,
+        resource: AUDIT_RESOURCES.AUDIT,
+        resourceName: 'Audit logs export',
+      });
+
       res.json({ logs, count: logs.length });
     }
   } catch (err) {

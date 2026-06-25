@@ -15,6 +15,11 @@ import {
   verifyAndConsumeBackupCode,
   verifyTotpCode,
 } from '../services/twoFactorService.js';
+import {
+  logRecoveryCodesRegenerated,
+  logTwoFactorDisabled,
+  logTwoFactorEnabled,
+} from '../services/profileLogService.js';
 
 const router = express.Router();
 
@@ -144,6 +149,8 @@ router.post('/verify', protect, async (req, res) => {
     user.backupCodes = hashedCodes;
     await user.save();
 
+    await logTwoFactorEnabled(req.user._id, req, user);
+
     res.json({
       message: 'Two-factor authentication enabled',
       recoveryCodes: plainCodes,
@@ -270,6 +277,8 @@ router.post('/disable', protect, async (req, res) => {
     user.backupCodes = [];
     await user.save();
 
+    await logTwoFactorDisabled(req.user._id, req, user);
+
     res.json({ message: 'Two-factor authentication disabled' });
   } catch (err) {
     console.error('2FA disable error:', err);
@@ -304,6 +313,8 @@ router.post('/regenerate-recovery', protect, async (req, res) => {
     const { plainCodes, hashedCodes } = await generateBackupCodes();
     user.backupCodes = hashedCodes;
     await user.save();
+
+    await logRecoveryCodesRegenerated(req.user._id, req, user);
 
     res.json({
       message: 'Recovery codes regenerated',

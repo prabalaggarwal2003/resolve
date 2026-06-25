@@ -6,6 +6,7 @@ const FIELD_LABELS = {
   category: 'Category',
   serialNumber: 'Serial number',
   status: 'Status',
+  condition: 'Condition',
   assignedTo: 'Assigned to',
   assignedToName: 'Assigned to',
   assignedToEmployeeCode: 'Employee code',

@@ -3,6 +3,13 @@
 import { useEffect, useState } from 'react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
+type FieldChange = {
+  field: string;
+  label: string;
+  oldValue: string;
+  newValue: string;
+};
+
 type AuditLog = {
   _id: string;
   userId: {
@@ -16,6 +23,12 @@ type AuditLog = {
   resourceId: string;
   resourceName?: string;
   description?: string;
+  details?: {
+    fileName?: string;
+    fieldChanges?: FieldChange[];
+    summary?: string;
+    changes?: Record<string, { old: unknown; new: unknown }>;
+  };
   severity: 'low' | 'medium' | 'high' | 'critical';
   ipAddress?: string;
   createdAt: string;
@@ -34,6 +47,7 @@ const RESOURCE_LABELS: Record<string, string> = {
   issue: 'Issue',
   user: 'User',
   organization: 'Org',
+  profile: 'Profile',
   location: 'Location',
   department: 'Department',
   authentication: 'Auth',
@@ -41,6 +55,7 @@ const RESOURCE_LABELS: Record<string, string> = {
   invoice: 'Invoice',
   report: 'Report',
   maintenance: 'Maintenance',
+  audit: 'Audit',
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -58,6 +73,10 @@ const ACTION_LABELS: Record<string, string> = {
   logout: 'Logout',
   generated: 'Generated',
   downloaded: 'Downloaded',
+  password_changed: 'Password Changed',
+  '2fa_enabled': '2FA Enabled',
+  '2fa_disabled': '2FA Disabled',
+  recovery_codes_regenerated: 'Recovery Codes Regenerated',
   maintenance_started: 'Maint. Started',
   maintenance_completed: 'Maint. Completed',
 };
@@ -75,6 +94,11 @@ const ACTION_COLORS: Record<string, string> = {
   updated: 'text-blue-400',
   status_changed: 'text-amber-400',
   generated: 'text-purple-400',
+  downloaded: 'text-teal-400',
+  password_changed: 'text-amber-400',
+  '2fa_enabled': 'text-emerald-400',
+  '2fa_disabled': 'text-orange-400',
+  recovery_codes_regenerated: 'text-violet-400',
   maintenance_started: 'text-orange-400',
   maintenance_completed: 'text-green-400',
   login_success: 'text-gray-400',
@@ -85,6 +109,7 @@ const RESOURCE_ICONS: Record<string, string> = {
   asset: '📦',
   issue: '🔴',
   user: '👤',
+  profile: '🛡️',
   organization: '🏢',
   location: '📍',
   department: '🏛️',
@@ -103,11 +128,32 @@ function api(path: string) {
 const inputClass = 'w-full px-3 py-1.5 text-xs border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-300 focus:ring-1 focus:ring-blue-500/40 focus:border-blue-500/40';
 const labelClass = 'block text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1';
 
+function formatAuditDetails(log: AuditLog): string {
+  if (log.action === 'downloaded' && log.details?.fileName) {
+    return `Downloaded ${log.details.fileName}`;
+  }
+
+  const fieldChanges = log.details?.fieldChanges;
+  if (Array.isArray(fieldChanges) && fieldChanges.length > 0) {
+    return fieldChanges
+      .map((c) => {
+        if (c.field === 'password') return 'Password changed';
+        if (c.label === 'Created') return `Created: ${c.newValue}`;
+        return `${c.label}: ${c.oldValue} → ${c.newValue}`;
+      })
+      .join(' · ');
+  }
+
+  if (log.details?.summary) return log.details.summary;
+  return log.description || '—';
+}
+
 function AuditLogRow({ log }: { log: AuditLog }) {
   const resourceIcon = RESOURCE_ICONS[log.resource] || '📄';
   const resourceLabel = RESOURCE_LABELS[log.resource] || log.resource;
   const actionLabel = ACTION_LABELS[log.action] || log.action;
   const actionColor = ACTION_COLORS[log.action] || 'text-gray-300';
+  const detailsText = formatAuditDetails(log);
 
   return (
     <tr className="hover:bg-gray-800/40 transition-colors">
@@ -128,8 +174,10 @@ function AuditLogRow({ log }: { log: AuditLog }) {
           <span className="ml-1 text-xs text-gray-400 font-medium">&ldquo;{log.resourceName}&rdquo;</span>
         )}
       </td>
-      <td className="px-3 py-2 text-xs text-gray-500 max-w-xs truncate" title={log.description}>
-        {log.description || '—'}
+      <td className="px-3 py-2 text-xs text-gray-500 max-w-md">
+        <span className="line-clamp-2" title={detailsText}>
+          {detailsText}
+        </span>
       </td>
       <td className="px-3 py-2">
         <span className={`inline-flex px-2 py-0.5 text-[11px] font-medium rounded-md border ${SEVERITY_BADGE[log.severity] || SEVERITY_BADGE.low}`}>

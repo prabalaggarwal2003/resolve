@@ -13,6 +13,11 @@ import {
 } from '../services/otpService.js';
 import { validateEmail, validatePassword, validateOtp } from '../utils/validation.js';
 import { deleteOrganizationCascade } from '../services/organizationDeleteService.js';
+import {
+  buildProfileEditChanges,
+  logPasswordChanged,
+  logProfileUpdated,
+} from '../services/profileLogService.js';
 import twoFactorRouter, { generatePreAuthToken } from './twoFactor.js';
 
 const router = express.Router();
@@ -287,11 +292,24 @@ router.patch('/profile', protect, async (req, res) => {
     if (jobTitle !== undefined) updates.jobTitle = String(jobTitle).trim();
     if (timeZone !== undefined) updates.timeZone = String(timeZone).trim() || 'Asia/Kolkata';
 
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: 'No updates provided' });
+    }
+
+    const prev = await User.findById(req.user._id).select('-passwordHash').lean();
+    if (!prev) return res.status(404).json({ message: 'User not found' });
+
+    const pendingEditLog = buildProfileEditChanges(prev, updates);
+
     const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true })
       .select('-passwordHash')
       .lean();
 
     if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (pendingEditLog) {
+      await logProfileUpdated(req.user._id, req, user, pendingEditLog);
+    }
 
     const storedUser = {
       id: user._id,
@@ -345,6 +363,8 @@ router.post('/change-password', protect, async (req, res) => {
 
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     await user.save();
+
+    await logPasswordChanged(req.user._id, req, user);
 
     res.json({ message: 'Password updated successfully' });
   } catch (err) {
