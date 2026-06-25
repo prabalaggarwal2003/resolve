@@ -70,16 +70,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      // Clear all auth-related data
       setToken(null);
       setUser(null);
       setIsAuthenticated(false);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       localStorage.removeItem('dismissedNudges');
+      localStorage.setItem('loggedOut', 'true');
 
-      // Redirect to login
-      window.location.href = '/login';
+      window.location.replace('/login');
     }
   };
 

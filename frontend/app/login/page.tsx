@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { apiUrl } from '@/lib/api';
 
@@ -17,11 +17,23 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    if (localStorage.getItem('token')) return;
+
+    const trapBackNavigation = () => {
+      window.history.pushState(null, '', window.location.href);
+    };
+
+    trapBackNavigation();
+    window.addEventListener('popstate', trapBackNavigation);
+    return () => window.removeEventListener('popstate', trapBackNavigation);
+  }, []);
+
   const completeLogin = (data: { token: string; user: unknown }) => {
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data.user));
     localStorage.removeItem('loggedOut');
-    window.location.href = '/dashboard';
+    window.location.replace('/dashboard');
   };
 
   const handleCredentialsSubmit = async (e: React.FormEvent) => {

@@ -1,47 +1,76 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import LoadingSpinner from '@/components/LoadingSpinner';
+
+function isSessionValid() {
+  if (typeof window === 'undefined') return false;
+  if (localStorage.getItem('loggedOut') === 'true') return false;
+  return Boolean(localStorage.getItem('token'));
+}
+
+function redirectToLogin() {
+  localStorage.removeItem('loggedOut');
+  window.location.replace('/login');
+}
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requireAuth?: boolean;
-  redirectTo?: string;
 }
 
-export default function ProtectedRoute({ 
-  children, 
-  requireAuth = true, 
-  redirectTo = '/login' 
-}: ProtectedRouteProps) {
-  const { isAuthenticated, user } = useAuth();
-  const router = useRouter();
+export default function ProtectedRoute({ children }: ProtectedRouteProps) {
+  const { isAuthenticated } = useAuth();
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    // Check if user was logged out
-    const wasLoggedOut = localStorage.getItem('loggedOut') === 'true';
-
-    if (requireAuth && (!isAuthenticated || wasLoggedOut)) {
-      // Clear the loggedOut flag
-      localStorage.removeItem('loggedOut');
-      router.push(redirectTo);
-
-      // Prevent back navigation by clearing history
-      if (window.history && window.history.pushState) {
-        window.history.pushState(null, '', window.location.href);
-        window.addEventListener('popstate', (event) => {
-          event.preventDefault();
-          router.push(redirectTo);
-        });
+    const enforceAuth = () => {
+      if (!isSessionValid()) {
+        redirectToLogin();
+        return false;
       }
-    }
-  }, [isAuthenticated, requireAuth, redirectTo, router]);
+      return true;
+    };
 
-  if (requireAuth && !isAuthenticated) {
+    if (enforceAuth()) {
+      setHydrated(true);
+    }
+
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted || !isSessionValid()) {
+        if (!enforceAuth()) setHydrated(false);
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && !enforceAuth()) {
+        setHydrated(false);
+      }
+    };
+
+    window.addEventListener('pageshow', onPageShow);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.removeEventListener('pageshow', onPageShow);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isSessionValid()) {
+      setHydrated(false);
+      redirectToLogin();
+      return;
+    }
+    if (isAuthenticated) {
+      setHydrated(true);
+    }
+  }, [isAuthenticated]);
+
+  if (!hydrated || !isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-950">
         <LoadingSpinner message="Redirecting to login..." />
       </div>
     );
