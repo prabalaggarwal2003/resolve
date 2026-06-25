@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import jsPDF from 'jspdf';
 import { canAccessFeature } from '@/lib/subscriptionUtils';
+import { trackDownload } from '@/lib/trackDownload';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 function api(path: string) {
@@ -328,7 +329,9 @@ function ReportsPage() {
     }
 
     // Save the PDF
-    doc.save(`${report.reportType}-report-${new Date(report.generatedAt).toISOString().slice(0, 10)}.pdf`);
+    const fileName = `${report.reportType}-report-${new Date(report.generatedAt).toISOString().slice(0, 10)}.pdf`;
+    doc.save(fileName);
+    trackDownload(fileName, 'report', `${report.reportType} report`);
   };
 
   const downloadAllAssets = async () => {
@@ -402,7 +405,9 @@ function ReportsPage() {
         addLine();
       });
 
-      doc.save(`assets-${userRole === 'manager' && userDeptName ? userDeptName.toLowerCase().replace(/\s+/g, '-') + '-' : ''}${new Date().toISOString().slice(0, 10)}.pdf`);
+      const fileName = `assets-${userRole === 'manager' && userDeptName ? userDeptName.toLowerCase().replace(/\s+/g, '-') + '-' : ''}${new Date().toISOString().slice(0, 10)}.pdf`;
+      doc.save(fileName);
+      trackDownload(fileName, 'asset', 'Assets export PDF');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to download assets');
     }
@@ -494,7 +499,9 @@ function ReportsPage() {
         addLine();
       });
 
-      doc.save(`issues-${userRole === 'manager' && userDeptName ? userDeptName.toLowerCase().replace(/\s+/g, '-') + '-' : ''}${new Date().toISOString().slice(0, 10)}.pdf`);
+      const fileName = `issues-${userRole === 'manager' && userDeptName ? userDeptName.toLowerCase().replace(/\s+/g, '-') + '-' : ''}${new Date().toISOString().slice(0, 10)}.pdf`;
+      doc.save(fileName);
+      trackDownload(fileName, 'issue', 'Issues export PDF');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to download issues');
     }

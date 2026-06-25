@@ -4,7 +4,12 @@ import { protect } from '../middleware/auth.js';
 import { generateQrDataUrl, getAssetPublicUrl } from '../services/qrService.js';
 import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
 import { assetFilterForUser, canEdit, canViewAsset } from '../services/permissions.js';
-import { buildAssetEditChanges, createAssetEditLog, serializeAssetLogs } from '../services/assetLogService.js';
+import {
+  buildAssetEditChanges,
+  createAssetEditLog,
+  formatChangesSummary,
+  serializeAssetLogs,
+} from '../services/assetLogService.js';
 import { env } from '../config/env.js';
 
 const router = express.Router();
@@ -219,10 +224,6 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
       }
     });
 
-    let auditAction = AUDIT_ACTIONS.ASSET_UPDATED;
-    let auditDescription = `Updated asset "${prev.name}"`;
-    let auditSeverity = 'low';
-
     // Assignment (name + employee code)
     if (update.assignedToName !== undefined) {
       update.assignedToName = String(update.assignedToName).trim();
@@ -237,10 +238,22 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
       }
     }
 
-    if (update.assignedToName !== undefined || update.assignedToEmployeeCode !== undefined) {
+    const assignmentFields = new Set(['assignedTo', 'assignedToName', 'assignedToEmployeeCode']);
+    const changedFieldKeys = pendingEditLog?.fieldChanges?.map((c) => c.field) ?? [];
+    const assignmentChanged = changedFieldKeys.some((f) => assignmentFields.has(f));
+
+    if (assignmentChanged) {
       update.assignedAt = new Date();
+    }
+
+    let auditAction = AUDIT_ACTIONS.ASSET_UPDATED;
+    let auditDescription = pendingEditLog?.summary || `Updated asset "${prev.name}"`;
+    let auditSeverity = 'low';
+
+    if (assignmentChanged && changedFieldKeys.every((f) => assignmentFields.has(f))) {
       auditAction = AUDIT_ACTIONS.ASSET_ASSIGNED;
-      auditDescription = `Updated assignment for asset "${prev.name}"`;
+      auditSeverity = 'medium';
+    } else if (changedFieldKeys.includes('status')) {
       auditSeverity = 'medium';
     }
 
@@ -300,17 +313,15 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
       });
     }
 
-    const changedFields = {};
-    Object.keys(update).forEach(key => {
-      if (key !== 'updatedBy' && prev[key] !== update[key]) {
-        changedFields[key] = { old: prev[key], new: update[key] };
-      }
-    });
+    const fieldChanges = pendingEditLog?.fieldChanges ?? [];
 
     await logAudit(req.user._id, auditAction, AUDIT_RESOURCES.ASSET, asset._id, {
       resourceName: `${asset.name} (${asset.assetId})`,
       description: auditDescription,
-      details: { changes: changedFields, assignedTo: asset.assignedToName || asset.assignedTo?.name },
+      details: {
+        fieldChanges,
+        summary: pendingEditLog?.summary || formatChangesSummary(fieldChanges) || null,
+      },
       severity: auditSeverity,
       ...getRequestMetadata(req)
     });
