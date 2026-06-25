@@ -20,6 +20,8 @@ type Asset = {
   warrantyExpiry?: string;
   amcExpiry?: string;
   nextMaintenanceDate?: string;
+  assignedToName?: string;
+  assignedToEmployeeCode?: string;
   maintenanceStartDate?: string;
   maintenanceCompletedDate?: string;
   maintenanceReason?: string;
@@ -389,8 +391,8 @@ export default function AssetDetailPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
           <DetailTile label="Model" value={asset.model || '—'} />
           <DetailTile label="Serial number" value={asset.serialNumber || '—'} />
-          <DetailTile label="Assigned to" value={asset.assignedTo?.name || 'Unassigned'} />
-          <DetailTile label="Assignee email" value={asset.assignedTo?.email || '—'} />
+          <DetailTile label="Assigned to" value={asset.assignedToName || asset.assignedTo?.name || '—'} />
+          <DetailTile label="Employee code" value={asset.assignedToEmployeeCode || '—'} />
           <DetailTile label="Location" value={asset.locationId?.path || asset.locationId?.name || '—'} />
           <DetailTile label="Department" value={asset.departmentId?.name || '—'} />
           <DetailTile

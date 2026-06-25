@@ -24,12 +24,23 @@ type Asset = {
   status: string;
   condition?: string;
   maintenanceReason?: string;
+  maintenanceStartDate?: string;
+  maintenanceCompletedDate?: string;
+  maintenanceHistory?: {
+    startDate: string;
+    endDate?: string;
+    reason?: string;
+    durationMinutes?: number;
+    notes?: string;
+  }[];
   purchaseDate?: string;
   vendor?: string;
   cost?: number;
   warrantyExpiry?: string;
   amcExpiry?: string;
   nextMaintenanceDate?: string;
+  assignedToName?: string;
+  assignedToEmployeeCode?: string;
   locationId?: { name: string; path?: string };
   departmentId?: { name: string };
   photos?: { url: string; caption?: string }[];
@@ -220,19 +231,94 @@ export default function PublicAssetPage() {
   const statusBadge = STATUS_BADGE[asset.status] ?? STATUS_BADGE.retired;
   const detailTiles: { label: string; value: string; accent?: string }[] = [];
 
-  if (asset.locationId?.path) detailTiles.push({ label: 'Location', value: asset.locationId.path });
+  detailTiles.push({ label: 'Assigned to', value: asset.assignedToName || '—' });
+  detailTiles.push({ label: 'Employee code', value: asset.assignedToEmployeeCode || '—' });
+  detailTiles.push({ label: 'Location', value: asset.locationId?.path || asset.locationId?.name || '—' });
   if (asset.departmentId?.name) detailTiles.push({ label: 'Department', value: asset.departmentId.name });
   if (asset.model) detailTiles.push({ label: 'Model', value: asset.model });
   if (asset.serialNumber) detailTiles.push({ label: 'Serial', value: asset.serialNumber });
+  if (asset.condition) detailTiles.push({ label: 'Condition', value: asset.condition.replace(/_/g, ' ') });
   if (asset.purchaseDate) detailTiles.push({ label: 'Purchase date', value: formatDate(asset.purchaseDate) });
   if (asset.cost) detailTiles.push({ label: 'Cost', value: formatCurrency(asset.cost) });
-  if (asset.vendor) detailTiles.push({ label: 'Vendor', value: asset.vendor });
+  detailTiles.push({ label: 'Vendor', value: asset.vendor || '—' });
   if (asset.warrantyExpiry) detailTiles.push({ label: 'Warranty expires', value: formatDate(asset.warrantyExpiry) });
   if (asset.amcExpiry) detailTiles.push({ label: 'AMC expires', value: formatDate(asset.amcExpiry) });
+  if (asset.nextMaintenanceDate) detailTiles.push({ label: 'Next maintenance', value: formatDate(asset.nextMaintenanceDate) });
 
   return (
     <main className="min-h-screen bg-gray-950 text-sm">
       <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col gap-4">
+        <Section title="Check issue status" accentClass="border-l-emerald-500/50" titleClass="text-emerald-400/80">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              value={issueId}
+              onChange={(e) => setIssueId(e.target.value)}
+              placeholder="Enter Issue ID (e.g. ISS-2024-001)"
+              className={inputClass}
+              onKeyDown={(e) => e.key === 'Enter' && searchIssue()}
+            />
+            <button
+              type="button"
+              onClick={searchIssue}
+              disabled={searchingIssue || !issueId.trim()}
+              className={`${buttonClass} border-blue-500/40 bg-blue-600/20 text-blue-200 hover:bg-blue-600/30 shrink-0`}
+            >
+              {searchingIssue ? 'Searching…' : 'Search'}
+            </button>
+          </div>
+
+          {issueError && (
+            <p className="mt-2 text-[11px] text-red-400 px-2 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10">
+              {issueError}
+            </p>
+          )}
+
+          {issueResult && (
+            <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-2 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-xs font-semibold text-emerald-300">{issueResult.ticketId}</span>
+                <span
+                  className={`px-1.5 py-0.5 text-[9px] rounded border capitalize ${
+                    ISSUE_STATUS_BADGE[issueResult.status] || ISSUE_STATUS_BADGE.cancelled
+                  }`}
+                >
+                  {issueResult.status.replace('_', ' ')}
+                </span>
+              </div>
+              <p className="text-xs font-medium text-gray-200">{issueResult.title}</p>
+              {issueResult.description && (
+                <p className="text-[11px] text-gray-400 line-clamp-3">{issueResult.description}</p>
+              )}
+              <div className="grid grid-cols-2 gap-1.5 text-[10px] text-gray-500 pt-1 border-t border-gray-700/30">
+                {issueResult.priority && (
+                  <span>
+                    <span className="text-gray-600">Priority:</span> {issueResult.priority}
+                  </span>
+                )}
+                {issueResult.category && (
+                  <span>
+                    <span className="text-gray-600">Category:</span> {issueResult.category}
+                  </span>
+                )}
+                <span>
+                  <span className="text-gray-600">Reported:</span> {formatDate(issueResult.createdAt)}
+                </span>
+                {issueResult.assignedTo && (
+                  <span className="truncate">
+                    <span className="text-gray-600">Assigned:</span> {issueResult.assignedTo.name}
+                  </span>
+                )}
+              </div>
+              {issueResult.resolutionNotes && (
+                <p className="text-[11px] text-gray-400 pt-1 border-t border-gray-700/30">
+                  <span className="text-gray-500 font-medium">Resolution:</span> {issueResult.resolutionNotes}
+                </p>
+              )}
+            </div>
+          )}
+        </Section>
+
         {/* Header */}
         <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-blue-500/50 bg-gray-800/40 px-4 py-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -292,81 +378,77 @@ export default function PublicAssetPage() {
                 Report an issue
               </Link>
             )}
+
+            {(asset.photos?.length ?? 0) > 0 && (
+              <Section title="Photos" accentClass="border-l-violet-500/50" titleClass="text-violet-400/80">
+                <div className="flex flex-wrap gap-3">
+                  {asset.photos!.map((p, i) => (
+                    <a key={i} href={p.url} target="_blank" rel="noopener noreferrer" className="block">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={p.url}
+                        alt={p.caption || `Photo ${i + 1}`}
+                        className="h-20 w-20 object-cover rounded-lg border border-gray-700/60 hover:opacity-90"
+                      />
+                      {p.caption && <p className="text-[10px] text-gray-500 mt-1 max-w-[80px] truncate">{p.caption}</p>}
+                    </a>
+                  ))}
+                </div>
+              </Section>
+            )}
+
+            {(asset.documents?.length ?? 0) > 0 && (
+              <Section title="Documents" accentClass="border-l-teal-500/50" titleClass="text-teal-400/80">
+                <div className="space-y-2">
+                  {asset.documents!.map((d, i) => (
+                    <a
+                      key={i}
+                      href={d.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`${buttonClass} inline-block border-teal-500/30 bg-teal-500/5 text-teal-300 hover:bg-teal-500/15`}
+                    >
+                      {d.name}
+                    </a>
+                  ))}
+                </div>
+              </Section>
+            )}
+
+            {(asset.maintenanceHistory?.length || asset.maintenanceReason || asset.status === 'under_maintenance') && (
+              <Section title="Maintenance" accentClass="border-l-amber-500/50" titleClass="text-amber-400/80">
+                {asset.maintenanceReason && (
+                  <p className="text-xs text-gray-400">
+                    <span className="text-gray-500 font-medium">Reason:</span> {asset.maintenanceReason}
+                  </p>
+                )}
+                {asset.maintenanceStartDate && (
+                  <p className="text-xs text-gray-500 mt-1">Started: {new Date(asset.maintenanceStartDate).toLocaleString('en-IN')}</p>
+                )}
+                {asset.maintenanceCompletedDate && (
+                  <p className="text-xs text-gray-500 mt-1">Completed: {new Date(asset.maintenanceCompletedDate).toLocaleString('en-IN')}</p>
+                )}
+                {asset.maintenanceHistory?.length ? (
+                  <div className="mt-2 space-y-1.5">
+                    {asset.maintenanceHistory.slice().reverse().slice(0, 6).map((entry, idx) => (
+                      <div key={`${entry.startDate}-${idx}`} className="rounded-lg border border-gray-700/40 bg-gray-900/30 px-2.5 py-2">
+                        <p className="text-[11px] text-gray-300">
+                          {formatDate(entry.startDate)}
+                          {entry.endDate ? ` → ${formatDate(entry.endDate)}` : ' → ongoing'}
+                        </p>
+                        {entry.reason && <p className="text-[10px] text-gray-500 mt-0.5">{entry.reason}</p>}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-gray-600 mt-2">No maintenance history available.</p>
+                )}
+              </Section>
+            )}
           </div>
 
           {/* Sidebar */}
           <div className="flex flex-col gap-4">
-            <Section title="Check issue status" accentClass="border-l-emerald-500/50" titleClass="text-emerald-400/80">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={issueId}
-                  onChange={(e) => setIssueId(e.target.value)}
-                  placeholder="e.g. ISS-2024-001"
-                  className={inputClass}
-                  onKeyDown={(e) => e.key === 'Enter' && searchIssue()}
-                />
-                <button
-                  type="button"
-                  onClick={searchIssue}
-                  disabled={searchingIssue || !issueId.trim()}
-                  className={`${buttonClass} border-blue-500/40 bg-blue-600/20 text-blue-200 hover:bg-blue-600/30 shrink-0`}
-                >
-                  {searchingIssue ? '…' : 'Search'}
-                </button>
-              </div>
-
-              {issueError && (
-                <p className="mt-2 text-[11px] text-red-400 px-2 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10">
-                  {issueError}
-                </p>
-              )}
-
-              {issueResult && (
-                <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-2 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-xs font-semibold text-emerald-300">{issueResult.ticketId}</span>
-                    <span
-                      className={`px-1.5 py-0.5 text-[9px] rounded border capitalize ${
-                        ISSUE_STATUS_BADGE[issueResult.status] || ISSUE_STATUS_BADGE.cancelled
-                      }`}
-                    >
-                      {issueResult.status.replace('_', ' ')}
-                    </span>
-                  </div>
-                  <p className="text-xs font-medium text-gray-200">{issueResult.title}</p>
-                  {issueResult.description && (
-                    <p className="text-[11px] text-gray-400 line-clamp-3">{issueResult.description}</p>
-                  )}
-                  <div className="grid grid-cols-2 gap-1.5 text-[10px] text-gray-500 pt-1 border-t border-gray-700/30">
-                    {issueResult.priority && (
-                      <span>
-                        <span className="text-gray-600">Priority:</span> {issueResult.priority}
-                      </span>
-                    )}
-                    {issueResult.category && (
-                      <span>
-                        <span className="text-gray-600">Category:</span> {issueResult.category}
-                      </span>
-                    )}
-                    <span>
-                      <span className="text-gray-600">Reported:</span> {formatDate(issueResult.createdAt)}
-                    </span>
-                    {issueResult.assignedTo && (
-                      <span className="truncate">
-                        <span className="text-gray-600">Assigned:</span> {issueResult.assignedTo.name}
-                      </span>
-                    )}
-                  </div>
-                  {issueResult.resolutionNotes && (
-                    <p className="text-[11px] text-gray-400 pt-1 border-t border-gray-700/30">
-                      <span className="text-gray-500 font-medium">Resolution:</span> {issueResult.resolutionNotes}
-                    </p>
-                  )}
-                </div>
-              )}
-            </Section>
-
             {asset.previousIssues && asset.previousIssues.length > 0 && (
               <Section
                 title={`Previous issues (${sortedIssues.length})`}

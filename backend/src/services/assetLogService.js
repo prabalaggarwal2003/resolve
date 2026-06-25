@@ -7,6 +7,8 @@ const FIELD_LABELS = {
   serialNumber: 'Serial number',
   status: 'Status',
   assignedTo: 'Assigned to',
+  assignedToName: 'Assigned to',
+  assignedToEmployeeCode: 'Employee code',
   locationId: 'Location',
   departmentId: 'Department',
   purchaseDate: 'Purchase date',
