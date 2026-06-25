@@ -582,10 +582,10 @@ export default function DashboardPage() {
                 <span>Status</span>
                 <span className="text-right">When</span>
               </div>
-              <div className="flex-1 min-h-0 flex flex-col justify-evenly my-2">
+              <div className="flex-1 min-h-0 overflow-y-auto my-2 -mr-1 pr-1">
                 {displayIssues.map((issue) => {
                   const rowClass =
-                    'grid grid-cols-[1fr_0.65fr_0.45fr_0.5fr_0.6fr] gap-1 text-[12px] items-center min-h-0 flex-1';
+                    'grid grid-cols-[1fr_0.65fr_0.45fr_0.5fr_0.6fr] gap-1 text-[12px] items-center py-1.5 shrink-0 border-b border-gray-700/20 last:border-b-0';
                   const row = (
                     <>
                       <span className="truncate text-gray-300">{issue.assetName}</span>
