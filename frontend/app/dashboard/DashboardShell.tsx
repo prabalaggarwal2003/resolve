@@ -18,7 +18,7 @@ function SignOutButton({ onSignOut }: { onSignOut?: () => void }) {
         onSignOut?.();
         logout();
       }}
-      className="flex w-full items-center gap-2 px-3 py-2 rounded-xl text-xs text-gray-600 hover:text-gray-300 hover:bg-gray-800/60 transition-all"
+      className="flex w-full items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-800/60 transition-all"
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -71,11 +71,11 @@ function SidebarPanel({
         </Link>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-3 py-4 md:py-4">
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-4 md:py-4">
         <DashboardNav onNavigate={onNavigate} />
       </div>
 
-      <div className="px-4 py-4 border-t border-gray-800/60">
+      <div className="px-4 py-4 border-t border-gray-800/60 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <SignOutButton onSignOut={onNavigate} />
       </div>
     </div>
@@ -166,12 +166,12 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                 aria-label="Close navigation menu"
               />
               <aside
-                className={`fixed inset-y-0 left-0 z-50 w-[min(85vw,18rem)] p-3 md:hidden transition-transform duration-300 ease-out ${
+                className={`fixed inset-y-0 left-0 z-50 w-[min(85vw,18rem)] p-3 md:hidden flex flex-col transition-transform duration-300 ease-out ${
                   isDrawerOpen ? 'translate-x-0' : '-translate-x-full'
                 }`}
                 onTransitionEnd={handleDrawerTransitionEnd}
               >
-                <div className="flex items-center justify-between px-2 pb-3">
+                <div className="flex items-center justify-between px-2 pb-3 shrink-0">
                   <BrandLink />
                   <button
                     type="button"
@@ -195,7 +195,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                     </svg>
                   </button>
                 </div>
-                <SidebarPanel onNavigate={closeMenu} className="h-[calc(100%-3.25rem)]" />
+                <SidebarPanel onNavigate={closeMenu} className="flex-1 min-h-0" />
               </aside>
             </>
           )}

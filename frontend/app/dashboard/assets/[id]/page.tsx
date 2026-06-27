@@ -319,7 +319,7 @@ export default function AssetDetailPage() {
         Back to assets
       </Link>
 
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <h1 className="text-2xl font-bold text-gray-100">{asset.name}</h1>
@@ -340,10 +340,14 @@ export default function AssetDetailPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-start gap-3">
+        <div className="flex flex-wrap items-start gap-3 shrink-0">
           {asset.qrCodeUrl && (
-            <div className="px-3 py-2 rounded-xl border border-gray-700/60 bg-gray-900/40 text-center shrink-0">
-              <img src={asset.qrCodeUrl} alt="QR code" width={88} height={88} className="mx-auto" />
+            <div className="px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl border border-gray-700/60 bg-gray-900/40 text-center shrink-0">
+              <img
+                src={asset.qrCodeUrl}
+                alt="QR code"
+                className="mx-auto w-14 h-14 sm:w-[88px] sm:h-[88px]"
+              />
               <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-wide">Scan for details</p>
             </div>
           )}

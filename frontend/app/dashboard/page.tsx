@@ -492,7 +492,7 @@ export default function DashboardPage() {
   const hasCharts = Boolean(issueTrend || assetStatus);
 
   return (
-    <div className="h-[calc(100dvh-8.5rem)] max-w-7xl mx-auto w-full flex flex-col gap-2  text-sm">
+    <div className="max-md:h-auto md:h-[calc(100dvh-8.5rem)] max-w-7xl mx-auto w-full flex flex-col gap-2 text-sm">
       <div className="shrink-0">
         <h1 className="text-[20px] font-bold text-gray-100 leading-tight mb-2">
           {getGreeting()}, {getFirstName(userName)}
@@ -538,7 +538,7 @@ export default function DashboardPage() {
       )}
 
       {/* Charts row + latest issues */}
-      <div className="flex-1 min-h-0 flex flex-col gap-2">
+      <div className="flex flex-col gap-2 md:flex-1 md:min-h-0">
         {hasCharts && (
           <div
             className={`shrink-0 grid gap-2 ${
@@ -569,7 +569,7 @@ export default function DashboardPage() {
         <Panel
           title="📋 Latest issues"
           accent="border-l-violet-500/50"
-          className="flex-1 min-h-0 overflow-hidden mt-2"
+          className="overflow-hidden mt-2 md:flex-1 md:min-h-0"
         >
           {displayIssues.length === 0 ? (
             <p className="text-[10px] text-gray-500">No issues yet.</p>
@@ -582,7 +582,7 @@ export default function DashboardPage() {
                 <span>Status</span>
                 <span className="text-right">When</span>
               </div>
-              <div className="flex-1 min-h-0 overflow-y-auto my-2 -mr-1 pr-1">
+              <div className="overflow-y-auto my-2 -mr-1 pr-1 max-md:max-h-[15rem] md:flex-1 md:min-h-0">
                 {displayIssues.map((issue) => {
                   const rowClass =
                     'grid grid-cols-[1fr_0.65fr_0.45fr_0.5fr_0.6fr] gap-1 text-[12px] items-center py-1.5 shrink-0 border-b border-gray-700/20 last:border-b-0';
@@ -628,9 +628,11 @@ export default function DashboardPage() {
           )}
         </Panel>
       </div>
-      <div className="">
-    <p className="text-[18px] text-gray-600 text-center -mb-12 pt-7 ">Manage smarter. Track better. Resolve faster.</p>
-  </div>
+      <div>
+        <p className="text-[18px] text-gray-600 text-center -mb-12 pt-7">
+          Manage smarter. Track better. Resolve faster.
+        </p>
+      </div>
     </div>
     
   );
