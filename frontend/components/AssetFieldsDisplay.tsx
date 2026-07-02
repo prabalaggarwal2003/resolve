@@ -107,7 +107,9 @@ function formatFieldValue(field: AssetFieldDef, raw: unknown, asset: Record<stri
 
   if (field.kind === 'location') {
     const loc = asset.locationId as { path?: string; name?: string } | undefined;
-    return breadcrumbForNode(loc);
+    return breadcrumbForNode(
+      loc?.name ? { path: loc.path ?? '', name: loc.name } : null
+    );
   }
 
   if (field.kind === 'group') {

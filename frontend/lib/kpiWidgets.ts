@@ -480,7 +480,7 @@ function computeQuickWidget(
   switch (type) {
     case 'latest_issues':
       quick.latestIssues.slice(0, limit * 3).forEach((i) => {
-        const match = assets.some((a) => a.name === i.assetName || a.assetIdString === i.assetIdString);
+        const match = assets.some((a) => a.name === i.assetName);
         if (match) rows.push({ primary: i.title, secondary: i.assetName, meta: i.status });
       });
       break;
@@ -514,7 +514,7 @@ function computeQuickWidget(
         cur.totalValue += a.purchaseValue;
         vendorMap.set(name, cur);
       }
-      [...vendorMap.entries()]
+      Array.from(vendorMap.entries())
         .sort((a, b) => b[1].count - a[1].count)
         .slice(0, limit)
         .forEach(([name, v]) => rows.push({ primary: name, secondary: `${v.count} assets`, meta: formatINR(v.totalValue) }));

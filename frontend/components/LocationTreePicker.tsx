@@ -146,9 +146,9 @@ export default function LocationTreePicker(props: LocationTreePickerProps) {
   const flat = useMemo(() => flattenTree(tree), [tree]);
 
   const selectedIds = useMemo(() => {
-    if (isMultiple) return new Set(props.value);
+    if (props.multiple) return new Set(props.value);
     return props.value ? new Set([props.value]) : new Set<string>();
-  }, [isMultiple, props.value]);
+  }, [props.multiple, props.value]);
 
   const selectedNodes = useMemo(
     () => flat.filter((n) => selectedIds.has(n._id)),
@@ -169,12 +169,12 @@ export default function LocationTreePicker(props: LocationTreePickerProps) {
   );
 
   useEffect(() => {
-    if (isMultiple) {
+    if (props.multiple) {
       props.value.forEach((id) => expandAncestors(id));
       return;
     }
     if (props.value) expandAncestors(props.value);
-  }, [isMultiple, props.value, expandAncestors]);
+  }, [props.multiple, props.value, expandAncestors]);
 
   useEffect(() => {
     const q = query.trim();
@@ -213,7 +213,7 @@ export default function LocationTreePicker(props: LocationTreePickerProps) {
 
   const handleSelect = useCallback(
     (id: string) => {
-      if (isMultiple) {
+      if (props.multiple) {
         const current = props.value;
         const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
         props.onChange(next);
@@ -226,13 +226,13 @@ export default function LocationTreePicker(props: LocationTreePickerProps) {
       setSearchResults([]);
       expandAncestors(id);
     },
-    [isMultiple, props, expandAncestors]
+    [props, expandAncestors]
   );
 
   const clearSelection = useCallback(() => {
-    if (isMultiple) props.onChange([]);
+    if (props.multiple) props.onChange([]);
     else props.onChange('');
-  }, [isMultiple, props]);
+  }, [props]);
 
   const showSearch = query.trim().length > 0;
   const fieldLabel = label ?? (isMultiple ? 'Locations' : 'Location');

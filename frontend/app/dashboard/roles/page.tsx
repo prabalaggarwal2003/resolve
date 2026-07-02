@@ -59,12 +59,12 @@ function PermissionMatrix({
 	disabled?: boolean;
 }) {
 	const sections = useMemo(() => {
-		const map = new Map<string, typeof PERMISSION_TABS>();
+		const map = new Map<string, (typeof PERMISSION_TABS)[number][]>();
 		for (const tab of PERMISSION_TABS) {
 			if (!map.has(tab.section)) map.set(tab.section, []);
 			map.get(tab.section)!.push(tab);
 		}
-		return [...map.entries()];
+		return Array.from(map.entries());
 	}, []);
 
 	const setAccess = (key: string, enabled: boolean) => {

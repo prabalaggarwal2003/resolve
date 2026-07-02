@@ -488,15 +488,17 @@ export function computeWidgetData(
 
   let points: WidgetDataPoint[] = Object.entries(buckets).map(([label, b], i) => {
     const value = isAvgMetric(metric) && b.count > 0 ? Math.round((b.sum / b.count) * 10) / 10 : Math.round(b.sum * 100) / 100;
+    let stack: Record<string, number> | undefined;
+    if (chartType === 'stacked_bar') {
+      stack = { 'Book value': b.book, Depreciation: Math.max(0, b.purchase - b.book) };
+    } else if (effectiveGroupBy === 'purchase_year') {
+      stack = { 'Book value': b.book, Purchase: b.purchase };
+    }
     return {
       label,
       value,
       color: colorAt(i),
-      stack: chartType === 'stacked_bar'
-        ? { 'Book value': b.book, Depreciation: Math.max(0, b.purchase - b.book) }
-        : effectiveGroupBy === 'purchase_year'
-          ? { 'Book value': b.book, Purchase: b.purchase }
-          : undefined,
+      stack,
       hint: `${b.count} assets`,
     };
   });

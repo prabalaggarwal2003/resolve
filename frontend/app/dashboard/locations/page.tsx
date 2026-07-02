@@ -298,7 +298,7 @@ export default function LocationsPage() {
   };
 
   const handleBulkDelete = async () => {
-    const ids = [...checkedIds];
+    const ids = Array.from(checkedIds);
     if (!ids.length) return;
     if (!confirm(`Delete ${ids.length} selected location branch(es)? This cannot be undone.`)) return;
     try {

@@ -119,5 +119,5 @@ export function loadExpandedIds(): Set<string> {
 }
 
 export function saveExpandedIds(ids: Set<string>) {
-  localStorage.setItem(EXPANDED_STORAGE_KEY, JSON.stringify([...ids]));
+  localStorage.setItem(EXPANDED_STORAGE_KEY, JSON.stringify(Array.from(ids)));
 }
