@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { isSuperAdminUser, canRead } from '@/lib/permissions';
 
 interface SubscriptionStatus {
   tier: 'free' | 'pro' | 'premium';
@@ -108,20 +109,10 @@ export default function SubscriptionsPage() {
   const [planType, setPlanType] = useState<'monthly' | 'annual'>('monthly');
   const [selectedTier, setSelectedTier] = useState<'pro' | 'premium'>('pro');
   const [upgrading, setUpgrading] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSubscription();
     loadRazorpayScript();
-
-    // Get user role from localStorage
-    try {
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        setUserRole(user.role || null);
-      }
-    } catch (_) {}
   }, []);
 
   const loadRazorpayScript = () => {
@@ -279,6 +270,14 @@ export default function SubscriptionsPage() {
     return <LoadingSpinner message="Loading subscription..." />;
   }
 
+  if (!canRead('subscriptions')) {
+    return (
+      <div className="max-w-7xl mx-auto">
+        <p className="text-red-400 text-sm">You do not have permission to view subscriptions.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto">
       <div className="mb-6">
@@ -344,7 +343,7 @@ export default function SubscriptionsPage() {
             </div>
           )}
 
-          {userRole === 'super_admin' && subscription.tier !== 'free' && (
+          {isSuperAdminUser() && subscription.tier !== 'free' && (
             <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-700/60">
               <button
                 onClick={handleDowngrade}
@@ -444,7 +443,7 @@ export default function SubscriptionsPage() {
                 ))}
               </ul>
 
-              {!isCurrent && tier !== 'free' && userRole === 'super_admin' && (
+              {!isCurrent && tier !== 'free' && isSuperAdminUser() && (
                 <button
                   onClick={() => handleUpgrade(tier)}
                   disabled={upgrading === tier}

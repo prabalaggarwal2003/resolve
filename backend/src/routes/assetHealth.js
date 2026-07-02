@@ -12,6 +12,7 @@ import {
   ASSET_CONDITIONS
 } from '../services/assetHealthService.js';
 import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
+import { getDepartmentScopeId } from '../services/permissions.js';
 
 const router = express.Router();
 
@@ -47,7 +48,7 @@ router.get('/summary', async (req, res) => {
  */
 router.get('/maintenance', async (req, res) => {
   try {
-    const deptId = req.user.role === 'manager' ? req.user.departmentId : undefined;
+    const deptId = getDepartmentScopeId(req.user) ?? undefined;
     const assets = await getAssetsUnderMaintenance(req.user.organizationId, deptId);
     res.json({ assets, total: assets.length });
   } catch (error) {

@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { apiUrl } from '@/lib/api';
 import { validatePassword } from '@/lib/validation';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { isSuperAdminUser, canRead } from '@/lib/permissions';
 import TwoFactorSection from '@/components/TwoFactorSection';
 import ProfileLegalSection from '@/components/ProfileLegalSection';
 
@@ -121,12 +122,8 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
-    if (user?.role !== 'super_admin') {
-      setLoading(false);
-      return;
-    }
     fetchProfile();
-  }, [user?.role]);
+  }, [user?.role, user?.permissions]);
 
   const fetchProfile = async () => {
     const authToken = token || localStorage.getItem('token');
@@ -263,17 +260,6 @@ export default function ProfilePage() {
       setDeleting(false);
     }
   };
-
-  if (user?.role !== 'super_admin') {
-    return (
-      <div className="max-w-7xl mx-auto">
-        <p className="text-red-400 text-sm">Access denied. Profile is available for super admins only.</p>
-        <Link href="/dashboard" className={`${buttonClass} inline-block mt-3 border-gray-700/60 text-gray-400 no-underline`}>
-          Back to dashboard
-        </Link>
-      </div>
-    );
-  }
 
   if (loading) return <LoadingSpinner message="Loading profile..." />;
 
@@ -542,17 +528,19 @@ export default function ProfilePage() {
             </p>
           </div>
         </div>
+        {canRead('subscriptions') && (
         <Link
           href="/dashboard/subscriptions"
           className={`${buttonClass} inline-block mt-3 no-underline border-gray-700/60 bg-gray-800/40 text-gray-400 hover:text-gray-200`}
         >
           Manage subscription →
         </Link>
+        )}
       </div>
 
       <ProfileLegalSection />
 
-      {profile.isOrgOwner && (
+      {isSuperAdminUser() && (
         <div className="rounded-xl border border-red-500/30 border-l-2 border-l-red-500/60 bg-red-950/20 px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-red-400/90">Danger zone</p>

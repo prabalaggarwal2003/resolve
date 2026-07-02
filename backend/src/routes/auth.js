@@ -18,6 +18,7 @@ import {
   logPasswordChanged,
   logProfileUpdated,
 } from '../services/profileLogService.js';
+import { buildAuthUserPayload } from '../services/authUserPayload.js';
 import twoFactorRouter, { generatePreAuthToken } from './twoFactor.js';
 
 const router = express.Router();
@@ -156,7 +157,8 @@ router.post('/login', async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password required' });
     }
-    const user = await User.findOne({ email }).select('+passwordHash');
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail }).select('+passwordHash');
     if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
@@ -173,24 +175,10 @@ router.post('/login', async (req, res) => {
 
     await User.updateOne({ _id: user._id }, { lastLogin: new Date() });
     const token = generateToken(user._id);
-
-    // Fetch department name if user has one
-    let departmentName = null;
-    if (user.departmentId) {
-      const dept = await Department.findById(user.departmentId).select('name').lean();
-      departmentName = dept?.name ?? null;
-    }
+    const authUser = await buildAuthUserPayload(user);
 
     res.json({
-      user: {
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        organizationId: user.organizationId,
-        departmentId: user.departmentId ?? null,
-        departmentName,
-      },
+      user: authUser,
       token,
     });
   } catch (err) {
@@ -199,26 +187,17 @@ router.post('/login', async (req, res) => {
 });
 
 router.get('/me', protect, async (req, res) => {
-  const user = await User.findById(req.user._id)
-    .select('-passwordHash')
-    .lean();
-  
-  // Only populate organizationId if user actually has one
-  if (user.organizationId) {
-    user.organizationId = await Organization.findById(user.organizationId)
-      .select('name industry companySize country primaryGoal estimatedAssets')
-      .lean();
-  }
-  
-  res.json({ user });
+  const authUser = await buildAuthUserPayload(req.user);
+  res.json({ user: authUser });
+});
+
+router.get('/session', protect, async (req, res) => {
+  const authUser = await buildAuthUserPayload(req.user);
+  res.json({ user: authUser });
 });
 
 router.get('/profile', protect, async (req, res) => {
   try {
-    if (req.user.role !== 'super_admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
     const user = await User.findById(req.user._id).select('-passwordHash').lean();
     if (!user) return res.status(404).json({ message: 'User not found' });
 
@@ -276,10 +255,6 @@ router.get('/profile', protect, async (req, res) => {
 
 router.patch('/profile', protect, async (req, res) => {
   try {
-    if (req.user.role !== 'super_admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
     const { name, phone, jobTitle, timeZone } = req.body;
     const updates = {};
 
@@ -337,10 +312,6 @@ router.patch('/profile', protect, async (req, res) => {
 
 router.post('/change-password', protect, async (req, res) => {
   try {
-    if (req.user.role !== 'super_admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ message: 'Current and new password are required' });

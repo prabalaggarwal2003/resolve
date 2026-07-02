@@ -4,7 +4,30 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import Link from 'next/link';
-import dayjs from 'dayjs';
+import { canWrite } from '@/lib/permissions';
+import AssetFieldsDisplay from '@/components/AssetFieldsDisplay';
+import { breadcrumbForNode } from '@/lib/locations';
+
+type TimelineEntry = {
+  _id: string;
+  type: 'edit' | 'created' | 'note' | 'maintenance' | 'check_in' | 'check_out';
+  createdAt: string;
+  user?: { _id: string; name: string; email: string } | null;
+  summary?: string;
+  changeReason?: string | null;
+  noteText?: string | null;
+  notes?: string | null;
+  fieldChanges?: { field: string; label: string; oldValue: string; newValue: string }[];
+};
+
+const TIMELINE_TYPE_META: Record<string, { label: string; dot: string; title: string }> = {
+  created: { label: 'Created', dot: 'bg-emerald-400', title: 'text-emerald-300' },
+  edit: { label: 'Updated', dot: 'bg-blue-400', title: 'text-blue-300' },
+  note: { label: 'Note', dot: 'bg-violet-400', title: 'text-violet-300' },
+  maintenance: { label: 'Maintenance', dot: 'bg-amber-400', title: 'text-amber-300' },
+  check_in: { label: 'Check-in', dot: 'bg-teal-400', title: 'text-teal-300' },
+  check_out: { label: 'Check-out', dot: 'bg-orange-400', title: 'text-orange-300' },
+};
 
 type Asset = {
   _id: string;
@@ -34,7 +57,15 @@ type Asset = {
   }[];
   locationId?: { name: string; path?: string };
   departmentId?: { name: string };
+  vendorId?: { _id: string; name: string; vendorId?: string };
   assignedTo?: { _id: string; name: string; email: string };
+  tags?: string[];
+  customFields?: Record<string, unknown>;
+  condition?: string;
+  lastHealthCheck?: string;
+  assignedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
   photos?: { url: string; caption?: string }[];
   documents?: { url: string; name: string }[];
   qrCodeUrl?: string;
@@ -77,51 +108,6 @@ const buttonClass = 'px-2.5 py-1 text-xs font-medium rounded-lg border transitio
 function api(path: string) {
   const base = process.env.NEXT_PUBLIC_API_URL || '';
   return base ? `${base}${path}` : path;
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
-function calculateAssetAge(purchaseDate: string | undefined): string {
-  if (!purchaseDate) return '';
-  const purchase = dayjs(purchaseDate);
-  const now = dayjs();
-  const years = now.diff(purchase, 'year');
-  const months = now.diff(purchase, 'month') % 12;
-  const days = now.diff(purchase.add(years, 'year').add(months, 'month'), 'day');
-  const parts: string[] = [];
-  if (years > 0) parts.push(`${years} year${years > 1 ? 's' : ''}`);
-  if (months > 0) parts.push(`${months} month${months > 1 ? 's' : ''}`);
-  if (days > 0 && years === 0) parts.push(`${days} day${days > 1 ? 's' : ''}`);
-  return parts.length > 0 ? parts.join(', ') : 'Less than a day';
-}
-
-function DetailTile({
-  label,
-  value,
-  accent,
-  badge,
-}: {
-  label: React.ReactNode;
-  value: string;
-  accent?: string;
-  badge?: React.ReactNode;
-}) {
-  return (
-    <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30 min-w-0">
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <p className="text-[10px] text-gray-500 uppercase tracking-wide">{label}</p>
-        {badge}
-      </div>
-      <p className={`text-xs font-medium mt-0.5 break-words ${accent || 'text-gray-200'}`}>{value}</p>
-    </div>
-  );
 }
 
 function Section({
@@ -214,11 +200,15 @@ function getReportCount(issue: Issue): number {
 export default function AssetDetailPage() {
   const params = useParams();
   const [asset, setAsset] = useState<Asset | null>(null);
+  const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [canAdmin, setCanAdmin] = useState(false);
+  const [noteText, setNoteText] = useState('');
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [noteError, setNoteError] = useState('');
 
   const PER_PAGE = 5;
   const [maintPage, setMaintPage] = useState(1);
@@ -229,7 +219,7 @@ export default function AssetDetailPage() {
   useEffect(() => {
     try {
       const u = JSON.parse(localStorage.getItem('user') || '{}');
-      setCanAdmin(['super_admin', 'admin'].includes(u.role));
+      setCanAdmin(canWrite('assets'));
     } catch (_) {}
   }, []);
 
@@ -245,11 +235,13 @@ export default function AssetDetailPage() {
     const headers = { Authorization: `Bearer ${token}` };
     Promise.all([
       fetch(api(`/api/assets/${params.id}`), { headers }).then((r) => r.json()),
+      fetch(api(`/api/assets/${params.id}/timeline`), { headers }).then((r) => r.json()),
       fetch(api(`/api/issues?assetId=${params.id}`), { headers }).then((r) => r.json()),
     ])
-      .then(([assetData, issuesData]) => {
+      .then(([assetData, timelineData, issuesData]) => {
         if (assetData._id) setAsset(assetData);
         else setError(assetData.message || 'Not found');
+        if (timelineData.timeline) setTimeline(timelineData.timeline);
         if (issuesData.issues) setIssues(issuesData.issues);
       })
       .catch(() => setError('Failed to load'))
@@ -259,6 +251,30 @@ export default function AssetDetailPage() {
   useEffect(() => {
     fetchData();
   }, [params.id]);
+
+  const handleAddNote = async () => {
+    const text = noteText.trim();
+    if (!text || !params.id) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    setNoteSaving(true);
+    setNoteError('');
+    try {
+      const res = await fetch(api(`/api/assets/${params.id}/notes`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to add note');
+      if (data.entry) setTimeline((prev) => [data.entry, ...prev]);
+      setNoteText('');
+    } catch (err) {
+      setNoteError(err instanceof Error ? err.message : 'Failed to add note');
+    } finally {
+      setNoteSaving(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!confirm('Delete this asset? This cannot be undone.')) return;
@@ -309,6 +325,7 @@ export default function AssetDetailPage() {
   const filteredIssues = issuesFilter === 'all' ? issues : issues.filter((i) => i.status === issuesFilter);
   const issuesTotalPages = Math.ceil(filteredIssues.length / PER_PAGE);
   const paginatedIssues = filteredIssues.slice((issuesPage - 1) * PER_PAGE, issuesPage * PER_PAGE);
+  const noteEntries = timeline.filter((e) => e.type === 'note');
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -334,8 +351,8 @@ export default function AssetDetailPage() {
           <p className="text-sm text-gray-400 font-mono">{asset.assetId}</p>
           <p className="text-xs text-gray-500 mt-0.5">
             {asset.category}
-            {asset.locationId?.path || asset.locationId?.name
-              ? ` · ${asset.locationId.path || asset.locationId.name}`
+            {asset.locationId
+              ? ` · ${breadcrumbForNode(asset.locationId)}`
               : ''}
           </p>
         </div>
@@ -391,48 +408,149 @@ export default function AssetDetailPage() {
         </div>
       )}
 
-      <Section title="Asset details" accentClass="border-l-blue-500/50" titleClass="text-blue-400/80">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-          <DetailTile label="Model" value={asset.model || '—'} />
-          <DetailTile label="Serial number" value={asset.serialNumber || '—'} />
-          <DetailTile label="Assigned to" value={asset.assignedToName || asset.assignedTo?.name || '—'} />
-          <DetailTile label="Employee code" value={asset.assignedToEmployeeCode || '—'} />
-          <DetailTile label="Location" value={asset.locationId?.path || asset.locationId?.name || '—'} />
-          <DetailTile label="Department" value={asset.departmentId?.name || '—'} />
-          <DetailTile
-            label="Purchase date"
-            value={
-              asset.purchaseDate
-                ? `${new Date(asset.purchaseDate).toLocaleDateString('en-IN')} (${calculateAssetAge(asset.purchaseDate)} old)`
-                : '—'
-            }
-          />
-          <DetailTile label="Vendor" value={asset.vendor || '—'} />
-          <DetailTile
-            label="Cost"
-            value={asset.cost != null ? formatCurrency(asset.cost) : '—'}
-          />
-          <DetailTile
-            label="Warranty expiry"
-            value={
-              asset.warrantyExpiry
-                ? new Date(asset.warrantyExpiry).toLocaleDateString('en-IN')
-                : '—'
-            }
-            accent={warrantyExpired ? 'text-red-300' : warrantySoon ? 'text-amber-300' : undefined}
-            badge={
-              warrantyExpired ? (
-                <span className="px-1 py-0.5 text-[9px] font-medium rounded border text-red-300 bg-red-500/15 border-red-500/30">
-                  Expired
-                </span>
-              ) : warrantySoon ? (
-                <span className="px-1 py-0.5 text-[9px] font-medium rounded border text-amber-300 bg-amber-500/15 border-amber-500/30">
-                  Expiring soon
-                </span>
-              ) : undefined
-            }
-          />
-        </div>
+      <AssetFieldsDisplay
+        asset={asset as Record<string, unknown>}
+        warrantyAccent={warrantyExpired ? 'text-red-300' : warrantySoon ? 'text-amber-300' : undefined}
+        warrantyBadge={
+          warrantyExpired ? (
+            <span className="px-1 py-0.5 text-[9px] font-medium rounded border text-red-300 bg-red-500/15 border-red-500/30">
+              Expired
+            </span>
+          ) : warrantySoon ? (
+            <span className="px-1 py-0.5 text-[9px] font-medium rounded border text-amber-300 bg-amber-500/15 border-amber-500/30">
+              Expiring soon
+            </span>
+          ) : undefined
+        }
+      />
+
+      <Section title="Notes" subtitle="Short context that does not fit elsewhere" accentClass="border-l-violet-500/50" titleClass="text-violet-400/80" compact>
+        {canAdmin && (
+          <div className="mb-3">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddNote();
+                  }
+                }}
+                placeholder="Add a note…"
+                className="flex-1 px-3 py-1.5 text-sm border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200 focus:ring-1 focus:ring-violet-500/40"
+              />
+              <button
+                type="button"
+                onClick={handleAddNote}
+                disabled={noteSaving || !noteText.trim()}
+                className={`${buttonClass} border-violet-500/40 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 disabled:opacity-50 shrink-0`}
+              >
+                {noteSaving ? 'Adding…' : 'Add'}
+              </button>
+            </div>
+            {noteError && <p className="text-[11px] text-red-400 mt-1">{noteError}</p>}
+          </div>
+        )}
+        {noteEntries.length === 0 ? (
+          <p className="text-[11px] text-gray-500 py-1">No notes yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {noteEntries.slice(0, 8).map((entry) => (
+              <div key={entry._id} className="rounded-lg border border-gray-700/40 bg-gray-900/30 px-3 py-2">
+                <p className="text-xs text-gray-200">{entry.noteText || entry.notes}</p>
+                <p className="text-[10px] text-gray-500 mt-1">
+                  {entry.user?.name || 'Unknown'}
+                  {' · '}
+                  {new Date(entry.createdAt).toLocaleString('en-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      <Section
+        title="Timeline"
+        subtitle={timeline.length ? `${timeline.length} events` : 'No history yet'}
+        accentClass="border-l-sky-500/50"
+        titleClass="text-sky-400/80"
+        compact
+      >
+        {timeline.length === 0 ? (
+          <p className="text-[11px] text-gray-500 py-1">Activity will appear here as changes are made.</p>
+        ) : (
+          <div className="relative pl-4 border-l border-gray-700/40 space-y-4">
+            {timeline.map((entry) => {
+              const meta = TIMELINE_TYPE_META[entry.type] || TIMELINE_TYPE_META.edit;
+              return (
+                <div key={entry._id} className="relative">
+                  <span className={`absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full ${meta.dot}`} />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span className={`text-[11px] font-semibold uppercase tracking-wide ${meta.title}`}>
+                        {meta.label}
+                      </span>
+                      <span className="text-[10px] text-gray-500 tabular-nums">
+                        {new Date(entry.createdAt).toLocaleString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                      {entry.user?.name && (
+                        <span className="text-[10px] text-gray-500">by {entry.user.name}</span>
+                      )}
+                    </div>
+
+                    {entry.type === 'note' && (
+                      <p className="text-xs text-gray-300 mt-1">{entry.noteText || entry.notes}</p>
+                    )}
+
+                    {entry.type === 'maintenance' && (
+                      <p className="text-xs text-gray-300 mt-1">{entry.summary}{entry.notes ? ` — ${entry.notes}` : ''}</p>
+                    )}
+
+                    {entry.type === 'created' && (
+                      <p className="text-xs text-gray-300 mt-1">{entry.summary || 'Asset created'}</p>
+                    )}
+
+                    {entry.type === 'edit' && (
+                      <div className="mt-1 space-y-1">
+                        {entry.fieldChanges?.map((c, i) => (
+                          <p key={`${c.field}-${i}`} className="text-xs text-gray-400">
+                            <span className="text-gray-500">{c.label}:</span>{' '}
+                            <span>{c.oldValue}</span>
+                            <span className="text-gray-600 mx-1">→</span>
+                            <span className="text-gray-200">{c.newValue}</span>
+                          </p>
+                        ))}
+                        {!entry.fieldChanges?.length && entry.summary && (
+                          <p className="text-xs text-gray-400">{entry.summary}</p>
+                        )}
+                        {entry.changeReason && (
+                          <p className="text-xs text-amber-300/90 mt-1.5 rounded border border-amber-500/20 bg-amber-500/5 px-2 py-1">
+                            <span className="text-amber-500/80 text-[10px] uppercase tracking-wide">Reason · </span>
+                            {entry.changeReason}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Section>
 
       {(asset.photos?.length ?? 0) > 0 && (

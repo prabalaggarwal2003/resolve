@@ -20,6 +20,7 @@ import {
   logTwoFactorDisabled,
   logTwoFactorEnabled,
 } from '../services/profileLogService.js';
+import { buildAuthUserPayload } from '../services/authUserPayload.js';
 
 const router = express.Router();
 
@@ -33,25 +34,11 @@ async function buildLoginResponse(userId) {
   const user = await User.findById(userId).select('-passwordHash').lean();
   if (!user) return null;
 
-  let departmentName = null;
-  if (user.departmentId) {
-    const dept = await Department.findById(user.departmentId).select('name').lean();
-    departmentName = dept?.name ?? null;
-  }
-
   await User.updateOne({ _id: userId }, { lastLogin: new Date() });
 
   return {
     token: generateToken(userId),
-    user: {
-      id: user._id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      organizationId: user.organizationId,
-      departmentId: user.departmentId ?? null,
-      departmentName,
-    },
+    user: await buildAuthUserPayload(user),
   };
 }
 

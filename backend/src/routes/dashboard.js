@@ -1,7 +1,7 @@
 import express from 'express';
 import { Asset, Issue } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
-import { canReportOnly, isHod, isLabTechnician, assetFilterForUser, issueFilterForUser } from '../services/permissions.js';
+import { canReportOnly, isLabTechnician, assetFilterForUser, issueFilterForUser, getDepartmentScopeId, resolveScopedAssetIds } from '../services/permissions.js';
 import { getDashboardOverview } from '../services/dashboardOverviewService.js';
 
 const router = express.Router();
@@ -20,26 +20,14 @@ router.get('/summary', async (req, res) => {
 
     let assetFilter = assetFilterForUser(req.user) || { _id: { $exists: false } };
 
-    // For manager: scope to their department
     let deptAssetIds = null;
-    if (req.user.role === 'manager' && req.user.departmentId) {
-      const deptAssets = await Asset.find({
-        departmentId: req.user.departmentId,
-        organizationId: req.user.organizationId,
-      }).select('_id').lean();
-      deptAssetIds = deptAssets.map((a) => a._id);
-      assetFilter = { organizationId: req.user.organizationId, departmentId: req.user.departmentId };
-    } else if (isHod(req.user) && req.user.departmentId) {
-      const assets = await Asset.find({ departmentId: req.user.departmentId }).select('_id').lean();
-      deptAssetIds = assets.map((a) => a._id);
-    } else if (isLabTechnician(req.user) && req.user.assignedLocationIds?.length) {
-      const assets = await Asset.find({ locationId: { $in: req.user.assignedLocationIds } }).select('_id').lean();
-      deptAssetIds = assets.map((a) => a._id);
+    const deptScope = getDepartmentScopeId(req.user);
+    const locationScoped = isLabTechnician(req.user) && req.user.assignedLocationIds?.length;
+    if (deptScope || locationScoped) {
+      deptAssetIds = await resolveScopedAssetIds(req.user);
     }
 
-    const baseIssueFilter = req.user.role === 'manager' && deptAssetIds
-      ? { organizationId: req.user.organizationId, assetId: { $in: deptAssetIds } }
-      : (issueFilterForUser(req.user, deptAssetIds) || { _id: { $exists: false } });
+    const baseIssueFilter = issueFilterForUser(req.user, deptAssetIds) || { _id: { $exists: false } };
 
     const [totalAssets, openIssues, inProgressIssues, completedToday, myAssets, myReports, pendingReports, underMaintenance] = await Promise.all([
       Asset.countDocuments(assetFilter),

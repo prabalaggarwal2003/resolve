@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import Link from 'next/link';
+import { canWrite } from '@/lib/permissions';
 
 type Issue = {
   _id: string;
@@ -259,7 +260,7 @@ export default function IssuesPage() {
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
 
-  const canManage = user?.role !== 'manager';
+  const canManage = canWrite('issues');
 
   useEffect(() => {
     const u = typeof window !== 'undefined' ? localStorage.getItem('user') : null;

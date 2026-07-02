@@ -18,9 +18,15 @@ const assetSchema = new mongoose.Schema(
     assignedAt: Date,
     status: {
       type: String,
-      enum: assetStatusEnum,
       default: 'available',
     },
+    tags: [{ type: String, trim: true }],
+    customFields: { type: mongoose.Schema.Types.Mixed, default: {} },
+    templateId: { type: mongoose.Schema.Types.ObjectId, ref: 'AssetTemplate' },
+    groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'AssetGroup' },
+    depreciationPolicyId: { type: mongoose.Schema.Types.ObjectId, ref: 'DepreciationPolicy' },
+    depreciationRateOverride: { type: Number, min: 0, max: 100 },
+    depreciationOverrideReason: { type: String, default: '' },
     purchaseDate: Date,
     vendorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor' },
     purchaseInvoiceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice' },
@@ -76,6 +82,7 @@ assetSchema.index({ name: 1, locationId: 1 });
 assetSchema.index({ model: 1, vendor: 1, purchaseDate: 1 });
 assetSchema.index({ assignedTo: 1 });
 assetSchema.index({ organizationId: 1 });
+assetSchema.index({ groupId: 1 });
 
 export default mongoose.model('Asset', assetSchema);
 export { assetStatusEnum };

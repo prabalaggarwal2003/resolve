@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { env } from './config/env.js';
-import { auth, signup, health, assets, issues, dashboard, notifications, users, locations, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth, testNotifications, qrPdf, depreciation, kpis, vendors, invoices, reports, payments, testPayments } from './routes/index.js';
+import { auth, signup, health, assets, issues, dashboard, notifications, users, locations, locationTypes, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth, testNotifications, qrPdf, depreciation, kpis, homeDashboard, vendors, invoices, reports, payments, testPayments, orgRoles, assetTemplates, assetGroups } from './routes/index.js';
 
 const app = express();
 
@@ -31,11 +31,15 @@ app.use('/api/auth', auth);
 app.use('/api/auth/signup', signup);
 app.use('/api/organization', organization);
 app.use('/api/assets', assets);
+app.use('/api/asset-templates', assetTemplates);
+app.use('/api/asset-groups', assetGroups);
 app.use('/api/issues', issues);
 app.use('/api/dashboard', dashboard);
 app.use('/api/notifications', notifications);
 app.use('/api/users', users);
+app.use('/api/org-roles', orgRoles);
 app.use('/api/locations', locations);
+app.use('/api/location-types', locationTypes);
 app.use('/api/departments', departments);
 app.use('/api/warranty-checks', warrantyChecks);
 app.use('/api/audit-logs', auditLogs);
@@ -44,6 +48,7 @@ app.use('/api/test-notifications', testNotifications);
 app.use('/api/qr-pdf', qrPdf);
 app.use('/api/depreciation', depreciation);
 app.use('/api/kpis', kpis);
+app.use('/api/home-dashboard', homeDashboard);
 app.use('/api/vendors', vendors);
 app.use('/api/invoices', invoices);
 app.use('/api/reports', reports);

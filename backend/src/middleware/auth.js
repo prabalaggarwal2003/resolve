@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { User } from '../models/index.js';
+import { attachPermissions } from '../services/permissionResolver.js';
 
 export const protect = async (req, res, next) => {
   let token;
@@ -15,7 +16,9 @@ export const protect = async (req, res, next) => {
     if (!user || !user.isActive) {
       return res.status(401).json({ message: 'User not found or inactive' });
     }
+    const { permissions } = await attachPermissions(user);
     req.user = user;
+    req.userPermissions = permissions;
     next();
   } catch (err) {
     return res.status(401).json({ message: 'Invalid token' });

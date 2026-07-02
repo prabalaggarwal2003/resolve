@@ -3,9 +3,16 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { NotificationsLink } from './NotificationsLink';
+import {
+  PERMISSION_TABS,
+  PROFILE_TAB,
+  resolvePermissions,
+  canReadTab,
+  getStoredUser,
+  type PermissionTabKey,
+} from '@/lib/permissions';
 
-type User = { role?: string };
+type User = { role?: string; permissions?: Record<string, 'read' | 'write' | null>; isSuperAdmin?: boolean };
 
 const navItem = (href: string, icon: string, label: string, active: boolean, onNavigate?: () => void) => (
   <Link
@@ -23,78 +30,69 @@ const navItem = (href: string, icon: string, label: string, active: boolean, onN
   </Link>
 );
 
+const TAB_NAV: Record<PermissionTabKey, { href: string; icon: string; label: string; section: string }> = {
+  dashboard: { href: '/dashboard', icon: '🏠', label: 'Dashboard', section: 'Core' },
+  assets: { href: '/dashboard/assets', icon: '📦', label: 'Assets', section: 'Core' },
+  issues: { href: '/dashboard/issues', icon: '🔔', label: 'Issues', section: 'Core' },
+  locations: { href: '/dashboard/locations', icon: '📍', label: 'Locations', section: 'Manage' },
+  maintenance: { href: '/dashboard/maintenance', icon: '🔧', label: 'Maintenance', section: 'Manage' },
+  reports: { href: '/dashboard/reports', icon: '📄', label: 'Reports', section: 'Manage' },
+  kpis: { href: '/dashboard/kpis', icon: '📊', label: 'KPIs & Metrics', section: 'Analytics' },
+  depreciation: { href: '/dashboard/depreciation', icon: '💰', label: 'Depreciation', section: 'Analytics' },
+  roles: { href: '/dashboard/roles', icon: '👥', label: 'Users & Roles', section: 'Admin' },
+  vendors: { href: '/dashboard/vendors', icon: '🏢', label: 'Vendors', section: 'Admin' },
+  audit: { href: '/dashboard/audit', icon: '📋', label: 'Audit Logs', section: 'Admin' },
+  organization: { href: '/dashboard/organization', icon: '⚙️', label: 'Organization', section: 'Admin' },
+  subscriptions: { href: '/dashboard/subscriptions', icon: '💳', label: 'Subscriptions', section: 'Settings' },
+};
+
+const SECTION_ORDER = ['Core', 'Manage', 'Analytics', 'Admin', 'Settings'];
+
 export default function DashboardNav({ onNavigate }: { onNavigate?: () => void }) {
   const [user, setUser] = useState<User | null>(null);
   const pathname = usePathname();
 
   useEffect(() => {
-    try {
-      const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-      if (raw) setUser(JSON.parse(raw));
-    } catch (_) {}
+    const syncUser = () => setUser(getStoredUser());
+    syncUser();
+    window.addEventListener('user-updated', syncUser);
+    window.addEventListener('storage', syncUser);
+    return () => {
+      window.removeEventListener('user-updated', syncUser);
+      window.removeEventListener('storage', syncUser);
+    };
   }, []);
 
-  const role = user?.role ?? '';
-  const canViewRoles = ['super_admin', 'admin'].includes(role);
-  const canViewAudit = ['super_admin', 'admin'].includes(role);
-  const canViewAssetHealth = role === 'super_admin';
-  const canViewMaintenance = ['super_admin', 'admin', 'manager'].includes(role);
-  const canViewDepreciation = ['super_admin', 'admin'].includes(role);
-  const canViewKPIs = ['super_admin', 'admin'].includes(role);
-  const canViewVendors = role === 'super_admin';
-  const canViewNotifications = role === 'super_admin';
-  const canViewLocations = role === 'super_admin';
-  const canViewReports = ['super_admin', 'manager'].includes(role);
-  const canViewSubscriptions = ['super_admin', 'admin'].includes(role);
-
+  const permissions = resolvePermissions(user);
   const is = (href: string) =>
     href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href);
 
+  const visibleBySection = SECTION_ORDER.map((section) => {
+    const items = PERMISSION_TABS.filter((tab) => {
+      if (tab.section !== section) return false;
+      return canReadTab(permissions, tab.key);
+    }).map((tab) => TAB_NAV[tab.key]);
+    if (section === 'Settings') {
+      items.push({
+        href: PROFILE_TAB.path,
+        icon: '👤',
+        label: PROFILE_TAB.label,
+        section: 'Settings',
+      });
+    }
+    return { section, items };
+  }).filter((group) => group.items.length > 0);
+
   return (
     <nav className="flex flex-col gap-0.5">
-
-      {/* Core */}
-      <p className="px-3 pt-1 pb-2 text-xs font-semibold text-gray-700 uppercase tracking-widest">Core</p>
-      {navItem('/dashboard', '🏠', 'Dashboard', is('/dashboard'), onNavigate)}
-      {navItem('/dashboard/assets', '📦', 'Assets', is('/dashboard/assets'), onNavigate)}
-      {navItem('/dashboard/issues', '🔔', 'Issues', is('/dashboard/issues'), onNavigate)}
-      {/*{canViewNotifications && <NotificationsLink />}*/}
-
-      {/* Manage */}
-      <p className="px-3 pt-4 pb-2 text-xs font-semibold text-gray-700 uppercase tracking-widest">Manage</p>
-      {canViewLocations && navItem('/dashboard/locations', '📍', 'Locations', is('/dashboard/locations'), onNavigate)}
-      {canViewMaintenance && navItem('/dashboard/maintenance', '🔧', 'Maintenance', is('/dashboard/maintenance'), onNavigate)}
-      {/*{canViewAssetHealth && navItem('/dashboard/asset-health', '❤️', 'Asset Health', is('/dashboard/asset-health'), onNavigate)}*/}
-      {canViewReports && navItem('/dashboard/reports', '📄', 'Reports', is('/dashboard/reports'), onNavigate)}
-
-      {/* Analytics */}
-      {(canViewKPIs || canViewDepreciation) && (
-        <>
-          <p className="px-3 pt-4 pb-2 text-xs font-semibold text-gray-700 uppercase tracking-widest">Analytics</p>
-          {canViewKPIs && navItem('/dashboard/kpis', '📊', 'KPIs & Metrics', is('/dashboard/kpis'), onNavigate)}
-          {canViewDepreciation && navItem('/dashboard/depreciation', '💰', 'Depreciation', is('/dashboard/depreciation'), onNavigate)}
-        </>
-      )}
-
-      {/* Admin */}
-      {(canViewRoles || canViewVendors || canViewAudit || role === 'super_admin') && (
-        <>
-          <p className="px-3 pt-4 pb-2 text-xs font-semibold text-gray-700 uppercase tracking-widest">Admin</p>
-          {canViewRoles && navItem('/dashboard/roles', '👥', 'Users & Roles', is('/dashboard/roles'), onNavigate)}
-          {canViewVendors && navItem('/dashboard/vendors', '🏢', 'Vendors', is('/dashboard/vendors'), onNavigate)}
-          {canViewAudit && navItem('/dashboard/audit', '📋', 'Audit Logs', is('/dashboard/audit'), onNavigate)}
-          {role === 'super_admin' && navItem('/dashboard/organization', '⚙️', 'Organization', is('/dashboard/organization'), onNavigate)}
-        </>
-      )}
-
-      {/* Settings */}
-      {canViewSubscriptions && (
-        <>
-          <p className="px-3 pt-4 pb-2 text-xs font-semibold text-gray-700 uppercase tracking-widest">Settings</p>
-          {role === 'super_admin' && navItem('/dashboard/profile', '👤', 'Profile', is('/dashboard/profile'), onNavigate)}
-          {navItem('/dashboard/subscriptions', '💳', 'Subscriptions', is('/dashboard/subscriptions'), onNavigate)}
-        </>
-      )}
+      {visibleBySection.map(({ section, items }) => (
+        <div key={section}>
+          <p className="px-3 pt-4 pb-2 text-xs font-semibold text-gray-700 uppercase tracking-widest first:pt-1">
+            {section}
+          </p>
+          {items.map((item) => navItem(item.href, item.icon, item.label, is(item.href), onNavigate))}
+        </div>
+      ))}
     </nav>
   );
 }

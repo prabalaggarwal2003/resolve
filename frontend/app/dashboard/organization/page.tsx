@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiUrl } from '@/lib/api';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { canWrite, canRead, isSuperAdminUser } from '@/lib/permissions';
 
 const INDUSTRIES = [
   { value: 'IT', label: 'Information Technology' },
@@ -86,7 +87,7 @@ export default function OrganizationPage() {
       
       if (!res.ok) {
         if (res.status === 403) {
-          setError('Access denied. Only superadmins can view organization details.');
+          setError('You do not have permission to view organization details.');
           return;
         }
         throw new Error('Failed to fetch organization details');
@@ -205,7 +206,7 @@ export default function OrganizationPage() {
             Manage your organization profile, identifiers, and workspace settings.
           </p>
         </div>
-        {user?.role === 'super_admin' && (
+        {canWrite('organization') && (
           <div className="flex flex-wrap gap-1.5">
             {editing ? (
               <>
@@ -405,9 +406,18 @@ export default function OrganizationPage() {
           <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-amber-500/50 bg-gradient-to-r from-amber-950/15 to-gray-800/40 px-4 py-3">
             <p className="text-xs font-semibold text-amber-400/80 uppercase tracking-widest mb-2">Quick actions</p>
             <div className="space-y-1">
-              <QuickActionLink href="/dashboard/roles" label="Add new user" />
-              <QuickActionLink href="/dashboard/subscriptions" label="Manage subscriptions" />
-              <QuickActionLink href="/dashboard/audit" label="View audit logs" />
+              {canWrite('roles') && (
+                <QuickActionLink href="/dashboard/roles" label="Add new user" />
+              )}
+              {canRead('subscriptions') && (
+                <QuickActionLink
+                  href="/dashboard/subscriptions"
+                  label={isSuperAdminUser() ? 'Manage subscriptions' : 'View subscriptions'}
+                />
+              )}
+              {canRead('audit') && (
+                <QuickActionLink href="/dashboard/audit" label="View audit logs" />
+              )}
             </div>
           </div>
 

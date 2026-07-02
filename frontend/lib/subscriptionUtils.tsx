@@ -2,6 +2,12 @@
  * Subscription tier checks and limits
  */
 
+export type OrgSubscription = {
+  tier: string;
+  isExpired: boolean;
+  plan?: string;
+};
+
 export const TIER_LIMITS = {
   free: { assets: 50, users: 5, showKPIs: false, showDepreciation: false, showVendors: false, showDataExports: false },
   pro: { assets: 200, users: 10, showKPIs: true, showDepreciation: true, showVendors: true, showDataExports: true },
@@ -28,6 +34,51 @@ export function getAssetLimit(tier: string): number {
 export function getUserLimit(tier: string): number {
   const limits = TIER_LIMITS[tier as keyof typeof TIER_LIMITS] || TIER_LIMITS.free;
   return limits.users;
+}
+
+/** Read org subscription cached on the logged-in user (login / session refresh). */
+export function getStoredSubscription(): OrgSubscription {
+  if (typeof window === 'undefined') return { tier: 'free', isExpired: false };
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const sub = user?.subscription;
+    if (sub?.tier) {
+      return {
+        tier: sub.tier,
+        isExpired: Boolean(sub.isExpired),
+        plan: sub.plan,
+      };
+    }
+  } catch {
+    /* ignore */
+  }
+  return { tier: 'free', isExpired: false };
+}
+
+/** Fetch org subscription for feature gating — all org members, not subscriptions-tab only. */
+export async function fetchOrgSubscription(
+  api: (path: string) => string
+): Promise<OrgSubscription> {
+  const fallback = getStoredSubscription();
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  if (!token) return fallback;
+
+  try {
+    const res = await fetch(api('/api/payments/subscription-status'), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (res.ok) {
+      return {
+        tier: data.tier || 'free',
+        isExpired: Boolean(data.isExpired),
+        plan: data.plan,
+      };
+    }
+  } catch {
+    /* ignore */
+  }
+  return fallback;
 }
 
 export function UpgradePrompt({ feature }: { feature: string }) {

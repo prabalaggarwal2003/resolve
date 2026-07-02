@@ -1,5 +1,6 @@
 import express from 'express';
 import { protect } from '../middleware/auth.js';
+import { canRead, canWrite } from '../services/permissions.js';
 import { Vendor, Invoice, Asset } from '../models/index.js';
 import { generateVendorId } from '../services/vendorIdGenerator.js';
 import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
@@ -8,11 +9,25 @@ const router = express.Router();
 
 router.use(protect);
 
+function requireVendorRead(req, res, next) {
+  if (!canRead(req.user, 'vendors', req)) {
+    return res.status(403).json({ message: 'Access denied' });
+  }
+  next();
+}
+
+function requireVendorWrite(req, res, next) {
+  if (!canWrite(req.user, 'vendors', req)) {
+    return res.status(403).json({ message: 'Access denied' });
+  }
+  next();
+}
+
 /**
  * Get all vendors for organization
  * GET /api/vendors
  */
-router.get('/', async (req, res) => {
+router.get('/', requireVendorRead, async (req, res) => {
   try {
     const { status, category, search } = req.query;
     const query = { organizationId: req.user.organizationId };
@@ -83,7 +98,7 @@ router.get('/', async (req, res) => {
  * Get single vendor with details
  * GET /api/vendors/:id
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireVendorRead, async (req, res) => {
   try {
     const vendor = await Vendor.findOne({
       _id: req.params.id,
@@ -128,13 +143,8 @@ router.get('/:id', async (req, res) => {
  * Create vendor
  * POST /api/vendors
  */
-router.post('/', async (req, res) => {
+router.post('/', requireVendorWrite, async (req, res) => {
   try {
-    // Check permissions
-    if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
     // Generate unique vendor ID
     const vendorId = await generateVendorId(req.user.organizationId);
 
@@ -183,13 +193,8 @@ router.post('/', async (req, res) => {
  * Update vendor
  * PUT /api/vendors/:id
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireVendorWrite, async (req, res) => {
   try {
-    // Check permissions
-    if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
     const oldVendor = await Vendor.findOne({
       _id: req.params.id,
       organizationId: req.user.organizationId
@@ -238,13 +243,8 @@ router.put('/:id', async (req, res) => {
  * Delete vendor
  * DELETE /api/vendors/:id
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireVendorWrite, async (req, res) => {
   try {
-    // Check permissions
-    if (!['super_admin', 'admin'].includes(req.user.role)) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
     // Check if vendor has associated assets
     const assetCount = await Asset.countDocuments({
       vendorId: req.params.id,

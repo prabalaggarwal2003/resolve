@@ -2,7 +2,7 @@ import express from 'express';
 import { Department, Location } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
 import { requireRole } from '../middleware/roles.js';
-import { canManageUsers } from '../services/permissions.js';
+import { canManageUsers, canEdit } from '../services/permissions.js';
 import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
 
 const router = express.Router();
@@ -36,9 +36,13 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+function canManageDepartments(req) {
+  return canManageUsers(req.user, req) || canEdit(req.user, 'locations', req);
+}
+
 router.post('/', (req, res, next) => {
-  if (!canManageUsers(req.user)) {
-    return res.status(403).json({ message: 'Only super admin can manage departments' });
+  if (!canManageDepartments(req)) {
+    return res.status(403).json({ message: 'You do not have permission to manage departments' });
   }
   next();
 }, async (req, res) => {
@@ -75,8 +79,8 @@ router.post('/', (req, res, next) => {
 });
 
 router.patch('/:id', (req, res, next) => {
-  if (!canManageUsers(req.user)) {
-    return res.status(403).json({ message: 'Only super admin can manage departments' });
+  if (!canManageDepartments(req)) {
+    return res.status(403).json({ message: 'You do not have permission to manage departments' });
   }
   next();
 }, async (req, res) => {
@@ -115,8 +119,8 @@ router.patch('/:id', (req, res, next) => {
 });
 
 router.delete('/:id', (req, res, next) => {
-  if (!canManageUsers(req.user)) {
-    return res.status(403).json({ message: 'Forbidden' });
+  if (!canManageDepartments(req)) {
+    return res.status(403).json({ message: 'You do not have permission to manage departments' });
   }
   next();
 }, async (req, res) => {
