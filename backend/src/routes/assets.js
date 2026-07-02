@@ -1,70 +1,91 @@
 import express from 'express';
-import { Asset, AssetLog, User, Organization } from '../models/index.js';
+import { Asset, AssetLog, User, Organization, AssetTemplate } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
 import { generateQrDataUrl, getAssetPublicUrl } from '../services/qrService.js';
 import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
-import { assetFilterForUser, canEdit, canViewAsset } from '../services/permissions.js';
+import { assetFilterForUser, canEdit, canRead, canViewAsset } from '../services/permissions.js';
 import {
   buildAssetEditChanges,
   createAssetEditLog,
+  createAssetNoteLog,
+  createAssetMaintenanceLog,
   formatChangesSummary,
   serializeAssetLogs,
+  serializeTimelineEntry,
+  requiresChangeReason,
 } from '../services/assetLogService.js';
 import { env } from '../config/env.js';
+import {
+  applyTemplateToAssetBody,
+  validateAssetAgainstTemplate,
+} from '../services/assetTemplateService.js';
+import { buildAssetListQuery, resolveAssetSort } from '../services/assetQueryService.js';
 
 const router = express.Router();
 
 router.use(protect);
 
-const SORT_FIELDS = { purchaseDate: 1, createdAt: -1, updatedAt: -1, cost: -1, name: 1 };
-
 function requireCanEdit(req, res, next) {
-  if (!canEdit(req.user)) {
+  if (!canEdit(req.user, 'assets', req)) {
     return res.status(403).json({ message: 'Forbidden: you do not have permission to edit' });
   }
   next();
 }
 
-router.get('/', async (req, res) => {
+function requireCanRead(req, res, next) {
+  if (!canRead(req.user, 'assets', req)) {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+  next();
+}
+
+router.get('/', requireCanRead, async (req, res) => {
   try {
-    const { category, locationId, status, search, assignedTo, departmentId, page = 1, limit = 20, sort = 'createdAt', order = 'desc' } = req.query;
-    const filter = { ...assetFilterForUser(req.user) };
-    if (category) filter.category = category;
-    if (locationId) filter.locationId = locationId;
-    if (status) filter.status = status;
-    if (assignedTo) filter.assignedTo = assignedTo;
-    if (departmentId) filter.departmentId = departmentId;
-    if (search && search.trim()) {
-      const re = new RegExp(search.trim(), 'i');
-      filter.$or = [
-        { name: re },
-        { assetId: re },
-        { serialNumber: re },
-        { model: re },
-      ];
-    }
-    const sortKey = SORT_FIELDS[sort] !== undefined ? sort : 'createdAt';
-    const sortOrder = order === 'asc' ? 1 : -1;
-    const sortOpt = { [sortKey]: sortOrder };
-    const skip = (Number(page) - 1) * Number(limit);
+    const { page = 1, limit = 25, sort = 'createdAt', order = 'desc' } = req.query;
+    const baseFilter = assetFilterForUser(req.user);
+    const filter = await buildAssetListQuery(baseFilter, req.query);
+    const sortOpt = resolveAssetSort(sort, order);
+    const pageNum = Math.max(1, Number(page));
+    const limitNum = Math.min(100, Math.max(1, Number(limit)));
+    const skip = (pageNum - 1) * limitNum;
     const [assets, total] = await Promise.all([
       Asset.find(filter)
         .populate('locationId', 'name path type')
         .populate('departmentId', 'name')
+        .populate('groupId', 'name')
         .populate('assignedTo', 'name email')
+        .populate('vendorId', 'name vendorId')
         .sort(sortOpt)
         .skip(skip)
-        .limit(Number(limit))
+        .limit(limitNum)
         .lean(),
       Asset.countDocuments(filter),
     ]);
-    res.json({ assets, total, page: Number(page), limit: Number(limit) });
+    res.json({ assets, total, page: pageNum, limit: limitNum });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-router.get('/:id/logs', async (req, res) => {
+router.get('/:id/timeline', requireCanRead, async (req, res) => {
+  try {
+    const asset = await Asset.findById(req.params.id).lean();
+    if (!asset) return res.status(404).json({ message: 'Asset not found' });
+    if (!canViewAsset(req.user, asset)) {
+      return res.status(403).json({ message: 'You do not have access to this asset' });
+    }
+    const logs = await AssetLog.find({ assetId: req.params.id })
+      .populate('userId', 'name email')
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+    res.json({ timeline: logs.map(serializeTimelineEntry) });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.get('/:id/logs', requireCanRead, async (req, res) => {
   try {
     const asset = await Asset.findById(req.params.id).lean();
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
@@ -82,11 +103,45 @@ router.get('/:id/logs', async (req, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.post('/:id/notes', requireCanEdit, async (req, res) => {
+  try {
+    const asset = await Asset.findById(req.params.id).lean();
+    if (!asset) return res.status(404).json({ message: 'Asset not found' });
+    if (!canViewAsset(req.user, asset)) {
+      return res.status(403).json({ message: 'You do not have access to this asset' });
+    }
+
+    const text = req.body?.text?.trim();
+    if (!text) return res.status(400).json({ message: 'Note text is required' });
+
+    const noteLog = await createAssetNoteLog(AssetLog, {
+      assetId: asset._id,
+      userId: req.user._id,
+      text,
+    });
+
+    await logAudit(req.user._id, AUDIT_ACTIONS.ASSET_NOTE_ADDED, AUDIT_RESOURCES.ASSET, asset._id, {
+      resourceName: `${asset.name} (${asset.assetId})`,
+      description: `Added note on asset "${asset.name}"`,
+      details: { note: text },
+      severity: 'low',
+      ...getRequestMetadata(req),
+    });
+
+    const populated = await AssetLog.findById(noteLog._id).populate('userId', 'name email').lean();
+    res.status(201).json({ entry: serializeTimelineEntry(populated) });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.get('/:id', requireCanRead, async (req, res) => {
   try {
     let asset = await Asset.findById(req.params.id)
       .populate('locationId', 'name path type code')
       .populate('departmentId', 'name')
+      .populate('groupId', 'name')
+      .populate('vendorId', 'name vendorId')
       .populate('assignedTo', 'name email')
       .lean();
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
@@ -138,25 +193,44 @@ router.post('/', requireCanEdit, async (req, res) => {
     const assignedToEmployeeCode =
       req.body.assignedToEmployeeCode !== undefined ? String(req.body.assignedToEmployeeCode).trim() : '';
 
-    if (!assignedToName) {
-      return res.status(400).json({ message: 'Assigned to (name) is required' });
-    }
-    if (!assignedToEmployeeCode) {
-      return res.status(400).json({ message: 'Employee code is required' });
+    let template = null;
+    if (req.body.templateId) {
+      template = await AssetTemplate.findOne({
+        _id: req.body.templateId,
+        organizationId: req.user.organizationId,
+      }).lean();
+      if (!template) return res.status(400).json({ message: 'Invalid template selected' });
+    } else if (req.body.category) {
+      template = await AssetTemplate.findOne({
+        organizationId: req.user.organizationId,
+        name: req.body.category,
+      }).lean();
     }
 
-    const body = {
-      ...req.body, 
-      createdBy: req.user._id, 
-      updatedBy: req.user._id,
-      organizationId: req.user.organizationId,
-      assignedToName,
-      assignedToEmployeeCode,
-      assignedAt: new Date(),
-    };
+    const templateValidation = validateAssetAgainstTemplate(
+      { ...req.body, customFields: req.body.customFields },
+      template
+    );
+    if (!templateValidation.ok) {
+      return res.status(400).json({ message: templateValidation.message });
+    }
+
+    let body = applyTemplateToAssetBody(
+      {
+        ...req.body,
+        createdBy: req.user._id,
+        updatedBy: req.user._id,
+        organizationId: req.user.organizationId,
+        assignedToName: assignedToName || undefined,
+        assignedToEmployeeCode: assignedToEmployeeCode || undefined,
+        assignedAt: assignedToName || assignedToEmployeeCode ? new Date() : undefined,
+        tags: Array.isArray(req.body.tags) ? req.body.tags : undefined,
+      },
+      template
+    );
 
     // Convert empty strings to null for ObjectId fields to prevent casting errors
-    const objectIdFields = ['vendorId', 'locationId', 'departmentId', 'assignedTo', 'purchaseInvoiceId'];
+    const objectIdFields = ['vendorId', 'locationId', 'departmentId', 'assignedTo', 'purchaseInvoiceId', 'groupId'];
     objectIdFields.forEach(field => {
       if (body[field] === '' || body[field] === 'null' || body[field] === 'undefined') {
         body[field] = null;
@@ -187,12 +261,14 @@ router.post('/', requireCanEdit, async (req, res) => {
     const populated = await Asset.findById(asset._id)
       .populate('locationId', 'name path')
       .populate('departmentId', 'name')
+      .populate('groupId', 'name')
       .populate('assignedTo', 'name email')
       .lean();
 
     await createAssetEditLog(AssetLog, {
       assetId: asset._id,
       userId: req.user._id,
+      type: 'created',
       fieldChanges: [{ field: 'created', label: 'Created', oldValue: '—', newValue: asset.name }],
       summary: `Created: ${asset.name}`,
     });
@@ -208,8 +284,11 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
     const prev = await Asset.findById(req.params.id).lean();
     if (!prev) return res.status(404).json({ message: 'Asset not found' });
 
-    const objectIdFields = ['vendorId', 'locationId', 'departmentId', 'assignedTo', 'purchaseInvoiceId'];
+    const changeReason = req.body.changeReason !== undefined ? String(req.body.changeReason).trim() : '';
+
+    const objectIdFields = ['vendorId', 'locationId', 'departmentId', 'assignedTo', 'purchaseInvoiceId', 'groupId'];
     const patchForLog = { ...req.body };
+    delete patchForLog.changeReason;
     objectIdFields.forEach((field) => {
       if (patchForLog[field] === '' || patchForLog[field] === 'null' || patchForLog[field] === 'undefined') {
         patchForLog[field] = null;
@@ -217,25 +296,31 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
     });
     const pendingEditLog = await buildAssetEditChanges(prev, patchForLog);
 
+    if (pendingEditLog && requiresChangeReason(pendingEditLog.fieldChanges) && !changeReason) {
+      return res.status(400).json({
+        message:
+          'A change reason is required when modifying warranty, location, assignee, status, cost, or other important fields',
+        importantChanges: pendingEditLog.fieldChanges.filter((c) =>
+          ['status', 'locationId', 'departmentId', 'assignedTo', 'assignedToName', 'assignedToEmployeeCode',
+            'warrantyExpiry', 'amcExpiry', 'nextMaintenanceDate', 'cost', 'purchaseDate', 'vendorId', 'condition'].includes(c.field)
+        ),
+      });
+    }
+
     const update = { ...req.body, updatedBy: req.user._id };
+    delete update.changeReason;
     objectIdFields.forEach(field => {
       if (update[field] === '' || update[field] === 'null' || update[field] === 'undefined') {
         update[field] = null;
       }
     });
 
-    // Assignment (name + employee code)
+    // Assignment (name + employee code) — optional; may be cleared
     if (update.assignedToName !== undefined) {
-      update.assignedToName = String(update.assignedToName).trim();
-      if (!update.assignedToName) {
-        return res.status(400).json({ message: 'Assigned to (name) is required' });
-      }
+      update.assignedToName = String(update.assignedToName).trim() || null;
     }
     if (update.assignedToEmployeeCode !== undefined) {
-      update.assignedToEmployeeCode = String(update.assignedToEmployeeCode).trim();
-      if (!update.assignedToEmployeeCode) {
-        return res.status(400).json({ message: 'Employee code is required' });
-      }
+      update.assignedToEmployeeCode = String(update.assignedToEmployeeCode).trim() || null;
     }
 
     const assignmentFields = new Set(['assignedTo', 'assignedToName', 'assignedToEmployeeCode']);
@@ -269,11 +354,17 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
           update.$push = {
             maintenanceHistory: {
               startDate: now,
-              reason: update.maintenanceReason || 'Status changed to under maintenance'
-            }
+              reason: update.maintenanceReason || changeReason || 'Status changed to under maintenance',
+            },
           };
           if (!update.maintenanceStartDate) update.maintenanceStartDate = now;
         }
+        await createAssetMaintenanceLog(AssetLog, {
+          assetId: prev._id,
+          userId: req.user._id,
+          summary: 'Entered maintenance',
+          notes: update.maintenanceReason || changeReason || undefined,
+        });
       } else if (prev.status === 'under_maintenance') {
         const lastIdx = history.length - 1;
         const hasOpenEntry = lastIdx >= 0 && !history[lastIdx].endDate;
@@ -290,17 +381,24 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
               endDate: now,
               reason: prev.maintenanceReason || 'Maintenance completed',
               durationMinutes,
-            }
+            },
           };
         }
         if (!update.maintenanceCompletedDate) update.maintenanceCompletedDate = now;
         update.maintenanceStartDate = null;
+        await createAssetMaintenanceLog(AssetLog, {
+          assetId: prev._id,
+          userId: req.user._id,
+          summary: 'Maintenance completed',
+          notes: changeReason || undefined,
+        });
       }
     }
 
     const asset = await Asset.findByIdAndUpdate(req.params.id, update, { new: true })
       .populate('locationId', 'name path')
       .populate('departmentId', 'name')
+      .populate('groupId', 'name')
       .populate('assignedTo', 'name email')
       .lean();
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
@@ -310,6 +408,7 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
         assetId: prev._id,
         userId: req.user._id,
         ...pendingEditLog,
+        changeReason: changeReason || undefined,
       });
     }
 
@@ -320,10 +419,11 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
       description: auditDescription,
       details: {
         fieldChanges,
+        changeReason: changeReason || null,
         summary: pendingEditLog?.summary || formatChangesSummary(fieldChanges) || null,
       },
       severity: auditSeverity,
-      ...getRequestMetadata(req)
+      ...getRequestMetadata(req),
     });
 
     if (!asset.qrCodeUrl) {

@@ -1,6 +1,7 @@
 import express from 'express';
 import { Organization, User } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
+import { canRead, canWrite } from '../services/permissions.js';
 import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
 import { buildOrganizationEditChanges } from '../services/organizationLogService.js';
 
@@ -19,7 +20,7 @@ router.get('/', protect, async (req, res) => {
     }
 
     // Return orgId and basic info for all users, full details for super_admin
-    if (req.user.role === 'super_admin') {
+    if (canRead(req.user, 'organization', req)) {
       const userCount = await User.countDocuments({ organizationId: req.user.organizationId, isActive: true });
       res.json({
         organization,
@@ -47,7 +48,7 @@ router.get('/', protect, async (req, res) => {
 router.put('/', protect, async (req, res) => {
   try {
     // Only superadmin can update organization details
-    if (req.user.role !== 'super_admin') {
+    if (!canWrite(req.user, 'organization', req)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 

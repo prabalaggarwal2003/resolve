@@ -1,30 +1,29 @@
 import mongoose from 'mongoose';
 
-// School/college: Campus → Block/Building → Floor → Room (Classroom, Lab, Office)
 const locationSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-    type: {
-      type: String,
-      enum: ['campus', 'building', 'floor', 'room'],
-      required: true,
-    },
+    type: { type: String, required: true },
     parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Location', default: null },
-    path: { type: String, default: '' }, // e.g. "Main Campus/Building A/Floor 2/Room 201"
-    code: String, // e.g. "BLK-A", "R-201"
+    path: { type: String, default: '' },
+    code: String,
+    description: { type: String, default: '' },
+    capacity: { type: Number, default: null },
+    managerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    notes: { type: String, default: '' },
     departmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Department', default: null },
     organizationId: {
-      type: mongoose.Schema.Types.ObjectId, 
-      ref: 'Organization', 
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
       required: true,
-      index: true 
+      index: true,
     },
   },
   { timestamps: true }
 );
 
 locationSchema.index({ parentId: 1 });
-locationSchema.index({ path: 'text' });
+locationSchema.index({ path: 'text', name: 'text' });
 locationSchema.index({ type: 1 });
 locationSchema.index({ organizationId: 1 });
 

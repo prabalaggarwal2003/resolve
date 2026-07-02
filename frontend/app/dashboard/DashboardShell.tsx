@@ -7,6 +7,8 @@ import DashboardNav from './DashboardNav';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
+import { refreshStoredUser } from '@/lib/permissions';
+import { apiUrl } from '@/lib/api';
 
 function SignOutButton({ onSignOut }: { onSignOut?: () => void }) {
   const { logout } = useAuth();
@@ -86,6 +88,22 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const [isDrawerMounted, setIsDrawerMounted] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    const authToken = localStorage.getItem('token');
+    if (!authToken) return;
+
+    fetch(apiUrl('/auth/session'), {
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.user) {
+          refreshStoredUser(data.user);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const openMenu = () => {
     setIsDrawerMounted(true);

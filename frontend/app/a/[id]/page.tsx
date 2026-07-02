@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { breadcrumbForNode } from '@/lib/locations';
 
 type Issue = {
   ticketId: string;
@@ -233,7 +234,7 @@ export default function PublicAssetPage() {
 
   detailTiles.push({ label: 'Assigned to', value: asset.assignedToName || '—' });
   detailTiles.push({ label: 'Employee code', value: asset.assignedToEmployeeCode || '—' });
-  detailTiles.push({ label: 'Location', value: asset.locationId?.path || asset.locationId?.name || '—' });
+  detailTiles.push({ label: 'Location', value: breadcrumbForNode(asset.locationId) });
   if (asset.departmentId?.name) detailTiles.push({ label: 'Department', value: asset.departmentId.name });
   if (asset.model) detailTiles.push({ label: 'Model', value: asset.model });
   if (asset.serialNumber) detailTiles.push({ label: 'Serial', value: asset.serialNumber });

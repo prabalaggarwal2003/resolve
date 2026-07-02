@@ -3,7 +3,8 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { UpgradePrompt } from '@/lib/subscriptionUtils';
+import { UpgradePrompt, fetchOrgSubscription, getStoredSubscription } from '@/lib/subscriptionUtils';
+import { canWrite } from '@/lib/permissions';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 interface Vendor {
@@ -156,8 +157,8 @@ export default function VendorDetailPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [tier, setTier] = useState<string>('free');
-  const [isExpired, setIsExpired] = useState(false);
+  const [tier, setTier] = useState<string>(() => getStoredSubscription().tier);
+  const [isExpired, setIsExpired] = useState(() => getStoredSubscription().isExpired);
   const [subscriptionChecked, setSubscriptionChecked] = useState(false);
   const [vendor, setVendor] = useState<Vendor | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -169,6 +170,7 @@ export default function VendorDetailPage() {
   const [invoicePage, setInvoicePage] = useState(1);
   const [assetsPage, setAssetsPage] = useState(1);
   const itemsPerPage = 10;
+  const canEditVendors = canWrite('vendors');
 
   const [invoiceForm, setInvoiceForm] = useState({
     invoiceNumber: '',
@@ -197,26 +199,10 @@ export default function VendorDetailPage() {
   }, [params.id, tier, isExpired, subscriptionChecked]);
 
   const fetchSubscription = async () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (!token) {
-      setLoading(false);
-      setSubscriptionChecked(true);
-      return;
-    }
-
-    try {
-      const res = await fetch(api('/api/payments/subscription-status'), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setTier(data.tier);
-        setIsExpired(data.isExpired || false);
-      }
-    } catch (_) {}
-    finally {
-      setSubscriptionChecked(true);
-    }
+    const sub = await fetchOrgSubscription(api);
+    setTier(sub.tier);
+    setIsExpired(sub.isExpired);
+    setSubscriptionChecked(true);
   };
 
   const fetchVendorDetails = async () => {
@@ -456,12 +442,14 @@ export default function VendorDetailPage() {
       <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-amber-500/50 bg-gray-800/40 px-4 py-4 mb-4">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <p className="text-xs font-semibold text-amber-400/80 uppercase tracking-widest">Invoices ({invoices.length})</p>
+          {canEditVendors && (
           <button
             onClick={() => setShowInvoiceModal(true)}
             className="px-2.5 py-1 text-xs font-medium rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 transition-colors"
           >
             + Upload invoice
           </button>
+          )}
         </div>
 
         {invoices.length > 0 ? (
@@ -504,10 +492,14 @@ export default function VendorDetailPage() {
                             )}
                           </td>
                           <td className="px-3 py-2 text-center">
+                            {canEditVendors ? (
                             <div className="flex gap-1 justify-center">
                               <button onClick={() => handleEditInvoice(invoice)} className="px-2 py-0.5 text-[11px] font-medium rounded-md border border-gray-700/60 bg-gray-800/60 text-gray-400 hover:bg-gray-700/60">Edit</button>
                               <button onClick={() => handleDeleteInvoice(invoice._id)} className="px-2 py-0.5 text-[11px] font-medium rounded-md border border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20">Delete</button>
                             </div>
+                            ) : (
+                              <span className="text-xs text-gray-600">—</span>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -521,12 +513,14 @@ export default function VendorDetailPage() {
           <div className="rounded-xl border border-dashed border-amber-500/20 bg-amber-950/10 px-4 py-6 text-center">
             <p className="text-sm font-medium text-gray-300 mb-1">No invoices yet</p>
             <p className="text-xs text-gray-500 mb-3">Upload the first invoice for this vendor.</p>
+            {canEditVendors && (
             <button
               onClick={() => setShowInvoiceModal(true)}
               className="px-2.5 py-1 text-xs font-medium rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 transition-colors"
             >
               + Upload invoice
             </button>
+            )}
           </div>
         )}
       </div>

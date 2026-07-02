@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import jsPDF from 'jspdf';
-import { canAccessFeature } from '@/lib/subscriptionUtils';
+import { canAccessFeature, fetchOrgSubscription, getStoredSubscription } from '@/lib/subscriptionUtils';
 import { trackDownload } from '@/lib/trackDownload';
+import { canWrite } from '@/lib/permissions';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 function api(path: string) {
@@ -114,8 +115,9 @@ function ReportsPage() {
   const [userRole, setUserRole] = useState('');
   const [userDeptId, setUserDeptId] = useState('');
   const [userDeptName, setUserDeptName] = useState('');
-  const [tier, setTier] = useState<string>('free');
-  const [isExpired, setIsExpired] = useState(false);
+  const [tier, setTier] = useState<string>(() => getStoredSubscription().tier);
+  const [isExpired, setIsExpired] = useState(() => getStoredSubscription().isExpired);
+  const canEditReports = canWrite('reports');
 
   const canDownloadData = canAccessFeature(tier, 'dataExports') && !isExpired;
 
@@ -132,23 +134,13 @@ function ReportsPage() {
   }, []);
 
   useEffect(() => {
-    const fetchSubscription = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      try {
-        const res = await fetch(api('/api/payments/subscription-status'), {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (res.ok) {
-          setTier(data.tier);
-          setIsExpired(data.isExpired || false);
-        }
-      } catch (_) {}
+    const loadSubscription = async () => {
+      const sub = await fetchOrgSubscription(api);
+      setTier(sub.tier);
+      setIsExpired(sub.isExpired);
     };
 
-    fetchSubscription();
+    loadSubscription();
   }, []);
 
   useEffect(() => {
@@ -543,6 +535,7 @@ function ReportsPage() {
       )}
 
       {/* Generate & export — compact action bar */}
+      {canEditReports && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-6">
         <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-blue-500/50 bg-gradient-to-r from-blue-950/20 to-gray-800/40 px-4 py-3">
           <p className="text-xs font-semibold text-blue-400/80 uppercase tracking-widest mb-2">Generate report</p>
@@ -602,8 +595,7 @@ function ReportsPage() {
           )}
         </div>
       </div>
-
-      {/* Filter Tabs */}
+      )}
       <div className="flex flex-wrap gap-1.5 mb-4">
         {['all', 'daily', 'weekly', 'monthly'].map((type) => (
           <button

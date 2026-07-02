@@ -1,10 +1,11 @@
 import { Asset, Issue, AuditLog, Organization, AssetLog } from '../models/index.js';
 import {
   canReportOnly,
-  isHod,
   isLabTechnician,
   assetFilterForUser,
   issueFilterForUser,
+  getDepartmentScopeId,
+  resolveScopedAssetIds,
 } from './permissions.js';
 import { calculateSLM, getCategoryConfig, calculateAssetAge } from './depreciationService.js';
 
@@ -119,30 +120,15 @@ function activityLabel(type) {
 }
 
 async function resolveFilters(user) {
-  let assetFilter = assetFilterForUser(user) || { _id: { $exists: false } };
+  const assetFilter = assetFilterForUser(user) || { _id: { $exists: false } };
   let deptAssetIds = null;
-
-  if (user.role === 'manager' && user.departmentId) {
-    const deptAssets = await Asset.find({
-      departmentId: user.departmentId,
-      organizationId: user.organizationId,
-    })
-      .select('_id')
-      .lean();
-    deptAssetIds = deptAssets.map((a) => a._id);
-    assetFilter = { organizationId: user.organizationId, departmentId: user.departmentId };
-  } else if (isHod(user) && user.departmentId) {
-    const assets = await Asset.find({ departmentId: user.departmentId }).select('_id').lean();
-    deptAssetIds = assets.map((a) => a._id);
-  } else if (isLabTechnician(user) && user.assignedLocationIds?.length) {
-    const assets = await Asset.find({ locationId: { $in: user.assignedLocationIds } }).select('_id').lean();
-    deptAssetIds = assets.map((a) => a._id);
+  const deptScope = getDepartmentScopeId(user);
+  const locationScoped = isLabTechnician(user) && user.assignedLocationIds?.length;
+  if (deptScope || locationScoped) {
+    deptAssetIds = await resolveScopedAssetIds(user);
   }
 
-  const issueFilter =
-    user.role === 'manager' && deptAssetIds
-      ? { organizationId: user.organizationId, assetId: { $in: deptAssetIds } }
-      : issueFilterForUser(user, deptAssetIds) || { _id: { $exists: false } };
+  const issueFilter = issueFilterForUser(user, deptAssetIds) || { _id: { $exists: false } };
 
   return { assetFilter, issueFilter };
 }

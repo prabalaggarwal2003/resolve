@@ -1,5 +1,6 @@
 import express from 'express';
 import { protect } from '../middleware/auth.js';
+import { canRead } from '../services/permissions.js';
 import {
   logFileDownload,
   AUDIT_RESOURCES,
@@ -46,8 +47,7 @@ router.post('/track-download', protect, async (req, res) => {
  */
 router.get('/', protect, async (req, res) => {
   try {
-    // Only allow admins and managers to view audit logs
-    if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
+    if (!canRead(req.user, 'audit', req)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -124,7 +124,7 @@ router.get('/', protect, async (req, res) => {
  */
 router.get('/stats', protect, async (req, res) => {
   try {
-    if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
+    if (!canRead(req.user, 'audit', req)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -205,7 +205,7 @@ router.get('/stats', protect, async (req, res) => {
  */
 router.get('/export', protect, async (req, res) => {
   try {
-    if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
+    if (!canRead(req.user, 'audit', req)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 

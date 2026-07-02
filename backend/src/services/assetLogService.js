@@ -18,7 +18,25 @@ const FIELD_LABELS = {
   cost: 'Cost',
   amcExpiry: 'AMC expiry',
   nextMaintenanceDate: 'Next maintenance',
+  tags: 'Tags',
 };
+
+/** Fields that require a change reason when modified */
+export const IMPORTANT_CHANGE_FIELDS = new Set([
+  'status',
+  'locationId',
+  'departmentId',
+  'assignedTo',
+  'assignedToName',
+  'assignedToEmployeeCode',
+  'warrantyExpiry',
+  'amcExpiry',
+  'nextMaintenanceDate',
+  'cost',
+  'purchaseDate',
+  'vendorId',
+  'condition',
+]);
 
 const REFERENCE_FIELDS = new Set(['assignedTo', 'locationId', 'departmentId', 'vendorId']);
 
@@ -50,6 +68,10 @@ function formatPrimitive(field, value) {
   if (value == null || value === '') return '—';
   if (field === 'status') return String(value).replace(/_/g, ' ');
   if (field === 'cost') return String(value);
+  if (field === 'tags') {
+    if (Array.isArray(value)) return value.length ? value.join(', ') : '—';
+    return String(value);
+  }
   if (['purchaseDate', 'warrantyExpiry', 'amcExpiry', 'nextMaintenanceDate'].includes(field)) {
     const d = new Date(value);
     return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString('en-IN');
@@ -67,6 +89,13 @@ function valuesEqual(field, oldVal, newVal) {
     return oldNum === newNum;
   }
 
+  if (field === 'tags') {
+    const oldTags = Array.isArray(oldVal) ? oldVal : oldVal ? [oldVal] : [];
+    const newTags = Array.isArray(newVal) ? newVal : newVal ? [newVal] : [];
+    if (oldTags.length !== newTags.length) return false;
+    return oldTags.every((t, i) => String(t) === String(newTags[i]));
+  }
+
   if (['purchaseDate', 'warrantyExpiry', 'amcExpiry', 'nextMaintenanceDate'].includes(field)) {
     const oldDate = oldVal ? new Date(oldVal) : null;
     const newDate = newVal ? new Date(newVal) : null;
@@ -76,6 +105,17 @@ function valuesEqual(field, oldVal, newVal) {
   }
 
   return false;
+}
+
+function formatLocationDisplay(loc) {
+  if (!loc) return '—';
+  const raw = typeof loc === 'object' ? loc.path || loc.name : String(loc);
+  if (!raw) return '—';
+  return raw
+    .split('/')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join(' > ');
 }
 
 async function resolveDisplayValue(field, value, cache) {
@@ -95,7 +135,7 @@ async function resolveDisplayValue(field, value, cache) {
   if (field === 'locationId') {
     if (!cache.locations[id]) {
       const loc = await Location.findById(id).select('name path').lean();
-      cache.locations[id] = loc?.path || loc?.name || id;
+      cache.locations[id] = formatLocationDisplay(loc) || id;
     }
     return cache.locations[id];
   }
@@ -127,6 +167,47 @@ export function formatChangesSummary(changes) {
   return changes.map(formatChangeLine).join(' · ');
 }
 
+export function getImportantChanges(fieldChanges) {
+  if (!fieldChanges?.length) return [];
+  return fieldChanges.filter((c) => IMPORTANT_CHANGE_FIELDS.has(c.field));
+}
+
+export function requiresChangeReason(fieldChanges) {
+  return getImportantChanges(fieldChanges).length > 0;
+}
+
+async function diffCustomFields(prevCustom, nextCustom, cache) {
+  const changes = [];
+  const prev = prevCustom || {};
+  const next = nextCustom || {};
+  const keys = new Set([...Object.keys(prev), ...Object.keys(next)]);
+
+  for (const key of keys) {
+    const oldVal = prev[key];
+    const newVal = next[key];
+    if (JSON.stringify(oldVal ?? null) === JSON.stringify(newVal ?? null)) continue;
+
+    const label = key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    const oldValue =
+      oldVal == null || oldVal === ''
+        ? '—'
+        : Array.isArray(oldVal)
+        ? oldVal.join(', ')
+        : String(oldVal);
+    const newValue =
+      newVal == null || newVal === ''
+        ? '—'
+        : Array.isArray(newVal)
+        ? newVal.join(', ')
+        : String(newVal);
+
+    if (oldValue === newValue) continue;
+    changes.push({ field: `custom:${key}`, label, oldValue, newValue });
+  }
+
+  return changes;
+}
+
 function parseSummaryToChanges(summary) {
   if (!summary?.trim()) return [];
   return summary
@@ -156,6 +237,7 @@ export async function buildAssetEditChanges(prev, patchBody) {
 
   for (const [key, newVal] of Object.entries(patchBody)) {
     if (SKIP_FIELDS.has(key) || key.startsWith('maintenanceHistory.') || key === '$push') continue;
+    if (key === 'customFields') continue;
 
     const label = FIELD_LABELS[key];
     if (!label) continue;
@@ -175,6 +257,11 @@ export async function buildAssetEditChanges(prev, patchBody) {
     });
   }
 
+  if (patchBody.customFields !== undefined) {
+    const customChanges = await diffCustomFields(prev.customFields, patchBody.customFields, cache);
+    changes.push(...customChanges);
+  }
+
   if (changes.length === 0) return null;
 
   return {
@@ -183,10 +270,13 @@ export async function buildAssetEditChanges(prev, patchBody) {
   };
 }
 
-export async function createAssetEditLog(AssetLog, { assetId, userId, fieldChanges, summary }) {
-  if (!fieldChanges?.length) return;
+export async function createAssetEditLog(
+  AssetLog,
+  { assetId, userId, fieldChanges, summary, changeReason, type = 'edit' }
+) {
+  if (!fieldChanges?.length && type === 'edit') return;
 
-  const normalizedChanges = fieldChanges.map((c) => ({
+  const normalizedChanges = (fieldChanges || []).map((c) => ({
     field: String(c.field ?? ''),
     label: String(c.label ?? c.field ?? 'Field'),
     oldValue: String(c.oldValue ?? '—'),
@@ -198,10 +288,34 @@ export async function createAssetEditLog(AssetLog, { assetId, userId, fieldChang
   await AssetLog.create({
     assetId,
     userId,
-    type: 'edit',
+    type,
     fieldChanges: normalizedChanges,
-    details: { changes: normalizedChanges },
+    details: { changes: normalizedChanges, changeReason: changeReason || undefined },
     summary: summaryText,
+    changeReason: changeReason?.trim() || undefined,
+  });
+}
+
+export async function createAssetNoteLog(AssetLog, { assetId, userId, text }) {
+  const note = String(text || '').trim();
+  if (!note) return null;
+
+  return AssetLog.create({
+    assetId,
+    userId,
+    type: 'note',
+    notes: note,
+    summary: note.length > 120 ? `${note.slice(0, 117)}…` : note,
+  });
+}
+
+export async function createAssetMaintenanceLog(AssetLog, { assetId, userId, summary, notes }) {
+  return AssetLog.create({
+    assetId,
+    userId,
+    type: 'maintenance',
+    summary,
+    notes: notes || undefined,
   });
 }
 
@@ -213,13 +327,24 @@ export function extractFieldChanges(log) {
 }
 
 export function serializeAssetLogs(logs) {
-  return logs.map((log) => {
-    const fieldChanges = extractFieldChanges(log);
-    return {
-      _id: log._id,
-      fieldChanges,
-      summary: log.summary || formatChangesSummary(fieldChanges),
-      createdAt: log.createdAt,
-    };
-  });
+  return logs.map((log) => serializeTimelineEntry(log));
+}
+
+export function serializeTimelineEntry(log) {
+  const fieldChanges = extractFieldChanges(log);
+  const user = log.userId && typeof log.userId === 'object'
+    ? { _id: log.userId._id, name: log.userId.name, email: log.userId.email }
+    : null;
+
+  return {
+    _id: log._id,
+    type: log.type,
+    fieldChanges,
+    summary: log.summary || formatChangesSummary(fieldChanges),
+    changeReason: log.changeReason || log.details?.changeReason || null,
+    noteText: log.type === 'note' ? log.notes || log.summary : null,
+    notes: log.notes || null,
+    user,
+    createdAt: log.createdAt,
+  };
 }

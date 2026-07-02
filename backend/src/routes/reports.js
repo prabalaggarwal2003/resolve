@@ -1,5 +1,7 @@
 import express from 'express';
 import { protect } from '../middleware/auth.js';
+import { requireTabRead, requireTabWrite } from '../middleware/tabPermissions.js';
+import { getDepartmentScopeId } from '../services/permissions.js';
 import reportGenerator from '../services/reportGenerator.js';
 import { logAudit, getRequestMetadata, AUDIT_RESOURCES } from '../services/auditService.js';
 
@@ -7,8 +9,7 @@ const router = express.Router();
 
 router.use(protect);
 
-// Get all reports for organization
-router.get('/', async (req, res) => {
+router.get('/', requireTabRead('reports'), async (req, res) => {
   try {
     const { type, limit } = req.query;
     const reports = await reportGenerator.getReports(
@@ -23,8 +24,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get single report by ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireTabRead('reports'), async (req, res) => {
   try {
     const report = await reportGenerator.getReportById(
       req.params.id,
@@ -42,10 +42,9 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Generate daily report manually
-router.post('/generate/daily', async (req, res) => {
+router.post('/generate/daily', requireTabWrite('reports'), async (req, res) => {
   try {
-    const deptId = req.user.role === 'manager' ? req.user.departmentId : undefined;
+    const deptId = getDepartmentScopeId(req.user) ?? undefined;
     const report = await reportGenerator.generateDailyReport(req.user.organizationId, deptId);
     await logAudit(req.user._id, 'generated', AUDIT_RESOURCES.REPORT || 'report', report._id, {
       resourceName: 'Daily Report', description: `Generated daily report`, severity: 'low', ...getRequestMetadata(req)
@@ -57,10 +56,9 @@ router.post('/generate/daily', async (req, res) => {
   }
 });
 
-// Generate weekly report manually
-router.post('/generate/weekly', async (req, res) => {
+router.post('/generate/weekly', requireTabWrite('reports'), async (req, res) => {
   try {
-    const deptId = req.user.role === 'manager' ? req.user.departmentId : undefined;
+    const deptId = getDepartmentScopeId(req.user) ?? undefined;
     const report = await reportGenerator.generateWeeklyReport(req.user.organizationId, deptId);
     await logAudit(req.user._id, 'generated', AUDIT_RESOURCES.REPORT || 'report', report._id, {
       resourceName: 'Weekly Report', description: `Generated weekly report`, severity: 'low', ...getRequestMetadata(req)
@@ -72,10 +70,9 @@ router.post('/generate/weekly', async (req, res) => {
   }
 });
 
-// Generate monthly report manually
-router.post('/generate/monthly', async (req, res) => {
+router.post('/generate/monthly', requireTabWrite('reports'), async (req, res) => {
   try {
-    const deptId = req.user.role === 'manager' ? req.user.departmentId : undefined;
+    const deptId = getDepartmentScopeId(req.user) ?? undefined;
     const report = await reportGenerator.generateMonthlyReport(req.user.organizationId, deptId);
     await logAudit(req.user._id, 'generated', AUDIT_RESOURCES.REPORT || 'report', report._id, {
       resourceName: 'Monthly Report', description: `Generated monthly report`, severity: 'low', ...getRequestMetadata(req)
@@ -88,4 +85,3 @@ router.post('/generate/monthly', async (req, res) => {
 });
 
 export default router;
-

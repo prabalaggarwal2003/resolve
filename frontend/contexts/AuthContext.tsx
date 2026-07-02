@@ -10,6 +10,15 @@ interface User {
   organizationId?: string;
   departmentId?: string | null;
   departmentName?: string | null;
+  customRoleId?: string | null;
+  customRoleName?: string | null;
+  permissions?: Record<string, 'read' | 'write' | null>;
+  isSuperAdmin?: boolean;
+  subscription?: {
+    tier: string;
+    plan?: string;
+    isExpired?: boolean;
+  };
 }
 
 interface AuthContextType {
@@ -28,11 +37,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Check for existing auth on mount
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-
-    if (storedToken && storedUser) {
+    const syncFromStorage = () => {
+      const storedToken = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+      if (!storedToken || !storedUser) return;
       try {
         const parsedUser = JSON.parse(storedUser);
         setToken(storedToken);
@@ -43,7 +51,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
       }
-    }
+    };
+
+    syncFromStorage();
+    window.addEventListener('user-updated', syncFromStorage);
+    return () => window.removeEventListener('user-updated', syncFromStorage);
   }, []);
 
   const login = (newToken: string, newUser: User) => {

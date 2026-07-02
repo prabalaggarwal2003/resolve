@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { UpgradePrompt } from '@/lib/subscriptionUtils';
+import { UpgradePrompt, fetchOrgSubscription, getStoredSubscription } from '@/lib/subscriptionUtils';
+import { canWrite } from '@/lib/permissions';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 interface Vendor {
@@ -69,9 +70,10 @@ export default function VendorsPage() {
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [filters, setFilters] = useState({ status: '', category: '' });
   const [searchQuery, setSearchQuery] = useState('');
-  const [tier, setTier] = useState<string>('free');
-  const [isExpired, setIsExpired] = useState(false);
+  const [tier, setTier] = useState<string>(() => getStoredSubscription().tier);
+  const [isExpired, setIsExpired] = useState(() => getStoredSubscription().isExpired);
   const [subscriptionChecked, setSubscriptionChecked] = useState(false);
+  const canEditVendors = canWrite('vendors');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -128,26 +130,10 @@ export default function VendorsPage() {
   }, [vendors, filters.status, filters.category, searchQuery]);
 
   const fetchSubscription = async () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (!token) {
-      setLoading(false);
-      setSubscriptionChecked(true);
-      return;
-    }
-
-    try {
-      const res = await fetch(api('/api/payments/subscription-status'), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setTier(data.tier);
-        setIsExpired(data.isExpired || false);
-      }
-    } catch (_) {}
-    finally {
-      setSubscriptionChecked(true);
-    }
+    const sub = await fetchOrgSubscription(api);
+    setTier(sub.tier);
+    setIsExpired(sub.isExpired);
+    setSubscriptionChecked(true);
   };
 
   const fetchVendors = async () => {
@@ -315,12 +301,14 @@ export default function VendorsPage() {
             Manage suppliers, track purchases, invoices, and payment status.
           </p>
         </div>
+        {canEditVendors && (
         <button
           onClick={() => { resetForm(); setShowModal(true); }}
           className="px-2.5 py-1 text-xs font-medium rounded-lg border border-blue-500/40 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 hover:border-blue-400/50 transition-colors"
         >
           + Add vendor
         </button>
+        )}
       </div>
 
       <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-blue-500/50 bg-gradient-to-r from-blue-950/20 to-gray-800/40 px-4 py-4 mb-4">
@@ -382,12 +370,14 @@ export default function VendorsPage() {
         <div className="rounded-xl border border-dashed border-blue-500/20 bg-blue-950/10 px-4 py-8 text-center">
           <p className="text-sm font-medium text-gray-300 mb-1">No vendors found</p>
           <p className="text-xs text-gray-500 mb-3">Add your first vendor to start tracking suppliers and invoices.</p>
+          {canEditVendors && (
           <button
             onClick={() => { resetForm(); setShowModal(true); }}
             className="px-2.5 py-1 text-xs font-medium rounded-lg border border-blue-500/40 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 transition-colors"
           >
             + Add vendor
           </button>
+          )}
         </div>
       ) : filteredVendors.length === 0 ? (
         <div className="rounded-xl border border-dashed border-violet-500/20 bg-violet-950/10 px-4 py-8 text-center">
@@ -421,6 +411,8 @@ export default function VendorsPage() {
                   >
                     View
                   </Link>
+                  {canEditVendors && (
+                    <>
                   <button
                     onClick={() => handleEdit(vendor)}
                     className="px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-700/60 bg-gray-800/60 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 transition-colors"
@@ -433,6 +425,8 @@ export default function VendorsPage() {
                   >
                     Delete
                   </button>
+                    </>
+                  )}
                 </div>
               </div>
 

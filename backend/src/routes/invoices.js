@@ -1,5 +1,6 @@
 import express from 'express';
 import { protect } from '../middleware/auth.js';
+import { canRead, canWrite } from '../services/permissions.js';
 import { Invoice, Vendor } from '../models/index.js';
 import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
 
@@ -7,11 +8,25 @@ const router = express.Router();
 
 router.use(protect);
 
+function requireVendorRead(req, res, next) {
+  if (!canRead(req.user, 'vendors', req)) {
+    return res.status(403).json({ message: 'Access denied' });
+  }
+  next();
+}
+
+function requireVendorWrite(req, res, next) {
+  if (!canWrite(req.user, 'vendors', req)) {
+    return res.status(403).json({ message: 'Access denied' });
+  }
+  next();
+}
+
 /**
  * Get all invoices
  * GET /api/invoices
  */
-router.get('/', async (req, res) => {
+router.get('/', requireVendorRead, async (req, res) => {
   try {
     const { vendorId, status } = req.query;
     const query = { organizationId: req.user.organizationId };
@@ -36,7 +51,7 @@ router.get('/', async (req, res) => {
  * Get single invoice
  * GET /api/invoices/:id
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireVendorRead, async (req, res) => {
   try {
     const invoice = await Invoice.findOne({
       _id: req.params.id,
@@ -61,13 +76,8 @@ router.get('/:id', async (req, res) => {
  * Create invoice
  * POST /api/invoices
  */
-router.post('/', async (req, res) => {
+router.post('/', requireVendorWrite, async (req, res) => {
   try {
-    // Check permissions
-    if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
     // Verify vendor exists and belongs to organization
     const vendor = await Vendor.findOne({
       _id: req.body.vendorId,
@@ -120,13 +130,8 @@ router.post('/', async (req, res) => {
  * Update invoice
  * PUT /api/invoices/:id
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireVendorWrite, async (req, res) => {
   try {
-    // Check permissions
-    if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
     const oldInvoice = await Invoice.findOne({
       _id: req.params.id,
       organizationId: req.user.organizationId
@@ -174,13 +179,8 @@ router.put('/:id', async (req, res) => {
  * Delete invoice
  * DELETE /api/invoices/:id
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireVendorWrite, async (req, res) => {
   try {
-    // Check permissions
-    if (!['super_admin', 'admin'].includes(req.user.role)) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
     const invoice = await Invoice.findOneAndDelete({
       _id: req.params.id,
       organizationId: req.user.organizationId

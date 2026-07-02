@@ -7,6 +7,7 @@ import dashboard from './dashboard.js';
 import notifications from './notifications.js';
 import users from './users.js';
 import locations from './locations.js';
+import locationTypes from './locationTypes.js';
 import departments from './departments.js';
 import publicRoutes from './public.js';
 import organization from './organization.js';
@@ -22,5 +23,9 @@ import invoices from './invoices.js';
 import reports from './reports.js';
 import payments from './payments.js';
 import testPayments from './test-payments.js';
+import orgRoles from './orgRoles.js';
+import assetTemplates from './assetTemplates.js';
+import homeDashboard from './homeDashboard.js';
+import assetGroups from './assetGroups.js';
 
-export { auth, signup, health, assets, issues, dashboard, notifications, users, locations, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth, testNotifications, qrPdf, depreciation, kpis, vendors, invoices, reports, payments, testPayments };
+export { auth, signup, health, assets, issues, dashboard, notifications, users, locations, locationTypes, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth, testNotifications, qrPdf, depreciation, kpis, homeDashboard, vendors, invoices, reports, payments, testPayments, orgRoles, assetTemplates, assetGroups };

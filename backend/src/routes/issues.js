@@ -2,7 +2,7 @@ import express from 'express';
 import { Issue, Notification, User, Asset } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
 import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
-import { issueFilterForUser, canEdit, canViewAll, isHod, isLabTechnician, assignIssueToUsers } from '../services/permissions.js';
+import { issueFilterForUser, canEdit, isOrgWideAdmin, isHod, isLabTechnician, canReportOnly, getDepartmentScopeId, resolveScopedAssetIds, assignIssueToUsers } from '../services/permissions.js';
 import { generateTicketId } from '../services/ticketId.js';
 import { getDeviceFingerprint, canReport, recordReportAttempt } from '../utils/rateLimiter.js';
 
@@ -47,13 +47,11 @@ router.get('/', async (req, res) => {
         { reporterEmail: req.user.email?.toLowerCase() },
       ];
     } else {
-      // Manager: only issues for assets in their department
-      if (req.user.role === 'manager' && req.user.departmentId) {
-        const deptAssets = await Asset.find({
-          departmentId: req.user.departmentId,
-          organizationId: req.user.organizationId,
-        }).select('_id').lean();
-        filter.assetId = { $in: deptAssets.map((a) => a._id) };
+      const deptScope = getDepartmentScopeId(req.user);
+      const locationScoped = isLabTechnician(req.user) && req.user.assignedLocationIds?.length;
+      if (deptScope || locationScoped) {
+        const scopedIds = await resolveScopedAssetIds(req.user);
+        filter.assetId = { $in: scopedIds };
       }
     }
     const skip = (Number(page) - 1) * Number(limit);
@@ -108,24 +106,20 @@ router.get('/:id', async (req, res) => {
     }
 
     // Check access permissions
-    if (!canViewAll(req.user)) {
-      // HOD: can only view issues from their department
-      if (isHod(req.user) && req.user.departmentId) {
-        const assetDeptId = issue.assetId?.departmentId?._id?.toString() ?? issue.assetId?.departmentId?.toString();
-        if (assetDeptId !== req.user.departmentId?.toString()) {
+    if (!isOrgWideAdmin(req.user)) {
+      const deptScope = getDepartmentScopeId(req.user);
+      if (deptScope) {
+        const assetDeptId = issue.assetId?.departmentId?._id?.toString?.() ?? issue.assetId?.departmentId?.toString?.();
+        if (assetDeptId !== deptScope?.toString?.()) {
           return res.status(403).json({ message: 'You do not have access to this issue' });
         }
-      }
-      // Lab technician: can only view issues from their assigned locations
-      else if (isLabTechnician(req.user) && req.user.assignedLocationIds?.length) {
-        const assetLocId = issue.assetId?.locationId?._id?.toString() ?? issue.assetId?.locationId?.toString();
+      } else if (isLabTechnician(req.user) && req.user.assignedLocationIds?.length) {
+        const assetLocId = issue.assetId?.locationId?._id?.toString?.() ?? issue.assetId?.locationId?.toString?.();
         if (!req.user.assignedLocationIds.some(id => id?.toString() === assetLocId)) {
           return res.status(403).json({ message: 'You do not have access to this issue' });
         }
-      }
-      // Report only roles: can only view their own reports
-      else if (canReportOnly(req.user)) {
-        const isReporter = issue.reportedBy?.toString() === req.user._id?.toString() || 
+      } else if (canReportOnly(req.user)) {
+        const isReporter = issue.reportedBy?.toString() === req.user._id?.toString() ||
                           issue.reporterEmail?.toLowerCase() === req.user.email?.toLowerCase();
         if (!isReporter) {
           return res.status(403).json({ message: 'You do not have access to this issue' });

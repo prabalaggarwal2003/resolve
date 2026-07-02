@@ -8,9 +8,10 @@ const userSchema = new mongoose.Schema(
     name: { type: String, required: true },
     role: {
       type: String,
-      enum: ['super_admin', 'principal', 'hod', 'teacher', 'student', 'lab_technician', 'admin', 'manager', 'reporter'],
+      enum: ['super_admin', 'principal', 'hod', 'teacher', 'student', 'lab_technician', 'admin', 'manager', 'reporter', 'custom'],
       default: 'reporter',
     },
+    customRoleId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrgRole' },
     organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
     departmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
     assignedLocationIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Location' }],
@@ -25,6 +26,7 @@ const userSchema = new mongoose.Schema(
     backupCodes: { type: [String], select: false, default: [] },
     onboardingComplete: { type: Boolean, default: false },
     lastLogin: Date,
+    preferences: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   { timestamps: true }
 );

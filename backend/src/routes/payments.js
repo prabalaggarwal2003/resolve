@@ -3,6 +3,8 @@ import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import { Organization, User } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
+import { isSuperAdmin } from '../services/permissionResolver.js';
+import { getOrganizationSubscriptionStatus } from '../services/organizationSubscriptionService.js';
 import { logAudit, getRequestMetadata, AUDIT_RESOURCES } from '../services/auditService.js';
 
 const router = express.Router();
@@ -40,6 +42,10 @@ const TIER_LIMITS = {
  */
 router.post('/create-order', protect, async (req, res) => {
   try {
+    if (!isSuperAdmin(req.user)) {
+      return res.status(403).json({ message: 'Only Super Admin can manage subscriptions' });
+    }
+
     const { tier, planType } = req.body;
 
     console.log('[PAYMENT] Create order request:', { tier, planType, orgId: req.user.organizationId });
@@ -103,6 +109,10 @@ router.post('/create-order', protect, async (req, res) => {
  */
 router.post('/verify-payment', protect, async (req, res) => {
   try {
+    if (!isSuperAdmin(req.user)) {
+      return res.status(403).json({ message: 'Only Super Admin can manage subscriptions' });
+    }
+
     const { orderId, paymentId, signature, tier, planType } = req.body;
 
     if (!orderId || !paymentId || !signature || !tier || !planType) {
@@ -172,31 +182,7 @@ router.get('/subscription-status', protect, async (req, res) => {
     const org = await Organization.findById(req.user.organizationId);
     if (!org) return res.status(404).json({ message: 'Organization not found' });
 
-    const now = new Date();
-    const isExpired = org.subscriptionEndDate && org.subscriptionEndDate < now;
-
-    // Calculate days remaining
-    let daysRemaining = null;
-    if (org.subscriptionEndDate && !isExpired) {
-      const diff = org.subscriptionEndDate.getTime() - now.getTime();
-      daysRemaining = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    }
-
-    // Treat expired subscriptions as free
-    const tier = isExpired ? 'free' : (org.subscriptionTier || 'free');
-    const limits = TIER_LIMITS[tier];
-
-    res.json({
-      tier,
-      plan: org.subscriptionPlan || 'monthly',
-      razorpaySubscriptionId: org.razorpaySubscriptionId,
-      subscriptionStartDate: org.subscriptionStartDate,
-      subscriptionEndDate: org.subscriptionEndDate,
-      isExpired,
-      daysRemaining,
-      limits,
-      canUpgrade: tier !== 'premium',
-    });
+    res.json(getOrganizationSubscriptionStatus(org));
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -208,6 +194,10 @@ router.get('/subscription-status', protect, async (req, res) => {
  */
 router.post('/cancel-subscription', protect, async (req, res) => {
   try {
+    if (!isSuperAdmin(req.user)) {
+      return res.status(403).json({ message: 'Only Super Admin can manage subscriptions' });
+    }
+
     const org = await Organization.findById(req.user.organizationId);
     if (!org) return res.status(404).json({ message: 'Organization not found' });
 

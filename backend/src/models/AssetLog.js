@@ -15,7 +15,11 @@ const assetLogSchema = new mongoose.Schema(
     assetId: { type: mongoose.Schema.Types.ObjectId, ref: 'Asset', required: true },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     editorName: String,
-    type: { type: String, enum: ['check_in', 'check_out', 'edit'], required: true },
+    type: {
+      type: String,
+      enum: ['check_in', 'check_out', 'edit', 'created', 'note', 'maintenance'],
+      required: true,
+    },
     assignedAt: Date,
     unassignedAt: Date,
     fieldChanges: { type: [fieldChangeSchema], default: [] },
@@ -23,6 +27,7 @@ const assetLogSchema = new mongoose.Schema(
     changes: { type: [fieldChangeSchema], default: [] },
     summary: String,
     notes: String,
+    changeReason: { type: String, trim: true },
   },
   { timestamps: true }
 );
