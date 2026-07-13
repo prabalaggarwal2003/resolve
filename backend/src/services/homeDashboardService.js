@@ -308,6 +308,7 @@ export async function getHomeDashboardData(user, query = {}) {
     depreciationEnabled,
     kpiTotals: kpi.totals,
     quick: kpi.quick,
+    budget: kpi.budget ?? null,
     pageFilters,
   };
 }

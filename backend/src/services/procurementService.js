@@ -11,6 +11,7 @@ import {
   recalculateBudgetRollups,
 } from './budgetRollupService.js';
 import { diffFields, diffKeyedMap, resolveRefName, displayBasic } from './budgetChangeLog.js';
+import { formatChangesSummary } from './assetLogService.js';
 
 const REF_DIMENSION_FIELDS = new Set(['departmentId', 'groupId', 'locationId', 'vendorId', 'templateId']);
 
@@ -326,10 +327,9 @@ export async function updateProcurement(organizationId, user, id, body) {
 
   const changes = await buildProcurementChanges(before, procurement.toObject(), config);
   if (changes.length) {
-    const description =
-      changes.length === 1
-        ? `${changes[0].label}: ${changes[0].from} → ${changes[0].to}`
-        : `${changes.length} fields updated`;
+    const description = formatChangesSummary(
+      changes.map((c) => ({ field: c.field, label: c.label, oldValue: c.from, newValue: c.to }))
+    ) || 'Purchase updated';
     await logProcurementEvent({
       organizationId,
       procurement,
@@ -387,7 +387,7 @@ export async function updateProcurement(organizationId, user, id, body) {
     await recalculateBudgetRollups(organizationId, prevBudgetId, user);
   }
 
-  return formatProcurement(procurement);
+  return { procurement: formatProcurement(procurement), changes };
 }
 
 export async function deleteProcurement(organizationId, user, id) {

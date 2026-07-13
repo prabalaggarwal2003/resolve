@@ -103,6 +103,38 @@ export const AUDIT_ACTIONS = {
   // Maintenance
   MAINTENANCE_STARTED: 'maintenance_started',
   MAINTENANCE_COMPLETED: 'maintenance_completed',
+
+  // Budgets
+  BUDGET_CREATED: 'created',
+  BUDGET_UPDATED: 'updated',
+  BUDGET_DELETED: 'deleted',
+  BUDGET_CONFIG_UPDATED: 'settings_changed',
+
+  // Procurement
+  PROCUREMENT_CREATED: 'created',
+  PROCUREMENT_UPDATED: 'updated',
+  PROCUREMENT_DELETED: 'deleted',
+  PROCUREMENT_LINKED: 'linked',
+  PROCUREMENT_CONFIG_UPDATED: 'settings_changed',
+
+  // Insights
+  INSIGHT_CONFIG_UPDATED: 'settings_changed',
+  INSIGHT_RULE_CREATED: 'created',
+  INSIGHT_RULE_UPDATED: 'updated',
+  INSIGHT_RULE_DELETED: 'deleted',
+  INSIGHT_RULE_RESET: 'reset',
+
+  // Asset health
+  ASSET_HEALTH_CONFIG_UPDATED: 'settings_changed',
+  ASSET_HEALTH_PROFILE_CREATED: 'created',
+  ASSET_HEALTH_PROFILE_UPDATED: 'updated',
+  ASSET_HEALTH_PROFILE_DELETED: 'deleted',
+  ASSET_HEALTH_DASHBOARD_CREATED: 'created',
+  ASSET_HEALTH_DASHBOARD_UPDATED: 'updated',
+  ASSET_HEALTH_DASHBOARD_DELETED: 'deleted',
+  ASSET_HEALTH_DASHBOARD_DUPLICATED: 'duplicated',
+  ASSET_HEALTH_RULE_RESET: 'reset',
+  HEALTH_CHECK_RUN: 'health_check_run',
 };
 
 export const AUDIT_RESOURCES = {
@@ -119,6 +151,10 @@ export const AUDIT_RESOURCES = {
   REPORT: 'report',
   MAINTENANCE: 'maintenance',
   AUDIT: 'audit',
+  BUDGET: 'budget',
+  PROCUREMENT: 'procurement',
+  INSIGHT: 'insight',
+  ASSET_HEALTH: 'asset_health',
 };
 
 export const AUDIT_SEVERITY = {

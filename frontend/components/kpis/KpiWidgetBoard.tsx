@@ -14,6 +14,8 @@ import {
 import KpiWidgetContent from '@/components/kpis/KpiWidgetContent';
 import KpiWidgetEditor from '@/components/kpis/KpiWidgetEditor';
 import KpiWidgetFilters from '@/components/kpis/KpiWidgetFilters';
+import BudgetWidgetFilters from '@/components/budgets/BudgetWidgetFilters';
+import { isBudgetWidget, kpiWidgetToBudgetWidget } from '@/lib/kpiBudgetBridge';
 import KpiWidgetResizeHandle from '@/components/kpis/KpiWidgetResizeHandle';
 
 const buttonClass = 'px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors';
@@ -51,6 +53,27 @@ export default function KpiWidgetBoard({
   const [dragId, setDragId] = useState<string | null>(null);
   const autoSizeKeyRef = useRef('');
 
+  const budgetLookups = useMemo(() => {
+    const b = ctx.budget;
+    const lookups = b?.lookups;
+    return {
+      budgets: lookups?.budgets || (b?.budgets || []).map((x) => ({ _id: x.id, name: x.name })),
+      vendors: lookups?.vendors || [],
+      projects: lookups?.projects || [],
+      costCenters: lookups?.costCenters || [],
+      categories: lookups?.categories || [],
+      lifecycleStages: lookups?.lifecycleStages || [],
+      paymentStatuses: lookups?.paymentStatuses || [],
+      budgetTypes: lookups?.budgetTypes || [],
+      budgetStatuses: lookups?.budgetStatuses || [],
+      fundingSources: lookups?.fundingSources || [],
+      departments: lookups?.departments || [],
+      locations: lookups?.locations || [],
+      users: lookups?.users || [],
+      financialYears: Array.from(new Set((b?.budgets || []).map((x) => x.financialYear).filter(Boolean))).sort().reverse(),
+    };
+  }, [ctx.budget]);
+
   const widgets = useMemo(() => [...layout.widgets].sort((a, b) => a.order - b.order), [layout.widgets]);
 
   const updateWidget = (id: string, patch: Partial<KpiWidget>) => {
@@ -59,7 +82,7 @@ export default function KpiWidgetBoard({
       widgets: [...prev.widgets].sort((a, b) => a.order - b.order).map((w) => {
         if (w.id !== id) return w;
         const next = { ...w, ...patch };
-        return { ...next, filters: next.filters ?? {}, filterFields: next.filterFields ?? [] };
+        return { ...next, filters: next.filters ?? {}, filterFields: next.filterFields ?? [], budgetFilters: next.budgetFilters ?? {}, budgetFilterFields: next.budgetFilterFields ?? [] };
       }).map((w, i) => ({ ...w, order: i })),
     }));
   };
@@ -138,7 +161,28 @@ export default function KpiWidgetBoard({
                   </div>
                 )}
               </div>
-              <KpiWidgetFilters widget={widget} onChange={(p) => updateWidget(widget.id, p)} groups={groups} templates={templates} departments={departments} locations={locations} vendors={vendors} categories={categories} users={users} statusOptions={statusOptions} />
+              {isBudgetWidget(widget) ? (
+                <BudgetWidgetFilters
+                  widget={kpiWidgetToBudgetWidget(widget)}
+                  onChange={(p) => updateWidget(widget.id, { budgetFilters: p.filters, budgetFilterFields: p.filterFields })}
+                  departments={budgetLookups.departments}
+                  locations={budgetLookups.locations}
+                  users={budgetLookups.users}
+                  budgetTypes={budgetLookups.budgetTypes}
+                  budgetStatuses={budgetLookups.budgetStatuses}
+                  financialYears={budgetLookups.financialYears}
+                  fundingSources={budgetLookups.fundingSources}
+                  budgets={budgetLookups.budgets}
+                  vendors={budgetLookups.vendors}
+                  projects={budgetLookups.projects}
+                  costCenters={budgetLookups.costCenters}
+                  categories={budgetLookups.categories}
+                  lifecycleStages={budgetLookups.lifecycleStages}
+                  paymentStatuses={budgetLookups.paymentStatuses}
+                />
+              ) : (
+                <KpiWidgetFilters widget={widget} onChange={(p) => updateWidget(widget.id, p)} groups={groups} templates={templates} departments={departments} locations={locations} vendors={vendors} categories={categories} users={users} statusOptions={statusOptions} />
+              )}
               <KpiWidgetContent widget={widget} ctx={ctx} />
               <KpiWidgetResizeHandle colSpan={size.colSpan} rowSpan={size.rowSpan} onResize={(n) => updateWidget(widget.id, n)} />
             </div>

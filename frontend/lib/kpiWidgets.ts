@@ -1,4 +1,7 @@
 import { isActiveAssetStatus } from '@/lib/assetStatuses';
+import { AUDIT_RESOURCE_LABELS } from '@/lib/auditLabels';
+import type { BudgetDataContext, BudgetFilterFieldKey, BudgetWidgetFilters } from './budgetWidgets';
+import { computeKpiBudgetWidgetData, isBudgetWidget } from './kpiBudgetBridge';
 
 export type KpiAssetMetrics = {
   assetId: string;
@@ -94,7 +97,8 @@ export type KpiQuickType =
 
 export type KpiFilterFieldKey =
   | 'dateFrom' | 'dateTo' | 'departmentId' | 'locationId' | 'groupId' | 'templateId'
-  | 'vendorId' | 'status' | 'category' | 'purchaseYear' | 'warrantyStatus' | 'condition' | 'assignedUserId';
+  | 'vendorId' | 'status' | 'category' | 'purchaseYear' | 'warrantyStatus' | 'condition' | 'assignedUserId'
+  | 'auditResource';
 
 export type KpiWidgetFilters = Partial<Record<KpiFilterFieldKey, string>>;
 
@@ -102,12 +106,15 @@ export type KpiWidget = {
   id: string;
   title: string;
   kind: 'metric' | 'quick';
-  metric?: KpiMetric;
-  groupBy?: KpiGroupBy;
+  dataSource?: 'asset' | 'budget';
+  metric?: KpiMetric | string;
+  groupBy?: KpiGroupBy | string | null;
   chartType?: KpiChartType;
-  quickType?: KpiQuickType;
+  quickType?: KpiQuickType | string;
   filters: KpiWidgetFilters;
   filterFields: KpiFilterFieldKey[];
+  budgetFilters?: BudgetWidgetFilters;
+  budgetFilterFields?: BudgetFilterFieldKey[];
   timeRange?: string;
   sortOrder?: 'asc' | 'desc';
   limit?: number;
@@ -136,6 +143,7 @@ export type KpiDataContext = {
   assets: KpiAssetMetrics[];
   totals: KpiTotals;
   quick: KpiQuickData;
+  budget?: BudgetDataContext | null;
 };
 
 export type KpiWidgetResult = {
@@ -237,6 +245,7 @@ export const WIDGET_FILTER_CATALOG: { key: KpiFilterFieldKey; label: string }[] 
   { key: 'warrantyStatus', label: 'Warranty' },
   { key: 'condition', label: 'Condition' },
   { key: 'assignedUserId', label: 'Assigned user' },
+  { key: 'auditResource', label: 'Audit resource' },
 ];
 
 export const WIDGET_LIBRARY: { category: string; items: { title: string; widget: Partial<KpiWidget> }[] }[] = [
@@ -401,13 +410,19 @@ export function formatKpiAggregate(metric: KpiMetric, value: number): string {
 }
 
 export function computeKpiWidgetData(ctx: KpiDataContext, widget: KpiWidget): KpiWidgetResult {
+  const budgetResult = computeKpiBudgetWidgetData(ctx, widget);
+  if (budgetResult) return budgetResult;
+  if (isBudgetWidget(widget)) {
+    return { kpiValue: '—', kpiHint: 'Budget data unavailable', points: [], listRows: [] };
+  }
+
   const filtered = applyKpiWidgetFilters(ctx.assets, widget.filters);
 
   if (widget.kind === 'quick' && widget.quickType) {
-    return computeQuickWidget(ctx.quick, widget.quickType, widget.limit || 8, filtered);
+    return computeQuickWidget(ctx.quick, widget.quickType as KpiQuickType, widget.limit || 8, filtered, widget.filters);
   }
 
-  const metric = widget.metric || 'asset_count';
+  const metric = (widget.metric || 'asset_count') as KpiMetric;
   const chartType = widget.chartType || 'kpi';
 
   const aggregateMetrics: KpiMetric[] = [
@@ -432,7 +447,7 @@ export function computeKpiWidgetData(ctx: KpiDataContext, widget: KpiWidget): Kp
     return { kpiValue: formatKpiAggregate(metric, val), points: [] };
   }
 
-  const groupBy = widget.groupBy || 'category';
+  const groupBy = (widget.groupBy || 'category') as KpiGroupBy;
   const buckets: Record<string, { sum: number; count: number }> = {};
   for (const a of filtered) {
     const key = getGroupKey(a, groupBy);
@@ -473,6 +488,7 @@ function computeQuickWidget(
   type: KpiQuickType,
   limit: number,
   assets: KpiAssetMetrics[],
+  filters: KpiWidgetFilters = {},
 ): KpiWidgetResult {
   const rows: KpiWidgetResult['listRows'] = [];
   const assetIds = new Set(assets.map((a) => a.assetId));
@@ -499,9 +515,18 @@ function computeQuickWidget(
         if (match) rows.push({ primary: m.assetName, secondary: m.type, meta: m.userName });
       });
       break;
-    case 'recent_audit_logs':
-      quick.recentAuditLogs.slice(0, limit).forEach((l) => rows.push({ primary: l.description || l.action, secondary: l.resource, meta: l.userName }));
+    case 'recent_audit_logs': {
+      const resourceFilter = filters.auditResource;
+      quick.recentAuditLogs
+        .filter((l) => !resourceFilter || l.resource === resourceFilter)
+        .slice(0, limit)
+        .forEach((l) => rows.push({
+          primary: l.description || l.action,
+          secondary: AUDIT_RESOURCE_LABELS[l.resource] || l.resource,
+          meta: l.userName,
+        }));
       break;
+    }
     case 'recently_added_assets':
       quick.recentlyAddedAssets.filter((a) => assetIds.has(a.id)).slice(0, limit).forEach((a) => rows.push({ primary: a.name, secondary: a.category, meta: a.assetIdString }));
       break;

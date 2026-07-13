@@ -27,6 +27,18 @@ export async function ensureInsightOrgConfig(organizationId) {
       await InsightOrgConfig.updateOne({ organizationId }, { $set: { thresholds: merged } });
       config.thresholds = merged;
     }
+    const defaultNotifications = {
+      showOnDashboard: true,
+      showInApp: true,
+      maxDashboardItems: 20,
+    };
+    if (!config.notifications) {
+      await InsightOrgConfig.updateOne(
+        { organizationId },
+        { $set: { notifications: defaultNotifications } }
+      );
+      config.notifications = defaultNotifications;
+    }
     await ensureBuiltinRules(organizationId);
   }
   return config;

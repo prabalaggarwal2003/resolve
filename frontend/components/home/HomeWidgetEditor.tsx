@@ -9,6 +9,14 @@ import {
   type HomeWidget,
 } from '@/lib/homeDashboardWidgets';
 import {
+  BUDGET_GROUP_BY_OPTIONS,
+  BUDGET_METRIC_OPTIONS,
+  BUDGET_QUICK_OPTIONS,
+  isBudgetWidget,
+  withBudgetFilterDefaults,
+} from '@/lib/kpiBudgetBridge';
+import { COMBINED_GROUP_BY_OPTIONS } from '@/lib/kpiWidgetCatalog';
+import {
   CHART_TYPE_OPTIONS,
   GROUP_BY_OPTIONS,
   METRIC_OPTIONS,
@@ -29,21 +37,27 @@ function CustomWidgetForm({
   form: HomeWidget;
   setForm: React.Dispatch<React.SetStateAction<HomeWidget>>;
 }) {
+  const usesBudget = isBudgetWidget({ metric: form.metric, quickType: form.quickType });
+  const groupOptions = usesBudget ? COMBINED_GROUP_BY_OPTIONS : GROUP_BY_OPTIONS;
   const chartMeta = CHART_TYPE_OPTIONS.find((c) => c.id === form.chartType);
   const needsGroupBy = form.kind === 'metric' && chartMeta?.needsGroupBy !== false && form.chartType !== 'kpi';
+
+  const patchForm = (patch: Partial<HomeWidget>) => {
+    setForm((prev) => withBudgetFilterDefaults({ ...prev, ...patch }));
+  };
 
   return (
     <div className="space-y-3">
       <div>
         <label className={labelClass}>Title</label>
-        <input className={inputClass} value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+        <input className={inputClass} value={form.title} onChange={(e) => patchForm({ title: e.target.value })} />
       </div>
       <div>
         <label className={labelClass}>Widget type</label>
         <select
           className={inputClass}
           value={form.kind}
-          onChange={(e) => setForm((f) => newHomeWidget({ ...f, kind: e.target.value as 'metric' | 'quick' }))}
+          onChange={(e) => patchForm({ kind: e.target.value as 'metric' | 'quick' })}
         >
           <option value="metric">Metric / chart</option>
           <option value="quick">Quick list widget</option>
@@ -55,12 +69,19 @@ function CustomWidgetForm({
           <select
             className={inputClass}
             value={form.quickType || ''}
-            onChange={(e) => setForm((f) => ({ ...f, quickType: e.target.value as KpiQuickType }))}
+            onChange={(e) => patchForm({ quickType: e.target.value })}
           >
             <option value="">Select…</option>
-            {QUICK_WIDGET_OPTIONS.map((q) => (
-              <option key={q.id} value={q.id}>{q.label}</option>
-            ))}
+            <optgroup label="Assets">
+              {QUICK_WIDGET_OPTIONS.map((q) => (
+                <option key={q.id} value={q.id}>{q.label}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Budget & procurement">
+              {BUDGET_QUICK_OPTIONS.map((q) => (
+                <option key={q.id} value={q.id}>{q.label}</option>
+              ))}
+            </optgroup>
           </select>
         </div>
       ) : (
@@ -71,11 +92,19 @@ function CustomWidgetForm({
               <select
                 className={inputClass}
                 value={form.metric || ''}
-                onChange={(e) => setForm((f) => ({ ...f, metric: e.target.value as KpiMetric }))}
+                onChange={(e) => patchForm({ metric: e.target.value })}
               >
-                {METRIC_OPTIONS.map((m) => (
-                  <option key={m.id} value={m.id}>{m.label}</option>
-                ))}
+                <option value="">Select…</option>
+                <optgroup label="Assets">
+                  {METRIC_OPTIONS.map((m) => (
+                    <option key={m.id} value={m.id}>{m.label}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Budget & procurement">
+                  {BUDGET_METRIC_OPTIONS.map((m) => (
+                    <option key={m.id} value={m.id}>{m.label}</option>
+                  ))}
+                </optgroup>
               </select>
             </div>
             <div>
@@ -83,7 +112,7 @@ function CustomWidgetForm({
               <select
                 className={inputClass}
                 value={form.chartType || 'kpi'}
-                onChange={(e) => setForm((f) => ({ ...f, chartType: e.target.value as KpiChartType }))}
+                onChange={(e) => patchForm({ chartType: e.target.value as KpiChartType })}
               >
                 {CHART_TYPE_OPTIONS.map((c) => (
                   <option key={c.id} value={c.id}>{c.label}</option>
@@ -97,10 +126,13 @@ function CustomWidgetForm({
               <select
                 className={inputClass}
                 value={form.groupBy || ''}
-                onChange={(e) => setForm((f) => ({ ...f, groupBy: (e.target.value || null) as KpiGroupBy }))}
+                onChange={(e) => patchForm({ groupBy: (e.target.value || null) as KpiGroupBy })}
               >
                 <option value="">Auto</option>
-                {GROUP_BY_OPTIONS.map((g) => (
+                {groupOptions.map((g) => (
+                  <option key={g.id} value={g.id}>{g.label}</option>
+                ))}
+                {usesBudget && BUDGET_GROUP_BY_OPTIONS.filter((g) => !groupOptions.some((x) => x.id === g.id)).map((g) => (
                   <option key={g.id} value={g.id}>{g.label}</option>
                 ))}
               </select>
@@ -114,7 +146,7 @@ function CustomWidgetForm({
           <select
             className={inputClass}
             value={form.timeRange || ''}
-            onChange={(e) => setForm((f) => ({ ...f, timeRange: e.target.value || undefined }))}
+            onChange={(e) => patchForm({ timeRange: e.target.value || undefined })}
           >
             <option value="">All time</option>
             <option value="30d">Last 30 days</option>
@@ -127,7 +159,7 @@ function CustomWidgetForm({
           <select
             className={inputClass}
             value={form.sortOrder || 'desc'}
-            onChange={(e) => setForm((f) => ({ ...f, sortOrder: e.target.value as 'asc' | 'desc' }))}
+            onChange={(e) => patchForm({ sortOrder: e.target.value as 'asc' | 'desc' })}
           >
             <option value="desc">Descending</option>
             <option value="asc">Ascending</option>
@@ -138,7 +170,7 @@ function CustomWidgetForm({
           <select
             className={inputClass}
             value={form.limit || 10}
-            onChange={(e) => setForm((f) => ({ ...f, limit: Number(e.target.value) }))}
+            onChange={(e) => patchForm({ limit: Number(e.target.value) })}
           >
             <option value={5}>Top 5</option>
             <option value={10}>Top 10</option>
@@ -239,7 +271,7 @@ export default function HomeWidgetEditor({
           <button type="button" onClick={onCancel} className="px-3 py-1.5 text-xs rounded-lg border border-gray-700/60 text-gray-400">Cancel</button>
           <button
             type="button"
-            onClick={() => onSave(form)}
+            onClick={() => onSave(withBudgetFilterDefaults(form))}
             className="px-3 py-1.5 text-xs rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
           >
             Save widget

@@ -104,7 +104,12 @@ export async function createProcurement(payload: Partial<Procurement>): Promise<
   return data.procurement;
 }
 
-export async function updateProcurement(id: string, payload: Partial<Procurement>): Promise<Procurement> {
+import type { BudgetHistoryChange } from './budgets';
+
+export async function updateProcurement(
+  id: string,
+  payload: Partial<Procurement>
+): Promise<{ procurement: Procurement; changes: BudgetHistoryChange[] }> {
   const res = await fetch(api(`/api/procurement/${id}`), {
     method: 'PUT',
     headers: authHeaders(),
@@ -112,7 +117,7 @@ export async function updateProcurement(id: string, payload: Partial<Procurement
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Failed to update procurement');
-  return data.procurement;
+  return { procurement: data.procurement, changes: data.changes || [] };
 }
 
 export async function deleteProcurement(id: string): Promise<void> {

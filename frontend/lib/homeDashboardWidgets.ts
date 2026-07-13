@@ -1,4 +1,5 @@
 import { isActiveAssetStatus } from '@/lib/assetStatuses';
+import type { BudgetDataContext, BudgetFilterFieldKey, BudgetWidgetFilters } from './budgetWidgets';
 import type {
   KpiAssetMetrics,
   KpiChartType,
@@ -19,7 +20,8 @@ import {
 
 export type HomeFilterFieldKey =
   | 'dateFrom' | 'dateTo' | 'departmentId' | 'locationId' | 'groupId' | 'templateId'
-  | 'vendorId' | 'status' | 'category' | 'purchaseYear' | 'warrantyStatus' | 'condition' | 'assignedUserId';
+  | 'vendorId' | 'status' | 'category' | 'purchaseYear' | 'warrantyStatus' | 'condition' | 'assignedUserId'
+  | 'auditResource';
 
 export type HomeWidgetFilters = Partial<Record<HomeFilterFieldKey, string>>;
 
@@ -52,16 +54,19 @@ export type HomeWidget = {
   id: string;
   title: string;
   kind: HomeWidgetKind;
-  metric?: HomeKpiMetric | HomeChartMetric | KpiMetric;
-  groupBy?: KpiGroupBy;
+  dataSource?: 'asset' | 'budget';
+  metric?: HomeKpiMetric | HomeChartMetric | KpiMetric | string;
+  groupBy?: KpiGroupBy | string;
   chartType?: KpiChartType | 'donut' | 'horizontal_bar';
-  quickType?: KpiQuickType;
+  quickType?: KpiQuickType | string;
   timeRange?: string;
   sortOrder?: 'asc' | 'desc';
   limit?: number;
   size: HomeWidgetSize;
   filters: HomeWidgetFilters;
   filterFields: HomeFilterFieldKey[];
+  budgetFilters?: BudgetWidgetFilters;
+  budgetFilterFields?: BudgetFilterFieldKey[];
   order: number;
   visible?: boolean;
   sizeLocked?: boolean;
@@ -146,6 +151,7 @@ export type HomeDataContext = {
   depreciationEnabled: boolean;
   kpiTotals: KpiTotals;
   quick: KpiQuickData;
+  budget?: BudgetDataContext | null;
 };
 
 export type HomeWidgetResult = {
@@ -196,6 +202,7 @@ export const WIDGET_FILTER_CATALOG: { key: HomeFilterFieldKey; label: string }[]
   { key: 'warrantyStatus', label: 'Warranty' },
   { key: 'condition', label: 'Condition' },
   { key: 'assignedUserId', label: 'Assigned user' },
+  { key: 'auditResource', label: 'Audit resource' },
 ];
 
 export const WIDGET_KIND_OPTIONS: { id: HomeWidgetKind; label: string }[] = [
@@ -346,6 +353,7 @@ export function homeDataAsKpiContext(ctx: HomeDataContext): KpiDataContext {
       lowHealthAssets: [],
       replacementRecommendations: [],
     },
+    budget: ctx.budget ?? null,
   };
 }
 
@@ -354,12 +362,15 @@ export function homeWidgetAsKpi(widget: HomeWidget): KpiWidget {
     id: widget.id,
     title: widget.title,
     kind: widget.kind as 'metric' | 'quick',
+    dataSource: widget.dataSource,
     metric: widget.metric as KpiMetric | undefined,
-    groupBy: widget.groupBy,
+    groupBy: widget.groupBy as KpiGroupBy | undefined,
     chartType: (widget.chartType as KpiChartType) || 'bar',
-    quickType: widget.quickType,
+    quickType: widget.quickType as KpiQuickType | undefined,
     filters: widget.filters,
     filterFields: widget.filterFields as KpiFilterFieldKey[],
+    budgetFilters: widget.budgetFilters,
+    budgetFilterFields: widget.budgetFilterFields,
     timeRange: widget.timeRange,
     sortOrder: widget.sortOrder,
     limit: widget.limit,

@@ -201,7 +201,10 @@ export async function createBudget(payload: Partial<Budget>): Promise<Budget> {
   return data.budget;
 }
 
-export async function updateBudget(id: string, payload: Partial<Budget>): Promise<Budget> {
+export async function updateBudget(
+  id: string,
+  payload: Partial<Budget>
+): Promise<{ budget: Budget; changes: BudgetHistoryChange[] }> {
   const res = await fetch(api(`/api/budgets/${id}`), {
     method: 'PUT',
     headers: authHeaders(),
@@ -209,7 +212,7 @@ export async function updateBudget(id: string, payload: Partial<Budget>): Promis
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Failed to update budget');
-  return data.budget;
+  return { budget: data.budget, changes: data.changes || [] };
 }
 
 export async function deleteBudget(id: string): Promise<void> {

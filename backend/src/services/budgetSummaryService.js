@@ -6,7 +6,6 @@ import User from '../models/User.js';
 import Vendor from '../models/Vendor.js';
 import { ensureBudgetOrgConfig } from './budgetOrgConfigService.js';
 import { computeBudgetFinancials } from './budgetService.js';
-import { countPendingProcurements } from './budgetRollupService.js';
 
 function monthKey(date) {
   if (!date) return 'Unknown';
@@ -99,11 +98,15 @@ function computeSpendForecast(monthlySpend) {
 
 function filterProcurements(procurements, filters = {}, budgetIds = null) {
   return procurements.filter((p) => {
-    if (budgetIds && p.budgetId && !budgetIds.has(String(p.budgetId?._id || p.budgetId))) return false;
-    if (filters.vendorId && String(p.vendorId?._id || p.vendorId || '') !== filters.vendorId) return false;
+    if (budgetIds && p.budgetId && !budgetIds.has(String(p.budgetId))) return false;
+    if (filters.budgetId && String(p.budgetId || '') !== filters.budgetId) return false;
+    if (filters.vendorId && String(p.vendorId || '') !== filters.vendorId) return false;
     if (filters.fundingSourceId && (p.fundingSourceId || '') !== filters.fundingSourceId) return false;
     if (filters.project && (p.project || '') !== filters.project) return false;
     if (filters.costCenter && (p.costCenter || '') !== filters.costCenter) return false;
+    if (filters.category && (p.category || '') !== filters.category) return false;
+    if (filters.lifecycleStage && p.lifecycleStage !== filters.lifecycleStage) return false;
+    if (filters.paymentStatus && p.paymentStatus !== filters.paymentStatus) return false;
     if (filters.dateFrom && p.purchaseDate && new Date(p.purchaseDate) < new Date(filters.dateFrom)) return false;
     if (filters.dateTo && p.purchaseDate) {
       const end = new Date(filters.dateTo);
@@ -112,6 +115,18 @@ function filterProcurements(procurements, filters = {}, budgetIds = null) {
     }
     return true;
   });
+}
+
+function isCommittedStage(stage) {
+  return ['approved', 'ordered'].includes(stage);
+}
+
+function isReceivedStage(stage) {
+  return ['received', 'assets_created'].includes(stage);
+}
+
+function isUnpaidStatus(status) {
+  return ['unpaid', 'partial', 'overdue'].includes(status);
 }
 
 export async function getBudgetAnalyticsSummary(organizationId, filters = {}) {
@@ -138,6 +153,12 @@ export async function getBudgetAnalyticsSummary(organizationId, filters = {}) {
   const typeMap = Object.fromEntries((config.budgetTypes || []).map((t) => [t.id, t.name]));
   const statusMap = Object.fromEntries((config.budgetStatuses || []).map((s) => [s.id, s.name]));
   const fundingMap = Object.fromEntries((config.fundingSources || []).map((f) => [f.id, f.name]));
+  const stageMap = Object.fromEntries((config.procurementLifecycleStages || []).map((s) => [s.id, s.name]));
+  const paymentMap = Object.fromEntries((config.procurementPaymentStatuses || []).map((s) => [s.id, s.name]));
+
+  const budgetCategoryMap = Object.fromEntries(
+    rawBudgets.map((b) => [String(b._id), (b.dimensions || {}).category || ''])
+  );
 
   const budgets = applyBudgetFilters(
     rawBudgets.map((b) => {
@@ -184,25 +205,31 @@ export async function getBudgetAnalyticsSummary(organizationId, filters = {}) {
   const filteredProcurements = filterProcurements(
     procurements
       .filter((p) => !p.budgetId || budgetIds.has(String(p.budgetId?._id || p.budgetId)))
-      .map((p) => ({
-      id: String(p._id),
-      purchaseId: p.purchaseId,
-      budgetId: p.budgetId?._id ? String(p.budgetId._id) : null,
-      budgetName: p.budgetId?.name || '',
-      vendorId: p.vendorId?._id ? String(p.vendorId._id) : null,
-      vendorLabel: p.vendorId?.name || vendorMap[String(p.vendorId)] || 'Unassigned',
-      departmentId: p.departmentId ? String(p.departmentId) : '',
-      totalCost: p.totalCost || 0,
-      lifecycleStage: p.lifecycleStage,
-      paymentStatus: p.paymentStatus,
-      purchaseDate: p.purchaseDate,
-      month: monthKey(p.purchaseDate),
-      quarter: quarterKey(p.purchaseDate),
-      fundingSourceId: p.fundingSourceId || '',
-      fundingSourceLabel: fundingMap[p.fundingSourceId] || p.fundingSourceId || 'Unassigned',
-      project: p.project || '',
-      costCenter: p.costCenter || '',
-    })),
+      .map((p) => {
+        const bid = p.budgetId?._id ? String(p.budgetId._id) : (p.budgetId ? String(p.budgetId) : null);
+        return {
+          id: String(p._id),
+          purchaseId: p.purchaseId,
+          budgetId: bid,
+          budgetName: p.budgetId?.name || '',
+          vendorId: p.vendorId?._id ? String(p.vendorId._id) : null,
+          vendorLabel: p.vendorId?.name || vendorMap[String(p.vendorId)] || 'Unassigned',
+          departmentId: p.departmentId ? String(p.departmentId) : '',
+          totalCost: p.totalCost || 0,
+          lifecycleStage: p.lifecycleStage,
+          lifecycleStageLabel: stageMap[p.lifecycleStage] || p.lifecycleStage,
+          paymentStatus: p.paymentStatus,
+          paymentStatusLabel: paymentMap[p.paymentStatus] || p.paymentStatus,
+          purchaseDate: p.purchaseDate,
+          month: monthKey(p.purchaseDate),
+          quarter: quarterKey(p.purchaseDate),
+          fundingSourceId: p.fundingSourceId || '',
+          fundingSourceLabel: fundingMap[p.fundingSourceId] || p.fundingSourceId || 'Unassigned',
+          project: p.project || '',
+          costCenter: p.costCenter || '',
+          category: bid ? (budgetCategoryMap[bid] || '') : '',
+        };
+      }),
     filters,
     budgetIds
   );
@@ -236,7 +263,23 @@ export async function getBudgetAnalyticsSummary(organizationId, filters = {}) {
   }
   const quarterlySpend = Object.values(quarterlyMap).sort((a, b) => a.quarter.localeCompare(b.quarter));
 
-  const pendingPurchaseRequests = await countPendingProcurements(organizationId);
+  const procurementCount = filteredProcurements.length;
+  const totalProcurementAmount = filteredProcurements.reduce((s, p) => s + p.totalCost, 0);
+  const committedProcurementAmount = filteredProcurements
+    .filter((p) => isCommittedStage(p.lifecycleStage))
+    .reduce((s, p) => s + p.totalCost, 0);
+  const receivedProcurementAmount = filteredProcurements
+    .filter((p) => isReceivedStage(p.lifecycleStage))
+    .reduce((s, p) => s + p.totalCost, 0);
+  const unpaidProcurementAmount = filteredProcurements
+    .filter((p) => isUnpaidStatus(p.paymentStatus))
+    .reduce((s, p) => s + p.totalCost, 0);
+  const overduePaymentCount = filteredProcurements.filter((p) => p.paymentStatus === 'overdue').length;
+  const pendingPurchaseRequests = filteredProcurements.filter(
+    (p) => !isReceivedStage(p.lifecycleStage) && p.lifecycleStage !== 'cancelled'
+  ).length;
+
+  const uniqueValues = (values) => Array.from(new Set(values.filter(Boolean))).sort();
 
   return {
     budgets,
@@ -257,6 +300,12 @@ export async function getBudgetAnalyticsSummary(organizationId, filters = {}) {
       budgetsNearLimit: budgets.filter((b) => b.isNearLimit).length,
       budgetsExceeded: budgets.filter((b) => b.isOverBudget).length,
       pendingPurchaseRequests,
+      procurementCount,
+      totalProcurementAmount,
+      committedProcurementAmount,
+      receivedProcurementAmount,
+      unpaidProcurementAmount,
+      overduePaymentCount,
     },
     quick: {
       budgetsNearLimit: budgets
@@ -270,8 +319,18 @@ export async function getBudgetAnalyticsSummary(organizationId, filters = {}) {
           remainingAmount: b.remainingAmount,
           status: b.statusLabel,
         })),
+      budgetsExceeded: budgets
+        .filter((b) => b.isOverBudget)
+        .sort((a, b) => b.utilizationPct - a.utilizationPct)
+        .slice(0, 10)
+        .map((b) => ({
+          id: b.id,
+          name: b.name,
+          utilizationPct: b.utilizationPct,
+          remainingAmount: b.remainingAmount,
+        })),
       pendingProcurements: filteredProcurements
-        .filter((p) => !['received', 'assets_created', 'cancelled'].includes(p.lifecycleStage))
+        .filter((p) => !isReceivedStage(p.lifecycleStage) && p.lifecycleStage !== 'cancelled')
         .slice(0, 10)
         .map((p) => ({
           id: p.id,
@@ -280,6 +339,36 @@ export async function getBudgetAnalyticsSummary(organizationId, filters = {}) {
           vendorLabel: p.vendorLabel,
           lifecycleStage: p.lifecycleStage,
         })),
+      recentProcurements: [...filteredProcurements]
+        .sort((a, b) => new Date(b.purchaseDate || 0) - new Date(a.purchaseDate || 0))
+        .slice(0, 10)
+        .map((p) => ({
+          id: p.id,
+          purchaseId: p.purchaseId,
+          totalCost: p.totalCost,
+          vendorLabel: p.vendorLabel,
+          lifecycleStageLabel: p.lifecycleStageLabel,
+        })),
+      overduePayments: filteredProcurements
+        .filter((p) => p.paymentStatus === 'overdue')
+        .slice(0, 10)
+        .map((p) => ({
+          id: p.id,
+          purchaseId: p.purchaseId,
+          totalCost: p.totalCost,
+          vendorLabel: p.vendorLabel,
+          paymentStatusLabel: p.paymentStatusLabel,
+        })),
+      topVendors: Object.entries(
+        filteredProcurements.reduce((acc, p) => {
+          const k = p.vendorLabel;
+          acc[k] = (acc[k] || 0) + p.totalCost;
+          return acc;
+        }, {})
+      )
+        .map(([label, value]) => ({ label, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 8),
       topDepartments: Object.entries(
         budgets.reduce((acc, b) => {
           const k = b.departmentLabel;
@@ -295,9 +384,16 @@ export async function getBudgetAnalyticsSummary(organizationId, filters = {}) {
       budgetTypes: config.budgetTypes || [],
       budgetStatuses: config.budgetStatuses || [],
       fundingSources: config.fundingSources || [],
+      lifecycleStages: config.procurementLifecycleStages || [],
+      paymentStatuses: config.procurementPaymentStatuses || [],
       departments: departments.map((d) => ({ _id: String(d._id), name: d.name })),
       locations: locations.map((l) => ({ _id: String(l._id), name: l.name })),
       users: users.map((u) => ({ _id: String(u._id), name: u.name })),
+      vendors: vendors.map((v) => ({ _id: String(v._id), name: v.name })),
+      budgets: budgets.map((b) => ({ _id: b.id, name: b.name })),
+      projects: uniqueValues(budgets.map((b) => b.project).concat(filteredProcurements.map((p) => p.project))),
+      costCenters: uniqueValues(budgets.map((b) => b.costCenter).concat(filteredProcurements.map((p) => p.costCenter))),
+      categories: uniqueValues(budgets.map((b) => b.category)),
     },
   };
 }

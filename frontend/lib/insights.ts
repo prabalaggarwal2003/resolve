@@ -182,7 +182,51 @@ export async function fetchInsightDashboard(): Promise<InsightDashboardData> {
   const res = await fetch(api('/api/insights/dashboard'), { headers: authHeaders() });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Failed to load insights');
+  const notifications = data.notifications || {
+    showOnDashboard: true,
+    showInApp: true,
+    maxDashboardItems: 20,
+  };
+  return {
+    ...data,
+    insights: Array.isArray(data.insights) ? data.insights : [],
+    notifications,
+    summary: data.summary || {
+      totalRules: 0,
+      enabledRules: 0,
+      activeInsights: 0,
+      criticalCount: 0,
+      warningCount: 0,
+      infoCount: 0,
+      affectedAssets: 0,
+    },
+  };
+}
+
+export type InsightMatchResult = {
+  ruleKey: string;
+  name: string;
+  ruleType: string;
+  severity?: InsightSeverity;
+  assetIds: string[];
+  count: number;
+};
+
+export async function fetchInsightMatch(ruleKey: string): Promise<InsightMatchResult> {
+  const res = await fetch(api(`/api/insights/match/${encodeURIComponent(ruleKey)}`), {
+    headers: authHeaders(),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to load insight match');
   return data;
+}
+
+/** Link for "View" on an insight — asset rules open assets with that rule applied */
+export function insightViewHref(insight: Pick<InsightResult, 'ruleKey' | 'ruleType' | 'link'>): string {
+  if (insight.ruleType === 'asset') {
+    return `/dashboard/assets?insightRuleKey=${encodeURIComponent(insight.ruleKey)}`;
+  }
+  return insight.link || '/dashboard/assets';
 }
 
 export const OPERATOR_LABELS: Record<string, string> = {

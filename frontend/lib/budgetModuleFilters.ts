@@ -7,6 +7,8 @@ export type BudgetModuleFilters = BudgetWidgetFilters & {
   project?: string;
   costCenter?: string;
   category?: string;
+  lifecycleStage?: string;
+  paymentStatus?: string;
   groupId?: string;
 };
 
@@ -23,6 +25,8 @@ export const BUDGET_MODULE_FILTER_FIELDS: { key: keyof BudgetModuleFilters; labe
   { key: 'project', label: 'Project' },
   { key: 'costCenter', label: 'Cost center' },
   { key: 'category', label: 'Category' },
+  { key: 'lifecycleStage', label: 'Lifecycle stage' },
+  { key: 'paymentStatus', label: 'Payment status' },
   { key: 'dateFrom', label: 'Date from' },
   { key: 'dateTo', label: 'Date to' },
 ];

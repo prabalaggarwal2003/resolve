@@ -43,13 +43,16 @@ export type ProcurementRow = {
   vendorLabel: string;
   totalCost: number;
   lifecycleStage: string;
+  lifecycleStageLabel: string;
   paymentStatus: string;
+  paymentStatusLabel: string;
   purchaseDate?: string;
   month: string;
   quarter: string;
   fundingSourceLabel: string;
   project: string;
   costCenter: string;
+  category: string;
 };
 
 export type MonthlySpendRow = {
@@ -80,35 +83,57 @@ export type BudgetTotals = {
   budgetsNearLimit: number;
   budgetsExceeded: number;
   pendingPurchaseRequests: number;
+  procurementCount: number;
+  totalProcurementAmount: number;
+  committedProcurementAmount: number;
+  receivedProcurementAmount: number;
+  unpaidProcurementAmount: number;
+  overduePaymentCount: number;
 };
 
 export type BudgetQuickData = {
   budgetsNearLimit: Array<{ id: string; name: string; utilizationPct: number; remainingAmount: number; status: string }>;
   pendingProcurements: Array<{ id: string; purchaseId: string; totalCost: number; vendorLabel: string; lifecycleStage: string }>;
   topDepartments: Array<{ label: string; value: number }>;
+  recentProcurements: Array<{ id: string; purchaseId: string; totalCost: number; vendorLabel: string; lifecycleStageLabel: string }>;
+  overduePayments: Array<{ id: string; purchaseId: string; totalCost: number; vendorLabel: string; paymentStatusLabel: string }>;
+  topVendors: Array<{ label: string; value: number }>;
+  budgetsExceeded: Array<{ id: string; name: string; utilizationPct: number; remainingAmount: number }>;
 };
 
 export type BudgetMetric =
   | 'budget_count' | 'total_allocated' | 'total_planned' | 'total_committed' | 'total_actual'
   | 'total_remaining' | 'available_balance' | 'utilization_pct' | 'avg_utilization'
-  | 'over_budget_count' | 'pending_procurement_count'
+  | 'over_budget_count' | 'pending_procurement_count' | 'budgets_near_limit_count'
   | 'allocated' | 'planned' | 'committed' | 'actual' | 'remaining' | 'utilization'
-  | 'procurement_amount' | 'planned_vs_actual'
+  | 'procurement_amount' | 'procurement_count' | 'committed_procurement_amount'
+  | 'received_procurement_amount' | 'unpaid_procurement_amount' | 'overdue_payment_count'
+  | 'planned_vs_actual'
   | 'budget_trend' | 'spend_forecast';
 
 export type BudgetGroupBy =
   | 'department' | 'budget_type' | 'status' | 'financial_year' | 'owner' | 'location'
-  | 'funding_source' | 'vendor' | 'project' | 'cost_center' | 'category' | 'month' | 'quarter' | null;
+  | 'funding_source' | 'vendor' | 'project' | 'cost_center' | 'category' | 'budget'
+  | 'lifecycle_stage' | 'payment_status' | 'month' | 'quarter' | null;
 
 export type BudgetChartType =
   | 'kpi' | 'bar' | 'horizontal_bar' | 'line' | 'area' | 'pie' | 'donut'
   | 'stacked_bar' | 'table' | 'progress_ring' | 'gauge';
 
-export type BudgetQuickType = 'budgets_near_limit' | 'pending_procurements' | 'top_departments';
+export type BudgetQuickType =
+  | 'budgets_near_limit'
+  | 'budgets_exceeded'
+  | 'pending_procurements'
+  | 'recent_procurements'
+  | 'overdue_payments'
+  | 'top_departments'
+  | 'top_vendors';
 
 export type BudgetFilterFieldKey =
-  | 'dateFrom' | 'dateTo' | 'financialYear' | 'status' | 'budgetTypeId'
-  | 'departmentId' | 'locationId' | 'fundingSourceId' | 'budgetOwnerId';
+  | 'dateFrom' | 'dateTo' | 'financialYear' | 'status' | 'budgetTypeId' | 'budgetId'
+  | 'departmentId' | 'locationId' | 'fundingSourceId' | 'budgetOwnerId'
+  | 'vendorId' | 'project' | 'costCenter' | 'category'
+  | 'lifecycleStage' | 'paymentStatus';
 
 export type BudgetWidgetFilters = Partial<Record<BudgetFilterFieldKey, string>>;
 
@@ -147,6 +172,22 @@ export type BudgetDashboard = {
   updatedAt?: string;
 };
 
+export type BudgetAnalyticsLookups = {
+  budgets?: { _id: string; name: string }[];
+  vendors?: { _id: string; name: string }[];
+  projects?: string[];
+  costCenters?: string[];
+  categories?: string[];
+  lifecycleStages?: { id: string; name: string }[];
+  paymentStatuses?: { id: string; name: string }[];
+  budgetTypes?: { id: string; name: string }[];
+  budgetStatuses?: { id: string; name: string }[];
+  fundingSources?: { id: string; name: string }[];
+  departments?: { _id: string; name: string }[];
+  locations?: { _id: string; name: string }[];
+  users?: { _id: string; name: string }[];
+};
+
 export type BudgetDataContext = {
   budgets: BudgetRow[];
   procurements: ProcurementRow[];
@@ -156,6 +197,7 @@ export type BudgetDataContext = {
   forecast?: SpendForecast;
   totals: BudgetTotals;
   quick: BudgetQuickData;
+  lookups?: BudgetAnalyticsLookups;
 };
 
 export type BudgetWidgetResult = {
@@ -177,18 +219,29 @@ export const BUDGET_ROW_HEIGHT_PX = 72;
 
 export const METRIC_OPTIONS: { id: BudgetMetric; label: string; category: string }[] = [
   { id: 'total_allocated', label: 'Total Budget', category: 'Summary' },
+  { id: 'total_planned', label: 'Total Planned', category: 'Summary' },
+  { id: 'total_committed', label: 'Total Committed', category: 'Summary' },
   { id: 'total_actual', label: 'Total Spend', category: 'Summary' },
   { id: 'total_remaining', label: 'Remaining Budget', category: 'Summary' },
+  { id: 'available_balance', label: 'Available Balance', category: 'Summary' },
   { id: 'utilization_pct', label: 'Budget Utilization %', category: 'Summary' },
+  { id: 'avg_utilization', label: 'Avg Utilization %', category: 'Summary' },
   { id: 'budget_count', label: 'Budget Count', category: 'Summary' },
-  { id: 'pending_procurement_count', label: 'Pending Purchases', category: 'Summary' },
+  { id: 'over_budget_count', label: 'Over Budget Count', category: 'Summary' },
+  { id: 'budgets_near_limit_count', label: 'Near Limit Count', category: 'Summary' },
+  { id: 'pending_procurement_count', label: 'Pending Purchases', category: 'Procurement' },
+  { id: 'procurement_count', label: 'Procurement Count', category: 'Procurement' },
+  { id: 'procurement_amount', label: 'Procurement Amount', category: 'Procurement' },
+  { id: 'committed_procurement_amount', label: 'Committed Procurement', category: 'Procurement' },
+  { id: 'received_procurement_amount', label: 'Received Procurement', category: 'Procurement' },
+  { id: 'unpaid_procurement_amount', label: 'Unpaid Procurement', category: 'Procurement' },
+  { id: 'overdue_payment_count', label: 'Overdue Payments', category: 'Procurement' },
   { id: 'allocated', label: 'Allocated Amount', category: 'Budget' },
   { id: 'planned', label: 'Planned Amount', category: 'Budget' },
   { id: 'committed', label: 'Committed Amount', category: 'Budget' },
   { id: 'actual', label: 'Actual Spend', category: 'Budget' },
   { id: 'remaining', label: 'Remaining', category: 'Budget' },
   { id: 'utilization', label: 'Utilization %', category: 'Budget' },
-  { id: 'procurement_amount', label: 'Procurement Amount', category: 'Procurement' },
   { id: 'planned_vs_actual', label: 'Planned vs Actual', category: 'Trend' },
   { id: 'budget_trend', label: 'Budget Spend Trend', category: 'Trend' },
   { id: 'spend_forecast', label: 'Spend Forecast (next month)', category: 'Trend' },
@@ -202,10 +255,13 @@ export const GROUP_BY_OPTIONS: { id: NonNullable<BudgetGroupBy>; label: string }
   { id: 'owner', label: 'Budget Owner' },
   { id: 'location', label: 'Location' },
   { id: 'funding_source', label: 'Funding Source' },
-  { id: 'vendor', label: 'Vendor' },
+  { id: 'budget', label: 'Budget' },
   { id: 'project', label: 'Project' },
   { id: 'cost_center', label: 'Cost Center' },
   { id: 'category', label: 'Category' },
+  { id: 'vendor', label: 'Vendor' },
+  { id: 'lifecycle_stage', label: 'Lifecycle Stage' },
+  { id: 'payment_status', label: 'Payment Status' },
   { id: 'month', label: 'Month' },
   { id: 'quarter', label: 'Quarter' },
 ];
@@ -226,8 +282,12 @@ export const CHART_TYPE_OPTIONS: { id: BudgetChartType; label: string; needsGrou
 
 export const QUICK_WIDGET_OPTIONS: { id: BudgetQuickType; label: string }[] = [
   { id: 'budgets_near_limit', label: 'Budgets Near Limit' },
+  { id: 'budgets_exceeded', label: 'Budgets Over Budget' },
   { id: 'pending_procurements', label: 'Pending Purchases' },
+  { id: 'recent_procurements', label: 'Recent Procurements' },
+  { id: 'overdue_payments', label: 'Overdue Payments' },
   { id: 'top_departments', label: 'Top Spending Departments' },
+  { id: 'top_vendors', label: 'Top Vendors by Spend' },
 ];
 
 export const WIDGET_FILTER_CATALOG: { key: BudgetFilterFieldKey; label: string }[] = [
@@ -236,10 +296,17 @@ export const WIDGET_FILTER_CATALOG: { key: BudgetFilterFieldKey; label: string }
   { key: 'financialYear', label: 'Financial year' },
   { key: 'status', label: 'Status' },
   { key: 'budgetTypeId', label: 'Budget type' },
+  { key: 'budgetId', label: 'Budget' },
   { key: 'departmentId', label: 'Department' },
   { key: 'locationId', label: 'Location' },
   { key: 'fundingSourceId', label: 'Funding source' },
   { key: 'budgetOwnerId', label: 'Budget owner' },
+  { key: 'vendorId', label: 'Vendor' },
+  { key: 'project', label: 'Project' },
+  { key: 'costCenter', label: 'Cost center' },
+  { key: 'category', label: 'Category' },
+  { key: 'lifecycleStage', label: 'Lifecycle stage' },
+  { key: 'paymentStatus', label: 'Payment status' },
 ];
 
 export const WIDGET_LIBRARY: { category: string; items: { title: string; widget: Partial<BudgetWidget> }[] }[] = [
@@ -273,7 +340,20 @@ export const WIDGET_LIBRARY: { category: string; items: { title: string; widget:
     category: 'Lists',
     items: [
       { title: 'Near Limit', widget: { kind: 'quick', quickType: 'budgets_near_limit' } },
+      { title: 'Over Budget', widget: { kind: 'quick', quickType: 'budgets_exceeded' } },
       { title: 'Pending Purchases', widget: { kind: 'quick', quickType: 'pending_procurements' } },
+      { title: 'Recent Procurements', widget: { kind: 'quick', quickType: 'recent_procurements' } },
+      { title: 'Overdue Payments', widget: { kind: 'quick', quickType: 'overdue_payments' } },
+      { title: 'Top Vendors', widget: { kind: 'quick', quickType: 'top_vendors' } },
+    ],
+  },
+  {
+    category: 'Procurement',
+    items: [
+      { title: 'Procurement Spend', widget: { kind: 'metric', metric: 'procurement_amount', chartType: 'kpi' } },
+      { title: 'By Lifecycle Stage', widget: { kind: 'metric', metric: 'procurement_amount', groupBy: 'lifecycle_stage', chartType: 'donut' } },
+      { title: 'By Payment Status', widget: { kind: 'metric', metric: 'procurement_amount', groupBy: 'payment_status', chartType: 'pie' } },
+      { title: 'Committed vs Received', widget: { kind: 'metric', metric: 'committed_procurement_amount', chartType: 'kpi' } },
     ],
   },
 ];
@@ -367,9 +447,111 @@ function eqId(a?: string | null, b?: string) {
   return String(a) === String(b);
 }
 
+function eqStr(a?: string | null, b?: string) {
+  if (!b) return true;
+  return (a || '') === b;
+}
+
+function isCommittedStage(stage: string) {
+  return ['approved', 'ordered'].includes(stage);
+}
+
+function isReceivedStage(stage: string) {
+  return ['received', 'assets_created'].includes(stage);
+}
+
+function isUnpaidStatus(status: string) {
+  return ['unpaid', 'partial', 'overdue'].includes(status);
+}
+
+const PROCUREMENT_METRICS: BudgetMetric[] = [
+  'procurement_amount', 'procurement_count', 'committed_procurement_amount',
+  'received_procurement_amount', 'unpaid_procurement_amount', 'overdue_payment_count',
+  'pending_procurement_count',
+];
+
+const PROCUREMENT_GROUP_BYS: NonNullable<BudgetGroupBy>[] = [
+  'vendor', 'lifecycle_stage', 'payment_status', 'budget',
+];
+
+function rebuildQuickData(budgets: BudgetRow[], procurements: ProcurementRow[]): BudgetQuickData {
+  return {
+    budgetsNearLimit: budgets
+      .filter((b) => b.isNearLimit || b.isOverBudget)
+      .sort((a, b) => b.utilizationPct - a.utilizationPct)
+      .slice(0, 10)
+      .map((b) => ({
+        id: b.id,
+        name: b.name,
+        utilizationPct: b.utilizationPct,
+        remainingAmount: b.remainingAmount,
+        status: b.statusLabel,
+      })),
+    budgetsExceeded: budgets
+      .filter((b) => b.isOverBudget)
+      .sort((a, b) => b.utilizationPct - a.utilizationPct)
+      .slice(0, 10)
+      .map((b) => ({
+        id: b.id,
+        name: b.name,
+        utilizationPct: b.utilizationPct,
+        remainingAmount: b.remainingAmount,
+      })),
+    pendingProcurements: procurements
+      .filter((p) => !isReceivedStage(p.lifecycleStage) && p.lifecycleStage !== 'cancelled')
+      .slice(0, 10)
+      .map((p) => ({
+        id: p.id,
+        purchaseId: p.purchaseId,
+        totalCost: p.totalCost,
+        vendorLabel: p.vendorLabel,
+        lifecycleStage: p.lifecycleStage,
+      })),
+    recentProcurements: [...procurements]
+      .sort((a, b) => new Date(b.purchaseDate || 0).getTime() - new Date(a.purchaseDate || 0).getTime())
+      .slice(0, 10)
+      .map((p) => ({
+        id: p.id,
+        purchaseId: p.purchaseId,
+        totalCost: p.totalCost,
+        vendorLabel: p.vendorLabel,
+        lifecycleStageLabel: p.lifecycleStageLabel,
+      })),
+    overduePayments: procurements
+      .filter((p) => p.paymentStatus === 'overdue')
+      .slice(0, 10)
+      .map((p) => ({
+        id: p.id,
+        purchaseId: p.purchaseId,
+        totalCost: p.totalCost,
+        vendorLabel: p.vendorLabel,
+        paymentStatusLabel: p.paymentStatusLabel,
+      })),
+    topVendors: Object.entries(
+      procurements.reduce<Record<string, number>>((acc, p) => {
+        acc[p.vendorLabel] = (acc[p.vendorLabel] || 0) + p.totalCost;
+        return acc;
+      }, {})
+    )
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8),
+    topDepartments: Object.entries(
+      budgets.reduce<Record<string, number>>((acc, b) => {
+        acc[b.departmentLabel] = (acc[b.departmentLabel] || 0) + b.actualSpend;
+        return acc;
+      }, {})
+    )
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8),
+  };
+}
+
 export function applyBudgetWidgetFilters(ctx: BudgetDataContext, filters?: BudgetWidgetFilters, timeRange?: string) {
   const f = mergeWidgetTimeRange(filters ?? {}, timeRange);
   const budgets = ctx.budgets.filter((b) => {
+    if (f.budgetId && b.id !== f.budgetId) return false;
     if (f.status && b.status !== f.status) return false;
     if (f.budgetTypeId && b.budgetTypeId !== f.budgetTypeId) return false;
     if (f.financialYear && b.financialYear !== f.financialYear) return false;
@@ -377,6 +559,9 @@ export function applyBudgetWidgetFilters(ctx: BudgetDataContext, filters?: Budge
     if (!eqId(b.departmentId, f.departmentId)) return false;
     if (!eqId(b.locationId, f.locationId)) return false;
     if (f.fundingSourceId && b.fundingSourceId !== f.fundingSourceId) return false;
+    if (!eqStr(b.project, f.project)) return false;
+    if (!eqStr(b.costCenter, f.costCenter)) return false;
+    if (!eqStr(b.category, f.category)) return false;
     if (f.dateFrom && b.startDate && new Date(b.startDate) < new Date(f.dateFrom)) return false;
     if (f.dateTo && b.endDate) {
       const end = new Date(f.dateTo);
@@ -388,10 +573,32 @@ export function applyBudgetWidgetFilters(ctx: BudgetDataContext, filters?: Budge
   const budgetIds = new Set(budgets.map((b) => b.id));
   const procurements = ctx.procurements.filter((p) => {
     if (p.budgetId && !budgetIds.has(p.budgetId)) return false;
+    if (f.budgetId && p.budgetId !== f.budgetId) return false;
+    if (!eqId(p.vendorId, f.vendorId)) return false;
+    if (!eqStr(p.project, f.project)) return false;
+    if (!eqStr(p.costCenter, f.costCenter)) return false;
+    if (!eqStr(p.category, f.category)) return false;
+    if (f.lifecycleStage && p.lifecycleStage !== f.lifecycleStage) return false;
+    if (f.paymentStatus && p.paymentStatus !== f.paymentStatus) return false;
     if (!isDateInRange(p.purchaseDate, f)) return false;
     return true;
   });
   const monthlySpend = rebuildMonthlySpend(procurements).filter((m) => monthInRange(m.month, f));
+  const procurementCount = procurements.length;
+  const totalProcurementAmount = procurements.reduce((s, p) => s + p.totalCost, 0);
+  const committedProcurementAmount = procurements
+    .filter((p) => isCommittedStage(p.lifecycleStage))
+    .reduce((s, p) => s + p.totalCost, 0);
+  const receivedProcurementAmount = procurements
+    .filter((p) => isReceivedStage(p.lifecycleStage))
+    .reduce((s, p) => s + p.totalCost, 0);
+  const unpaidProcurementAmount = procurements
+    .filter((p) => isUnpaidStatus(p.paymentStatus))
+    .reduce((s, p) => s + p.totalCost, 0);
+  const overduePaymentCount = procurements.filter((p) => p.paymentStatus === 'overdue').length;
+  const pendingPurchaseRequests = procurements.filter(
+    (p) => !isReceivedStage(p.lifecycleStage) && p.lifecycleStage !== 'cancelled'
+  ).length;
   const totals = {
     ...ctx.totals,
     budgetCount: budgets.length,
@@ -404,6 +611,13 @@ export function applyBudgetWidgetFilters(ctx: BudgetDataContext, filters?: Budge
     utilizationPct: 0,
     budgetsNearLimit: budgets.filter((b) => b.isNearLimit).length,
     budgetsExceeded: budgets.filter((b) => b.isOverBudget).length,
+    pendingPurchaseRequests,
+    procurementCount,
+    totalProcurementAmount,
+    committedProcurementAmount,
+    receivedProcurementAmount,
+    unpaidProcurementAmount,
+    overduePaymentCount,
   };
   totals.utilizationPct = totals.totalAllocated > 0
     ? Math.round((totals.totalActual / totals.totalAllocated) * 1000) / 10
@@ -416,7 +630,54 @@ export function applyBudgetWidgetFilters(ctx: BudgetDataContext, filters?: Budge
     monthlySpendWithForecast: ctx.monthlySpendWithForecast,
     forecast: ctx.forecast,
     totals,
+    quick: rebuildQuickData(budgets, procurements),
   };
+}
+
+function procurementGroupKey(
+  p: ProcurementRow,
+  groupBy: BudgetGroupBy,
+  budgetById: Record<string, BudgetRow>
+): string {
+  switch (groupBy) {
+    case 'vendor': return p.vendorLabel;
+    case 'month': return p.month;
+    case 'quarter': return p.quarter;
+    case 'lifecycle_stage': return p.lifecycleStageLabel;
+    case 'payment_status': return p.paymentStatusLabel;
+    case 'budget': return p.budgetName || 'Unassigned';
+    case 'project': return p.project || 'Unassigned';
+    case 'cost_center': return p.costCenter || 'Unassigned';
+    case 'category': return p.category || 'Uncategorized';
+    case 'funding_source': return p.fundingSourceLabel;
+    case 'department': {
+      const b = p.budgetId ? budgetById[p.budgetId] : null;
+      return b?.departmentLabel || 'Unassigned';
+    }
+    default: return 'All';
+  }
+}
+
+function procurementMetricValue(p: ProcurementRow, metric: BudgetMetric): number {
+  switch (metric) {
+    case 'procurement_amount': return p.totalCost;
+    case 'procurement_count': return 1;
+    case 'committed_procurement_amount':
+      return isCommittedStage(p.lifecycleStage) ? p.totalCost : 0;
+    case 'received_procurement_amount':
+      return isReceivedStage(p.lifecycleStage) ? p.totalCost : 0;
+    case 'unpaid_procurement_amount':
+      return isUnpaidStatus(p.paymentStatus) ? p.totalCost : 0;
+    case 'overdue_payment_count':
+      return p.paymentStatus === 'overdue' ? 1 : 0;
+    default: return 0;
+  }
+}
+
+function usesProcurementSource(metric: BudgetMetric, groupBy: BudgetGroupBy): boolean {
+  if (PROCUREMENT_METRICS.includes(metric)) return true;
+  if (groupBy != null && PROCUREMENT_GROUP_BYS.includes(groupBy)) return true;
+  return false;
 }
 
 function budgetGroupKey(b: BudgetRow, groupBy: BudgetGroupBy): string {
@@ -428,6 +689,7 @@ function budgetGroupKey(b: BudgetRow, groupBy: BudgetGroupBy): string {
     case 'owner': return b.budgetOwnerName || 'Unassigned';
     case 'location': return b.locationLabel;
     case 'funding_source': return b.fundingSourceLabel;
+    case 'budget': return b.name;
     case 'project': return b.project || 'Unassigned';
     case 'cost_center': return b.costCenter || 'Unassigned';
     case 'category': return b.category || 'Uncategorized';
@@ -458,6 +720,13 @@ function aggregateFromTotals(totals: BudgetTotals, budgets: BudgetRow[], metric:
     case 'utilization_pct': return totals.utilizationPct;
     case 'pending_procurement_count': return totals.pendingPurchaseRequests;
     case 'over_budget_count': return totals.budgetsExceeded;
+    case 'budgets_near_limit_count': return totals.budgetsNearLimit;
+    case 'procurement_count': return totals.procurementCount;
+    case 'procurement_amount': return totals.totalProcurementAmount;
+    case 'committed_procurement_amount': return totals.committedProcurementAmount;
+    case 'received_procurement_amount': return totals.receivedProcurementAmount;
+    case 'unpaid_procurement_amount': return totals.unpaidProcurementAmount;
+    case 'overdue_payment_count': return totals.overduePaymentCount;
     case 'avg_utilization':
       return budgets.length
         ? Math.round(budgets.reduce((s, b) => s + b.utilizationPct, 0) / budgets.length * 10) / 10
@@ -471,7 +740,8 @@ function aggregateFromTotals(totals: BudgetTotals, budgets: BudgetRow[], metric:
 export function formatBudgetMetric(metric: BudgetMetric, value: number): string {
   if ([
     'total_allocated', 'total_planned', 'total_committed', 'total_actual', 'total_remaining',
-    'allocated', 'planned', 'committed', 'actual', 'remaining', 'available_balance', 'procurement_amount',
+    'allocated', 'planned', 'committed', 'actual', 'remaining', 'available_balance',
+    'procurement_amount', 'committed_procurement_amount', 'received_procurement_amount', 'unpaid_procurement_amount',
   ].includes(metric)) {
     return formatINR(value);
   }
@@ -501,6 +771,41 @@ export function computeBudgetWidgetData(ctx: BudgetDataContext, widget: BudgetWi
             primary: p.purchaseId,
             secondary: p.vendorLabel,
             meta: formatINR(p.totalCost),
+          })),
+        };
+      case 'budgets_exceeded':
+        return {
+          points: [],
+          listRows: filtered.quick.budgetsExceeded.slice(0, limit).map((b) => ({
+            primary: b.name,
+            secondary: `${b.utilizationPct}% utilized`,
+            meta: formatINR(b.remainingAmount),
+          })),
+        };
+      case 'recent_procurements':
+        return {
+          points: [],
+          listRows: filtered.quick.recentProcurements.slice(0, limit).map((p) => ({
+            primary: p.purchaseId,
+            secondary: p.vendorLabel,
+            meta: `${p.lifecycleStageLabel} · ${formatINR(p.totalCost)}`,
+          })),
+        };
+      case 'overdue_payments':
+        return {
+          points: [],
+          listRows: filtered.quick.overduePayments.slice(0, limit).map((p) => ({
+            primary: p.purchaseId,
+            secondary: p.vendorLabel,
+            meta: `${p.paymentStatusLabel} · ${formatINR(p.totalCost)}`,
+          })),
+        };
+      case 'top_vendors':
+        return {
+          points: [],
+          listRows: filtered.quick.topVendors.slice(0, limit).map((v) => ({
+            primary: v.label,
+            meta: formatINR(v.value),
           })),
         };
       case 'top_departments':
@@ -551,14 +856,20 @@ export function computeBudgetWidgetData(ctx: BudgetDataContext, widget: BudgetWi
 
   const aggregateMetrics: BudgetMetric[] = [
     'budget_count', 'total_allocated', 'total_planned', 'total_committed', 'total_actual',
-    'total_remaining', 'utilization_pct', 'avg_utilization', 'over_budget_count',
-    'pending_procurement_count', 'available_balance',
+    'total_remaining', 'utilization_pct', 'avg_utilization', 'over_budget_count', 'budgets_near_limit_count',
+    'pending_procurement_count', 'available_balance', 'procurement_count', 'procurement_amount',
+    'committed_procurement_amount', 'received_procurement_amount', 'unpaid_procurement_amount', 'overdue_payment_count',
   ];
 
   if (chartType === 'kpi' || chartType === 'gauge' || chartType === 'progress_ring') {
-    const val = aggregateMetrics.includes(metric)
-      ? aggregateFromTotals(filtered.totals, filtered.budgets, metric)
-      : filtered.budgets.reduce((s, b) => s + budgetMetricValue(b, metric), 0);
+    let val: number;
+    if (aggregateMetrics.includes(metric)) {
+      val = aggregateFromTotals(filtered.totals, filtered.budgets, metric);
+    } else if (PROCUREMENT_METRICS.includes(metric)) {
+      val = filtered.procurements.reduce((s, p) => s + procurementMetricValue(p, metric), 0);
+    } else {
+      val = filtered.budgets.reduce((s, b) => s + budgetMetricValue(b, metric), 0);
+    }
     if (chartType === 'gauge' || chartType === 'progress_ring') {
       const max = metric === 'utilization_pct' || metric === 'utilization' ? 100 : Math.max(val * 1.2, 1);
       return { kpiValue: formatBudgetMetric(metric, val), gaugeValue: val, gaugeMax: max, points: [] };
@@ -589,27 +900,29 @@ export function computeBudgetWidgetData(ctx: BudgetDataContext, widget: BudgetWi
     return { points };
   }
 
-  if (metric === 'procurement_amount' || widget.groupBy === 'vendor') {
-    const groupBy = widget.groupBy || 'vendor';
+  const groupBy = widget.groupBy ?? (usesProcurementSource(metric, null) ? 'vendor' : 'department');
+
+  if (usesProcurementSource(metric, widget.groupBy ?? null)) {
+    const budgetById = Object.fromEntries(filtered.budgets.map((b) => [b.id, b]));
+    const procMetric = PROCUREMENT_METRICS.includes(metric) ? metric : 'procurement_amount';
     const buckets: Record<string, number> = {};
     for (const p of filtered.procurements) {
-      const key = groupBy === 'month' ? p.month : groupBy === 'quarter' ? p.quarter : p.vendorLabel;
-      buckets[key] = (buckets[key] || 0) + p.totalCost;
+      const key = procurementGroupKey(p, groupBy, budgetById);
+      buckets[key] = (buckets[key] || 0) + procurementMetricValue(p, procMetric);
     }
     let points = Object.entries(buckets).map(([label, value], i) => ({
       label,
-      value: Math.round(value),
+      value: Math.round(value * 10) / 10,
       color: colorAt(i),
     }));
     const sortDesc = widget.sortOrder !== 'asc';
     points = points.sort((a, b) => sortDesc ? b.value - a.value : a.value - b.value).slice(0, widget.limit || 10);
     if (chartType === 'table') {
-      return { points, tableRows: points.map((p) => ({ label: p.label, value: formatINR(p.value) })) };
+      return { points, tableRows: points.map((p) => ({ label: p.label, value: formatBudgetMetric(procMetric, p.value) })) };
     }
     return { points };
   }
 
-  const groupBy = widget.groupBy || 'department';
   if (groupBy === 'month' || groupBy === 'quarter') {
     const buckets: Record<string, { planned: number; actual: number }> = {};
     for (const m of filtered.monthlySpend) {

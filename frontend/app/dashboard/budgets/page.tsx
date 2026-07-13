@@ -6,6 +6,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import BudgetModuleNav from '@/components/budgets/BudgetModuleNav';
 import BudgetModuleFiltersBar from '@/components/budgets/BudgetModuleFiltersBar';
 import BudgetDetailFields from '@/components/budgets/BudgetDetailFields';
+import FieldChangesAlert from '@/components/budgets/FieldChangesAlert';
 import { useBudgetModuleFilters } from '@/hooks/useBudgetModuleFilters';
 import { budgetModuleFiltersToQuery } from '@/lib/budgetModuleFilters';
 import { canWrite } from '@/lib/permissions';
@@ -21,6 +22,7 @@ import {
   type Budget,
   type BudgetCustomField,
   type BudgetDimension,
+  type BudgetHistoryChange,
   type BudgetOrgConfig,
   type BudgetOption,
   type BudgetSummary,
@@ -296,6 +298,7 @@ export default function BudgetsPage() {
   const [saving, setSaving] = useState(false);
 
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [lastChanges, setLastChanges] = useState<BudgetHistoryChange[] | null>(null);
 
   const canEdit = canWrite('budgets');
   const hasAccess = canAccessFeature(tier, 'budgets') && !isExpired;
@@ -435,9 +438,11 @@ export default function BudgetsPage() {
         customFields: form.customFields,
       };
       if (editing) {
-        await updateBudget(editing._id, payload);
+        const { changes } = await updateBudget(editing._id, payload);
+        setLastChanges(changes.length ? changes : null);
       } else {
         await createBudget(payload);
+        setLastChanges(null);
       }
       setShowModal(false);
       await loadData();
@@ -506,6 +511,16 @@ export default function BudgetsPage() {
 
       <BudgetModuleNav />
 
+      <BudgetModuleNav />
+
+      {lastChanges?.length ? (
+        <FieldChangesAlert
+          title="Procurement updated — changes saved"
+          changes={lastChanges}
+          onDismiss={() => setLastChanges(null)}
+        />
+      ) : null}
+
       {error && (
         <div className="px-3 py-2 rounded-lg border border-red-500/30 bg-red-500/10 text-red-300 text-sm">
           {error}
@@ -541,6 +556,9 @@ export default function BudgetsPage() {
           financialYears,
           projects: Array.from(new Set(budgets.map((b) => b.dimensions?.project).filter((p): p is string => Boolean(p)))),
           costCenters: Array.from(new Set(budgets.map((b) => b.dimensions?.costCenter).filter((c): c is string => Boolean(c)))),
+          categories: Array.from(new Set(budgets.map((b) => b.dimensions?.category).filter((c): c is string => Boolean(c)))),
+          lifecycleStages: config?.procurementLifecycleStages || [],
+          paymentStatuses: config?.procurementPaymentStatuses || [],
         }}
       />
 

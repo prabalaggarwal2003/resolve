@@ -133,9 +133,6 @@ export default function BudgetHistoryTimeline({
                 {showBudgetName && budgetLabel(entry) ? (
                   <p className="text-xs text-violet-300/80 mt-0.5">{budgetLabel(entry)}</p>
                 ) : null}
-                {entry.description ? (
-                  <p className="text-xs text-gray-500 mt-0.5">{entry.description}</p>
-                ) : null}
                 {entry.changes && entry.changes.length > 0 ? (
                   <ul className="mt-1.5 space-y-1">
                     {entry.changes.map((c, i) => (
@@ -151,6 +148,8 @@ export default function BudgetHistoryTimeline({
                       </li>
                     ))}
                   </ul>
+                ) : entry.description ? (
+                  <p className="text-xs text-gray-500 mt-0.5">{entry.description}</p>
                 ) : null}
                 {detail ? <p className="text-xs text-gray-400 mt-0.5">{detail}</p> : null}
                 <p className="text-[10px] text-gray-600 mt-1">
