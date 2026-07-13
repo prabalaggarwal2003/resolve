@@ -18,6 +18,8 @@ export default function BudgetAnalyticsPage() {
   const [budgetTypes, setBudgetTypes] = useState<{ id: string; name: string }[]>([]);
   const [budgetStatuses, setBudgetStatuses] = useState<{ id: string; name: string }[]>([]);
   const [fundingSources, setFundingSources] = useState<{ id: string; name: string }[]>([]);
+  const [lifecycleStages, setLifecycleStages] = useState<{ id: string; name: string }[]>([]);
+  const [paymentStatuses, setPaymentStatuses] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     const init = async () => {
@@ -38,6 +40,8 @@ export default function BudgetAnalyticsPage() {
         setBudgetTypes(cfg.budgetTypes || []);
         setBudgetStatuses(cfg.budgetStatuses || []);
         setFundingSources(cfg.fundingSources || []);
+        setLifecycleStages(cfg.procurementLifecycleStages || []);
+        setPaymentStatuses(cfg.procurementPaymentStatuses || []);
         setDepartments(deptRes.departments || deptRes || []);
         setLocations((locRes.locations || []).map((l: { _id: string; name: string }) => ({ _id: l._id, name: l.name })));
         setUsers((userRes.users || []).map((u: { _id: string; name: string }) => ({ _id: u._id, name: u.name })));
@@ -75,6 +79,8 @@ export default function BudgetAnalyticsPage() {
         budgetTypes={budgetTypes}
         budgetStatuses={budgetStatuses}
         fundingSources={fundingSources}
+        lifecycleStages={lifecycleStages}
+        paymentStatuses={paymentStatuses}
       />
     </div>
   );

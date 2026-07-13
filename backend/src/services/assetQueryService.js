@@ -247,6 +247,7 @@ export async function buildAssetListQuery(baseFilter, query) {
     filters: filtersRaw,
     locationIncludeChildren,
     groupId,
+    assetIds: assetIdsRaw,
   } = query;
 
   if (category) filter.category = category;
@@ -265,6 +266,15 @@ export async function buildAssetListQuery(baseFilter, query) {
   if (departmentId) filter.departmentId = departmentId;
   if (groupId && mongoose.Types.ObjectId.isValid(groupId)) {
     filter.groupId = new mongoose.Types.ObjectId(groupId);
+  }
+
+  if (assetIdsRaw !== undefined) {
+    const ids = String(assetIdsRaw)
+      .split(',')
+      .map((id) => id.trim())
+      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+      .map((id) => new mongoose.Types.ObjectId(id));
+    filter._id = { $in: ids };
   }
 
   const advanced = parseFilters(filtersRaw);

@@ -14,10 +14,12 @@ import {
   fetchOrgSubscription,
   getStoredSubscription,
 } from '@/lib/subscriptionUtils';
+import FieldChangesAlert from '@/components/budgets/FieldChangesAlert';
 import {
   fetchBudgetConfig,
   fetchBudgets,
   type Budget,
+  type BudgetHistoryChange,
   type BudgetOrgConfig,
   formatBudgetCurrency,
 } from '@/lib/budgets';
@@ -79,6 +81,7 @@ function stageBadge(stageId: string, stages: BudgetOrgConfig['procurementLifecyc
 export default function ProcurementPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [lastChanges, setLastChanges] = useState<BudgetHistoryChange[] | null>(null);
   const [tier, setTier] = useState(() => getStoredSubscription().tier);
   const [isExpired, setIsExpired] = useState(() => getStoredSubscription().isExpired);
   const [subscriptionChecked, setSubscriptionChecked] = useState(false);
@@ -214,8 +217,13 @@ export default function ProcurementPage() {
         project: form.project.trim(),
         notes: form.notes,
       };
-      if (editing) await updateProcurement(editing._id, payload);
-      else await createProcurement(payload);
+      if (editing) {
+        const { changes } = await updateProcurement(editing._id, payload);
+        setLastChanges(changes.length ? changes : null);
+      } else {
+        await createProcurement(payload);
+        setLastChanges(null);
+      }
       setShowModal(false);
       await load();
     } catch (e) {
@@ -276,6 +284,14 @@ export default function ProcurementPage() {
 
       <BudgetModuleNav />
 
+      {lastChanges?.length ? (
+        <FieldChangesAlert
+          title="Procurement updated — changes saved"
+          changes={lastChanges}
+          onDismiss={() => setLastChanges(null)}
+        />
+      ) : null}
+
       {error && (
         <div className="px-3 py-2 rounded-lg border border-red-500/30 bg-red-500/10 text-red-300 text-sm">{error}</div>
       )}
@@ -321,6 +337,9 @@ export default function ProcurementPage() {
           financialYears: Array.from(new Set(budgets.map((b) => b.financialYear).filter(Boolean) as string[])).sort().reverse(),
           projects: Array.from(new Set(records.map((r) => r.project).filter(Boolean) as string[])),
           costCenters: Array.from(new Set(records.map((r) => r.costCenter).filter(Boolean) as string[])),
+          categories: Array.from(new Set(budgets.map((b) => b.dimensions?.category).filter((c): c is string => Boolean(c)))),
+          lifecycleStages: config?.procurementLifecycleStages || [],
+          paymentStatuses: config?.procurementPaymentStatuses || [],
         }}
         extra={
           <>

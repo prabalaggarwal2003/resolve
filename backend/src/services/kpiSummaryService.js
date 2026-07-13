@@ -3,6 +3,17 @@ import { Asset, Issue, AssetLog, AuditLog } from '../models/index.js';
 import { calculateOrganizationMetrics } from './depreciationService.js';
 import { getOrganizationKPIs } from './kpiService.js';
 import { isActiveAssetStatus } from '../constants/assetStatuses.js';
+import { canRead } from './permissions.js';
+import { getBudgetAnalyticsSummary } from './budgetSummaryService.js';
+
+function mapAssetFiltersToBudget(filters = {}) {
+  const mapped = {};
+  const keys = ['departmentId', 'locationId', 'vendorId', 'dateFrom', 'dateTo', 'category'];
+  for (const k of keys) {
+    if (filters[k]) mapped[k] = filters[k];
+  }
+  return mapped;
+}
 
 const REPLACEMENT_SCORES = { low: 25, medium: 50, high: 75, critical: 100 };
 
@@ -183,7 +194,7 @@ async function fetchQuickLists(organizationId) {
   };
 }
 
-export async function getKpiSummary(organizationId, userId, filters = {}) {
+export async function getKpiSummary(organizationId, userId, filters = {}, user = null) {
   const [metricsResult, rawAssets, orgKpis, quick] = await Promise.all([
     calculateOrganizationMetrics(organizationId, userId, filters),
     Asset.find({ organizationId })
@@ -255,5 +266,8 @@ export async function getKpiSummary(organizationId, userId, filters = {}) {
       lowHealthAssets,
       replacementRecommendations,
     },
+    budget: user && canRead(user, 'budgets')
+      ? await getBudgetAnalyticsSummary(organizationId, mapAssetFiltersToBudget(filters)).catch(() => null)
+      : null,
   };
 }

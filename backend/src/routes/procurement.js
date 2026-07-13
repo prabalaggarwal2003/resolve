@@ -10,7 +10,8 @@ import {
   linkAssetToProcurement,
   getProcurementSummary,
 } from '../services/procurementService.js';
-import { logAudit, getRequestMetadata, AUDIT_ACTIONS } from '../services/auditService.js';
+import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
+import { changesToAuditPayload } from '../services/budgetChangeLog.js';
 
 const router = express.Router();
 
@@ -61,9 +62,10 @@ router.get('/:id', requireBudgetRead, async (req, res) => {
 router.post('/', requireBudgetWrite, async (req, res) => {
   try {
     const procurement = await createProcurement(req.user.organizationId, req.user, req.body);
-    await logAudit(req.user._id, AUDIT_ACTIONS.CREATED, 'procurement', procurement._id, {
+    await logAudit(req.user._id, AUDIT_ACTIONS.PROCUREMENT_CREATED, AUDIT_RESOURCES.PROCUREMENT, procurement._id, {
       resourceName: procurement.purchaseId,
       description: `Created procurement ${procurement.purchaseId}`,
+      severity: 'medium',
       ...getRequestMetadata(req),
     });
     res.status(201).json({ procurement });
@@ -74,13 +76,16 @@ router.post('/', requireBudgetWrite, async (req, res) => {
 
 router.put('/:id', requireBudgetWrite, async (req, res) => {
   try {
-    const procurement = await updateProcurement(req.user.organizationId, req.user, req.params.id, req.body);
-    await logAudit(req.user._id, AUDIT_ACTIONS.UPDATED, 'procurement', procurement._id, {
+    const { procurement, changes } = await updateProcurement(req.user.organizationId, req.user, req.params.id, req.body);
+    const auditPayload = changes?.length ? changesToAuditPayload(changes) : null;
+    await logAudit(req.user._id, AUDIT_ACTIONS.PROCUREMENT_UPDATED, AUDIT_RESOURCES.PROCUREMENT, procurement._id, {
       resourceName: procurement.purchaseId,
-      description: `Updated procurement ${procurement.purchaseId}`,
+      description: auditPayload?.summary || `Updated procurement ${procurement.purchaseId}`,
+      details: auditPayload || undefined,
+      severity: 'medium',
       ...getRequestMetadata(req),
     });
-    res.json({ procurement });
+    res.json({ procurement, changes: changes || [] });
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });
   }
@@ -89,9 +94,10 @@ router.put('/:id', requireBudgetWrite, async (req, res) => {
 router.delete('/:id', requireBudgetWrite, async (req, res) => {
   try {
     const procurement = await deleteProcurement(req.user.organizationId, req.user, req.params.id);
-    await logAudit(req.user._id, AUDIT_ACTIONS.DELETED, 'procurement', procurement._id, {
+    await logAudit(req.user._id, AUDIT_ACTIONS.PROCUREMENT_DELETED, AUDIT_RESOURCES.PROCUREMENT, procurement._id, {
       resourceName: procurement.purchaseId,
       description: `Deleted procurement ${procurement.purchaseId}`,
+      severity: 'high',
       ...getRequestMetadata(req),
     });
     res.json({ message: 'Procurement deleted' });
@@ -110,6 +116,13 @@ router.post('/:id/link-asset', requireBudgetWrite, async (req, res) => {
       req.params.id,
       assetId
     );
+    await logAudit(req.user._id, AUDIT_ACTIONS.PROCUREMENT_LINKED, AUDIT_RESOURCES.PROCUREMENT, procurement._id, {
+      resourceName: procurement.purchaseId,
+      description: `Linked asset to procurement ${procurement.purchaseId}`,
+      details: { assetId },
+      severity: 'medium',
+      ...getRequestMetadata(req),
+    });
     res.json({ procurement });
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });

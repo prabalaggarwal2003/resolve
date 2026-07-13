@@ -46,7 +46,7 @@ router.get('/', requireTabRead('kpis'), async (req, res) => {
 router.get('/summary', requireTabRead('kpis'), async (req, res) => {
   try {
     const filters = filtersFromQuery(req.query);
-    const data = await getKpiSummary(req.user.organizationId, req.user._id, filters);
+    const data = await getKpiSummary(req.user.organizationId, req.user._id, filters, req.user);
     res.json(data);
   } catch (error) {
     console.error('KPI summary error:', error);

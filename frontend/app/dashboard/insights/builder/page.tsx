@@ -126,7 +126,7 @@ export default function InsightBuilderPage() {
           catalog={catalog}
           rule={draft}
           departments={departments}
-          onChange={setDraft}
+          onChange={(patch) => setDraft((prev) => ({ ...prev, ...patch }))}
           onSave={handleSave}
           saving={saving}
           title={draft._id ? `Edit: ${draft.name}` : 'Create custom insight rule'}

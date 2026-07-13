@@ -30,6 +30,13 @@ export default function BudgetWidgetBoard({
   budgetStatuses,
   financialYears,
   fundingSources = [],
+  budgets = [],
+  vendors = [],
+  projects = [],
+  costCenters = [],
+  categories = [],
+  lifecycleStages = [],
+  paymentStatuses = [],
   saving,
 }: {
   ctx: BudgetDataContext;
@@ -43,6 +50,13 @@ export default function BudgetWidgetBoard({
   budgetStatuses: { id: string; name: string }[];
   financialYears: string[];
   fundingSources?: { id: string; name: string }[];
+  budgets?: { _id: string; name: string }[];
+  vendors?: { _id: string; name: string }[];
+  projects?: string[];
+  costCenters?: string[];
+  categories?: string[];
+  lifecycleStages?: { id: string; name: string }[];
+  paymentStatuses?: { id: string; name: string }[];
   saving?: boolean;
 }) {
   const [editing, setEditing] = useState<BudgetWidget | null>(null);
@@ -140,7 +154,7 @@ export default function BudgetWidgetBoard({
                   </div>
                 )}
               </div>
-              <BudgetWidgetFilters widget={widget} onChange={(p) => updateWidget(widget.id, p)} departments={departments} locations={locations} users={users} budgetTypes={budgetTypes} budgetStatuses={budgetStatuses} financialYears={financialYears} fundingSources={fundingSources} />
+              <BudgetWidgetFilters widget={widget} onChange={(p) => updateWidget(widget.id, p)} departments={departments} locations={locations} users={users} budgetTypes={budgetTypes} budgetStatuses={budgetStatuses} financialYears={financialYears} fundingSources={fundingSources} budgets={budgets} vendors={vendors} projects={projects} costCenters={costCenters} categories={categories} lifecycleStages={lifecycleStages} paymentStatuses={paymentStatuses} />
               <BudgetWidgetContent widget={widget} ctx={ctx} />
               <BudgetWidgetResizeHandle colSpan={size.colSpan} rowSpan={size.rowSpan} onResize={(n) => updateWidget(widget.id, n)} />
             </div>

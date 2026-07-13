@@ -19,6 +19,9 @@ export type BudgetModuleFilterLookups = {
   financialYears: string[];
   projects?: string[];
   costCenters?: string[];
+  categories?: string[];
+  lifecycleStages?: { id: string; name: string }[];
+  paymentStatuses?: { id: string; name: string }[];
 };
 
 type Props = {
@@ -169,6 +172,24 @@ export default function BudgetModuleFiltersBar({
           key,
           label,
           (lookups.costCenters || []).map((c) => ({ value: c, label: c }))
+        );
+      case 'category':
+        return renderSelect(
+          key,
+          label,
+          (lookups.categories || []).map((c) => ({ value: c, label: c }))
+        );
+      case 'lifecycleStage':
+        return renderSelect(
+          key,
+          label,
+          (lookups.lifecycleStages || []).map((s) => ({ value: s.id, label: s.name }))
+        );
+      case 'paymentStatus':
+        return renderSelect(
+          key,
+          label,
+          (lookups.paymentStatuses || []).map((s) => ({ value: s.id, label: s.name }))
         );
       default:
         return null;

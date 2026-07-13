@@ -17,6 +17,8 @@ import {
   listOrganizationBudgetHistory,
 } from '../services/budgetService.js';
 import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
+import { buildBudgetOrgConfigChanges } from '../services/moduleConfigAudit.js';
+import { changesToAuditPayload } from '../services/budgetChangeLog.js';
 
 const router = express.Router();
 
@@ -49,20 +51,46 @@ router.get('/config', requireBudgetRead, async (req, res) => {
 /** PUT /api/budgets/config */
 router.put('/config', requireBudgetWrite, async (req, res) => {
   try {
+    const before = (await getBudgetOrgConfig(req.user.organizationId)).toObject();
     const config = await updateBudgetOrgConfig(
       req.user.organizationId,
       req.user._id,
       req.body
     );
-    await logAudit({
-      organizationId: req.user.organizationId,
-      userId: req.user._id,
-      action: AUDIT_ACTIONS.UPDATED,
-      resource: AUDIT_RESOURCES.ORGANIZATION,
-      resourceId: req.user.organizationId,
-      description: 'Updated budget module configuration',
-      ...getRequestMetadata(req),
-    });
+    const after = config.toObject();
+    const { budgetPayload, procurementPayload } = buildBudgetOrgConfigChanges(before, after);
+
+    if (budgetPayload) {
+      await logAudit(
+        req.user._id,
+        AUDIT_ACTIONS.BUDGET_CONFIG_UPDATED,
+        AUDIT_RESOURCES.BUDGET,
+        req.user.organizationId,
+        {
+          resourceName: 'Budget module settings',
+          description: budgetPayload.summary,
+          details: budgetPayload,
+          severity: 'low',
+          ...getRequestMetadata(req),
+        }
+      );
+    }
+    if (procurementPayload) {
+      await logAudit(
+        req.user._id,
+        AUDIT_ACTIONS.PROCUREMENT_CONFIG_UPDATED,
+        AUDIT_RESOURCES.PROCUREMENT,
+        req.user.organizationId,
+        {
+          resourceName: 'Procurement module settings',
+          description: procurementPayload.summary,
+          details: procurementPayload,
+          severity: 'low',
+          ...getRequestMetadata(req),
+        }
+      );
+    }
+
     res.json({ config });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -132,16 +160,18 @@ router.post('/', requireBudgetWrite, async (req, res) => {
       return res.status(400).json({ message: 'Budget name is required' });
     }
     const budget = await createBudget(req.user.organizationId, req.user, req.body);
-    await logAudit({
-      organizationId: req.user.organizationId,
-      userId: req.user._id,
-      action: AUDIT_ACTIONS.CREATED,
-      resource: 'budget',
-      resourceId: budget._id,
-      resourceName: budget.name,
-      description: `Created budget "${budget.name}"`,
-      ...getRequestMetadata(req),
-    });
+    await logAudit(
+      req.user._id,
+      AUDIT_ACTIONS.BUDGET_CREATED,
+      AUDIT_RESOURCES.BUDGET,
+      budget._id,
+      {
+        resourceName: budget.name,
+        description: `Created budget "${budget.name}"`,
+        severity: 'medium',
+        ...getRequestMetadata(req),
+      }
+    );
     res.status(201).json({ budget });
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });
@@ -151,18 +181,22 @@ router.post('/', requireBudgetWrite, async (req, res) => {
 /** PUT /api/budgets/:id */
 router.put('/:id', requireBudgetWrite, async (req, res) => {
   try {
-    const budget = await updateBudget(req.user.organizationId, req.user, req.params.id, req.body);
-    await logAudit({
-      organizationId: req.user.organizationId,
-      userId: req.user._id,
-      action: AUDIT_ACTIONS.UPDATED,
-      resource: 'budget',
-      resourceId: budget._id,
-      resourceName: budget.name,
-      description: `Updated budget "${budget.name}"`,
-      ...getRequestMetadata(req),
-    });
-    res.json({ budget });
+    const { budget, changes } = await updateBudget(req.user.organizationId, req.user, req.params.id, req.body);
+    const auditPayload = changes?.length ? changesToAuditPayload(changes) : null;
+    await logAudit(
+      req.user._id,
+      AUDIT_ACTIONS.BUDGET_UPDATED,
+      AUDIT_RESOURCES.BUDGET,
+      budget._id,
+      {
+        resourceName: budget.name,
+        description: auditPayload?.summary || `Updated budget "${budget.name}"`,
+        details: auditPayload || undefined,
+        severity: 'medium',
+        ...getRequestMetadata(req),
+      }
+    );
+    res.json({ budget, changes: changes || [] });
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });
   }
@@ -172,16 +206,18 @@ router.put('/:id', requireBudgetWrite, async (req, res) => {
 router.delete('/:id', requireBudgetWrite, async (req, res) => {
   try {
     const budget = await deleteBudget(req.user.organizationId, req.params.id);
-    await logAudit({
-      organizationId: req.user.organizationId,
-      userId: req.user._id,
-      action: AUDIT_ACTIONS.DELETED,
-      resource: 'budget',
-      resourceId: budget._id,
-      resourceName: budget.name,
-      description: `Deleted budget "${budget.name}"`,
-      ...getRequestMetadata(req),
-    });
+    await logAudit(
+      req.user._id,
+      AUDIT_ACTIONS.BUDGET_DELETED,
+      AUDIT_RESOURCES.BUDGET,
+      budget._id,
+      {
+        resourceName: budget.name,
+        description: `Deleted budget "${budget.name}"`,
+        severity: 'high',
+        ...getRequestMetadata(req),
+      }
+    );
     res.json({ message: 'Budget deleted' });
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });

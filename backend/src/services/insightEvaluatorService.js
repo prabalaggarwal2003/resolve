@@ -288,6 +288,44 @@ function evaluateAggregateRule(rule, orgCtx, thresholds) {
   };
 }
 
+export async function getMatchingAssetIdsForRule(organizationId, ruleKey) {
+  const [config, rules, assets] = await Promise.all([
+    ensureInsightOrgConfig(organizationId),
+    listInsightRules(organizationId),
+    buildAssetContext(organizationId),
+  ]);
+
+  const rule = rules.find((r) => r.ruleKey === ruleKey);
+  if (!rule) {
+    const err = new Error('Insight rule not found');
+    err.status = 404;
+    throw err;
+  }
+  if (rule.ruleType !== 'asset') {
+    return {
+      ruleKey: rule.ruleKey,
+      name: rule.name,
+      ruleType: rule.ruleType,
+      assetIds: [],
+      count: 0,
+    };
+  }
+
+  const thresholds = { ...config.thresholds };
+  const matches = assets.filter((asset) =>
+    evaluateConditionTree(rule.conditionTree, (metric) => asset[metric], thresholds)
+  );
+
+  return {
+    ruleKey: rule.ruleKey,
+    name: rule.name,
+    ruleType: rule.ruleType,
+    severity: rule.severity,
+    assetIds: matches.map((a) => String(a.assetId)),
+    count: matches.length,
+  };
+}
+
 export async function evaluateInsights(organizationId) {
   const [config, rules, assets, budgets, orgCtx] = await Promise.all([
     ensureInsightOrgConfig(organizationId),

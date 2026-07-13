@@ -2,12 +2,20 @@
 
 import { useEffect, useState } from 'react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import {
+  AUDIT_ACTION_LABELS,
+  AUDIT_ACTION_COLORS,
+  AUDIT_RESOURCE_ICONS,
+  AUDIT_RESOURCE_LABELS,
+} from '@/lib/auditLabels';
 
 type FieldChange = {
   field: string;
   label: string;
-  oldValue: string;
-  newValue: string;
+  oldValue?: string;
+  newValue?: string;
+  from?: string;
+  to?: string;
 };
 
 type AuditLog = {
@@ -42,82 +50,16 @@ type AuditStats = {
   topUsers: Array<{ _id: string; count: number; user: { name: string; email: string; role: string } }>;
 };
 
-const RESOURCE_LABELS: Record<string, string> = {
-  asset: 'Asset',
-  issue: 'Issue',
-  user: 'User',
-  organization: 'Org',
-  profile: 'Profile',
-  location: 'Location',
-  department: 'Department',
-  authentication: 'Auth',
-  vendor: 'Vendor',
-  invoice: 'Invoice',
-  report: 'Report',
-  maintenance: 'Maintenance',
-  audit: 'Audit',
-};
-
-const ACTION_LABELS: Record<string, string> = {
-  created: 'Created',
-  updated: 'Updated',
-  deleted: 'Deleted',
-  assigned: 'Assigned',
-  unassigned: 'Unassigned',
-  status_changed: 'Status Changed',
-  role_changed: 'Role Changed',
-  activated: 'Activated',
-  deactivated: 'Deactivated',
-  login_success: 'Login',
-  login_failed: 'Login Failed',
-  logout: 'Logout',
-  generated: 'Generated',
-  downloaded: 'Downloaded',
-  password_changed: 'Password Changed',
-  '2fa_enabled': '2FA Enabled',
-  '2fa_disabled': '2FA Disabled',
-  recovery_codes_regenerated: 'Recovery Codes Regenerated',
-  maintenance_started: 'Maint. Started',
-  maintenance_completed: 'Maint. Completed',
-};
+const RESOURCE_LABELS = AUDIT_RESOURCE_LABELS;
+const ACTION_LABELS = AUDIT_ACTION_LABELS;
+const RESOURCE_ICONS = AUDIT_RESOURCE_ICONS;
+const ACTION_COLORS = AUDIT_ACTION_COLORS;
 
 const SEVERITY_BADGE: Record<string, string> = {
   low: 'text-gray-300 bg-gray-500/15 border-gray-500/30',
   medium: 'text-blue-300 bg-blue-500/15 border-blue-500/30',
   high: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
   critical: 'text-red-300 bg-red-500/15 border-red-500/30',
-};
-
-const ACTION_COLORS: Record<string, string> = {
-  created: 'text-green-400',
-  deleted: 'text-red-400',
-  updated: 'text-blue-400',
-  status_changed: 'text-amber-400',
-  generated: 'text-purple-400',
-  downloaded: 'text-teal-400',
-  password_changed: 'text-amber-400',
-  '2fa_enabled': 'text-emerald-400',
-  '2fa_disabled': 'text-orange-400',
-  recovery_codes_regenerated: 'text-violet-400',
-  maintenance_started: 'text-orange-400',
-  maintenance_completed: 'text-green-400',
-  login_success: 'text-gray-400',
-  login_failed: 'text-red-400',
-};
-
-const RESOURCE_ICONS: Record<string, string> = {
-  asset: '📦',
-  issue: '🔴',
-  user: '👤',
-  profile: '🛡️',
-  organization: '🏢',
-  location: '📍',
-  department: '🏛️',
-  authentication: '🔐',
-  vendor: '🏪',
-  invoice: '🧾',
-  report: '📊',
-  maintenance: '🔧',
 };
 
 function api(path: string) {
@@ -139,7 +81,9 @@ function formatAuditDetails(log: AuditLog): string {
       .map((c) => {
         if (c.field === 'password') return 'Password changed';
         if (c.label === 'Created') return `Created: ${c.newValue}`;
-        return `${c.label}: ${c.oldValue} → ${c.newValue}`;
+        const oldValue = c.oldValue ?? c.from ?? '—';
+        const newValue = c.newValue ?? c.to ?? '—';
+        return `${c.label}: ${oldValue} → ${newValue}`;
       })
       .join(' · ');
   }

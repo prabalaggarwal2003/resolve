@@ -271,8 +271,8 @@ async function updateAssetCondition(assetId, healthAnalysis, systemUserId = null
     // Log audit entry for automatic condition change
     await logAudit(
       systemUserId || 'system',
-      AUDIT_ACTIONS.ASSET_UPDATED,
-      AUDIT_RESOURCES.ASSET,
+      AUDIT_ACTIONS.HEALTH_CHECK_RUN,
+      AUDIT_RESOURCES.ASSET_HEALTH,
       assetId,
       {
         resourceName: `${updatedAsset.assetId} - ${updatedAsset.name}`,

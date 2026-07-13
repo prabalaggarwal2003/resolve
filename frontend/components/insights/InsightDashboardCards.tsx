@@ -2,14 +2,18 @@
 
 import Link from 'next/link';
 import type { InsightResult } from '@/lib/insights';
-import { SEVERITY_STYLES } from '@/lib/insights';
+import { SEVERITY_STYLES, insightViewHref } from '@/lib/insights';
 
 export default function InsightDashboardCards({
   insights,
   loading,
+  scrollable = false,
+  maxHeight = '320px',
 }: {
   insights: InsightResult[];
   loading?: boolean;
+  scrollable?: boolean;
+  maxHeight?: string;
 }) {
   if (loading) {
     return <p className="text-sm text-gray-500 py-8 text-center">Evaluating insights…</p>;
@@ -24,7 +28,7 @@ export default function InsightDashboardCards({
     );
   }
 
-  return (
+  const cards = (
     <div className="space-y-3">
       {insights.map((insight) => {
         const style = SEVERITY_STYLES[insight.severity] || SEVERITY_STYLES.info;
@@ -53,7 +57,7 @@ export default function InsightDashboardCards({
               <div className="flex items-center gap-2 shrink-0">
                 <span className={`text-lg font-bold ${style.text}`}>{insight.count}</span>
                 <Link
-                  href={insight.link}
+                  href={insightViewHref(insight)}
                   className="text-xs text-blue-400 hover:text-blue-300 no-underline"
                 >
                   View →
@@ -78,4 +82,14 @@ export default function InsightDashboardCards({
       })}
     </div>
   );
+
+  if (scrollable) {
+    return (
+      <div className="overflow-y-auto pr-1 -mr-1" style={{ maxHeight }}>
+        {cards}
+      </div>
+    );
+  }
+
+  return cards;
 }

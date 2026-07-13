@@ -4,6 +4,7 @@ import { requireTabRead } from '../middleware/tabPermissions.js';
 import BudgetDashboard from '../models/BudgetDashboard.js';
 import { getDefaultBudgetDashboardLayout } from '../constants/budgetDashboardDefaults.js';
 import { getBudgetAnalyticsSummary } from '../services/budgetSummaryService.js';
+import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
 
 const router = express.Router();
 router.use(protect);
@@ -24,7 +25,7 @@ function filtersFromQuery(query) {
   const keys = [
     'financialYear', 'status', 'budgetTypeId', 'budgetId', 'departmentId', 'locationId',
     'fundingSourceId', 'budgetOwnerId', 'vendorId', 'project', 'costCenter', 'category',
-    'dateFrom', 'dateTo',
+    'lifecycleStage', 'paymentStatus', 'dateFrom', 'dateTo',
   ];
   const filters = {};
   for (const k of keys) {
@@ -75,6 +76,19 @@ router.post('/dashboards', requireTabRead('budgets'), async (req, res) => {
       autoRefresh: autoRefresh || 'manual',
       allowedRoleIds: allowedRoleIds || [],
     });
+    await logAudit(
+      req.user._id,
+      AUDIT_ACTIONS.BUDGET_CREATED,
+      AUDIT_RESOURCES.BUDGET,
+      dashboard._id,
+      {
+        resourceName: dashboard.name,
+        description: `Created budget dashboard "${dashboard.name}"`,
+        details: { entityType: 'dashboard', scope: dashboard.scope },
+        severity: 'low',
+        ...getRequestMetadata(req),
+      }
+    );
     res.status(201).json({ dashboard });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -110,6 +124,19 @@ router.put('/dashboards/:id', requireTabRead('budgets'), async (req, res) => {
       dashboard.scope = scope === 'organization' ? 'organization' : 'personal';
     }
     await dashboard.save();
+    await logAudit(
+      req.user._id,
+      AUDIT_ACTIONS.BUDGET_UPDATED,
+      AUDIT_RESOURCES.BUDGET,
+      dashboard._id,
+      {
+        resourceName: dashboard.name,
+        description: `Updated budget dashboard "${dashboard.name}"`,
+        details: { entityType: 'dashboard' },
+        severity: 'low',
+        ...getRequestMetadata(req),
+      }
+    );
     res.json({ dashboard });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -126,6 +153,19 @@ router.delete('/dashboards/:id', requireTabRead('budgets'), async (req, res) => 
       return res.status(403).json({ message: 'Only admins can delete organization dashboards' });
     }
     await dashboard.deleteOne();
+    await logAudit(
+      req.user._id,
+      AUDIT_ACTIONS.BUDGET_DELETED,
+      AUDIT_RESOURCES.BUDGET,
+      dashboard._id,
+      {
+        resourceName: dashboard.name,
+        description: `Deleted budget dashboard "${dashboard.name}"`,
+        details: { entityType: 'dashboard' },
+        severity: 'medium',
+        ...getRequestMetadata(req),
+      }
+    );
     res.json({ ok: true });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -149,6 +189,19 @@ router.post('/dashboards/:id/duplicate', requireTabRead('budgets'), async (req, 
       autoRefresh: source.autoRefresh,
       allowedRoleIds: [],
     });
+    await logAudit(
+      req.user._id,
+      AUDIT_ACTIONS.BUDGET_CREATED,
+      AUDIT_RESOURCES.BUDGET,
+      copy._id,
+      {
+        resourceName: copy.name,
+        description: `Duplicated budget dashboard from "${source.name}"`,
+        details: { entityType: 'dashboard', sourceDashboardId: String(source._id) },
+        severity: 'low',
+        ...getRequestMetadata(req),
+      }
+    );
     res.status(201).json({ dashboard: copy });
   } catch (error) {
     res.status(500).json({ message: error.message });

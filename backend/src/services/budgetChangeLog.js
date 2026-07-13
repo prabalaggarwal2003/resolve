@@ -106,4 +106,20 @@ export async function diffKeyedMap(prevMap = {}, nextMap = {}, prefix, labelFor,
   return changes;
 }
 
+import { formatChangesSummary } from './assetLogService.js';
+
 export { resolveRefName, displayBasic };
+
+/** Map budget/procurement history changes to org audit log fieldChanges shape */
+export function changesToAuditPayload(changes = []) {
+  const fieldChanges = changes.map((c) => ({
+    field: c.field,
+    label: c.label,
+    oldValue: c.from,
+    newValue: c.to,
+  }));
+  return {
+    fieldChanges,
+    summary: formatChangesSummary(fieldChanges),
+  };
+}

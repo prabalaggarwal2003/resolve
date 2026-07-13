@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import InsightsModuleNav from '@/components/insights/InsightsModuleNav';
 import InsightDashboardCards from '@/components/insights/InsightDashboardCards';
@@ -95,6 +96,17 @@ export default function InsightsDashboardPage() {
 
       {loading ? (
         <LoadingSpinner message="Evaluating insight rules…" />
+      ) : data?.notifications?.showOnDashboard === false ? (
+        <div className="text-center py-12 rounded-xl border border-dashed border-gray-700/50">
+          <p className="text-gray-400 mb-1">Insights hidden on dashboard</p>
+          <p className="text-sm text-gray-600">
+            Enable &quot;Show insights on Insights dashboard&quot; in{' '}
+            <Link href="/dashboard/insights/thresholds" className="text-blue-400 hover:text-blue-300 no-underline">
+              Thresholds settings
+            </Link>
+            .
+          </p>
+        </div>
       ) : (
         <InsightDashboardCards insights={data?.insights || []} />
       )}

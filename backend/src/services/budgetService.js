@@ -8,6 +8,7 @@ import {
 } from './budgetOrgConfigService.js';
 import { countPendingProcurements } from './budgetRollupService.js';
 import { diffFields, diffKeyedMap, resolveRefName, displayBasic } from './budgetChangeLog.js';
+import { formatChangesSummary } from './assetLogService.js';
 
 const REF_DIMENSION_FIELDS = new Set(['departmentId', 'groupId', 'locationId', 'vendorId', 'templateId']);
 
@@ -312,10 +313,9 @@ export async function updateBudget(organizationId, user, id, body) {
       label = 'Status changed';
     }
 
-    const description =
-      changes.length === 1
-        ? `${changes[0].label}: ${changes[0].from} → ${changes[0].to}`
-        : `${changes.length} fields updated`;
+    const description = formatChangesSummary(
+      changes.map((c) => ({ field: c.field, label: c.label, oldValue: c.from, newValue: c.to }))
+    ) || label;
 
     await logBudgetEvent({
       organizationId,
@@ -330,7 +330,7 @@ export async function updateBudget(organizationId, user, id, body) {
     });
   }
 
-  return formatBudget(budget);
+  return { budget: formatBudget(budget), changes };
 }
 
 export async function deleteBudget(organizationId, id) {

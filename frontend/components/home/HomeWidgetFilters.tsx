@@ -3,6 +3,7 @@
 import type { HomeWidget, HomeFilterFieldKey, HomeWidgetFilters as HomeWidgetFiltersType } from '@/lib/homeDashboardWidgets';
 import { WIDGET_FILTER_CATALOG } from '@/lib/homeDashboardWidgets';
 import { formatAssetStatusLabel } from '@/lib/assetStatuses';
+import { AUDIT_RESOURCE_LABELS } from '@/lib/auditLabels';
 
 const inputClass = 'px-1.5 py-0.5 text-[10px] border border-gray-700/60 rounded-md bg-gray-800/60 text-gray-200 min-w-0 w-full max-w-full';
 const CONDITION_OPTIONS = ['excellent', 'good', 'fair', 'poor', 'critical', 'under_maintenance'];
@@ -77,6 +78,15 @@ export default function HomeWidgetFilters({
           return <input type="number" className={inputClass} placeholder="Year" value={filters.purchaseYear || ''} onChange={(e) => setFilter('purchaseYear', e.target.value)} />;
         case 'warrantyStatus':
           return <select className={inputClass} value={filters.warrantyStatus || ''} onChange={(e) => setFilter('warrantyStatus', e.target.value)}><option value="">All</option><option value="active">Active</option><option value="expiring">Expiring</option><option value="expired">Expired</option></select>;
+        case 'auditResource':
+          return (
+            <select className={inputClass} value={filters.auditResource || ''} onChange={(e) => setFilter('auditResource', e.target.value)}>
+              <option value="">All resources</option>
+              {Object.entries(AUDIT_RESOURCE_LABELS).map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
+          );
         default: return null;
       }
     })();

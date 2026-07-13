@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, Suspense, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import UpgradeNudges from '@/components/UpgradeNudges';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -12,6 +12,7 @@ import { canWrite } from '@/lib/permissions';
 import type { ColumnId } from '@/lib/assetsTableConfig';
 import { hasActiveBasicFilters } from '@/lib/assetsTableConfig';
 import { breadcrumbForNode, flattenTree, type LocationTreeNode } from '@/lib/locations';
+import { fetchInsightMatch } from '@/lib/insights';
 
 function api(path: string) {
   const base = process.env.NEXT_PUBLIC_API_URL || '';
@@ -38,6 +39,7 @@ function SummaryCard({ label, value, accent = 'text-gray-100' }: { label: string
 
 function AssetsPageContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { prefs, updatePrefs, loaded: prefsLoaded } = useAssetListPreferences();
   const [assets, setAssets] = useState<AssetRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -58,6 +60,15 @@ function AssetsPageContent() {
   const [searchDebounce, setSearchDebounce] = useState(prefs.globalSearch);
 
   const assignedToParam = searchParams.get('assignedTo') || '';
+  const insightRuleKeyParam = searchParams.get('insightRuleKey') || '';
+
+  const [insightFilter, setInsightFilter] = useState<{
+    ruleKey: string;
+    name: string;
+    assetIds: string[] | null;
+    loading: boolean;
+    error: string;
+  }>({ ruleKey: '', name: '', assetIds: null, loading: false, error: '' });
 
   const canAddAsset = canWrite('assets');
   const canEdit = canWrite('assets');
@@ -78,7 +89,59 @@ function AssetsPageContent() {
 
   useEffect(() => {
     setPage(1);
-  }, [searchDebounce, prefs.advancedFilters, prefs.basicFilters, prefs.sort, prefs.order, prefs.pageSize, assignedToParam]);
+  }, [searchDebounce, prefs.advancedFilters, prefs.basicFilters, prefs.sort, prefs.order, prefs.pageSize, assignedToParam, insightRuleKeyParam]);
+
+  useEffect(() => {
+    if (!insightRuleKeyParam) {
+      setInsightFilter({ ruleKey: '', name: '', assetIds: null, loading: false, error: '' });
+      return;
+    }
+
+    let cancelled = false;
+    setInsightFilter((prev) => ({
+      ...prev,
+      ruleKey: insightRuleKeyParam,
+      loading: true,
+      error: '',
+      assetIds: null,
+    }));
+
+    fetchInsightMatch(insightRuleKeyParam)
+      .then((match) => {
+        if (cancelled) return;
+        if (match.ruleType !== 'asset') {
+          setInsightFilter({
+            ruleKey: insightRuleKeyParam,
+            name: match.name,
+            assetIds: [],
+            loading: false,
+            error: 'This insight does not filter assets. Use the link from the Insights page instead.',
+          });
+          return;
+        }
+        setInsightFilter({
+          ruleKey: insightRuleKeyParam,
+          name: match.name,
+          assetIds: match.assetIds,
+          loading: false,
+          error: '',
+        });
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setInsightFilter({
+          ruleKey: insightRuleKeyParam,
+          name: '',
+          assetIds: [],
+          loading: false,
+          error: e instanceof Error ? e.message : 'Failed to load insight filter',
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [insightRuleKeyParam]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -163,6 +226,7 @@ function AssetsPageContent() {
 
   useEffect(() => {
     if (!prefsLoaded) return;
+    if (insightRuleKeyParam && insightFilter.loading) return;
     const token = localStorage.getItem('token');
     if (!token) {
       setLoading(false);
@@ -174,6 +238,9 @@ function AssetsPageContent() {
     const params = new URLSearchParams();
     if (searchDebounce.trim()) params.set('search', searchDebounce.trim());
     if (assignedToParam) params.set('assignedTo', assignedToParam);
+    if (insightRuleKeyParam && insightFilter.assetIds !== null) {
+      params.set('assetIds', insightFilter.assetIds.join(','));
+    }
     const bf = prefs.basicFilters;
     if (bf?.status) params.set('status', bf.status);
     if (bf?.category) params.set('category', bf.category);
@@ -208,7 +275,11 @@ function AssetsPageContent() {
       })
       .catch(() => setError('Failed to load assets'))
       .finally(() => setLoading(false));
-  }, [prefsLoaded, searchDebounce, assignedToParam, prefs.advancedFilters, prefs.basicFilters, prefs.sort, prefs.order, prefs.pageSize, page]);
+  }, [prefsLoaded, searchDebounce, assignedToParam, insightRuleKeyParam, insightFilter.loading, insightFilter.assetIds, prefs.advancedFilters, prefs.basicFilters, prefs.sort, prefs.order, prefs.pageSize, page]);
+
+  const clearInsightFilter = () => {
+    router.replace('/dashboard/assets');
+  };
 
   const downloadQRPDF = async () => {
     const token = localStorage.getItem('token');
@@ -236,7 +307,8 @@ function AssetsPageContent() {
   const hasActiveFilters =
     Boolean(searchDebounce.trim()) ||
     prefs.advancedFilters.length > 0 ||
-    hasActiveBasicFilters(prefs.basicFilters);
+    hasActiveBasicFilters(prefs.basicFilters) ||
+    Boolean(insightRuleKeyParam);
 
   if (!prefsLoaded) return <LoadingSpinner message="Loading preferences..." />;
 
@@ -263,6 +335,31 @@ function AssetsPageContent() {
           )}
         </div>
       </div>
+
+      {insightRuleKeyParam ? (
+        <div className="mb-4 px-4 py-3 rounded-xl border border-violet-500/30 bg-violet-500/10 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-xs font-semibold text-violet-300 uppercase tracking-wide">Insight filter</p>
+            {insightFilter.loading ? (
+              <p className="text-sm text-gray-400 mt-0.5">Loading matching assets…</p>
+            ) : insightFilter.error ? (
+              <p className="text-sm text-red-300 mt-0.5">{insightFilter.error}</p>
+            ) : (
+              <p className="text-sm text-gray-300 mt-0.5">
+                Showing assets for <span className="font-medium text-violet-200">{insightFilter.name}</span>
+                {insightFilter.assetIds !== null ? ` (${insightFilter.assetIds.length})` : ''}
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={clearInsightFilter}
+            className={`${buttonClass} border-gray-700/60 text-gray-300 hover:text-gray-100`}
+          >
+            Clear insight filter
+          </button>
+        </div>
+      ) : null}
 
       <UpgradeNudges
         userTier={subscriptionTier}

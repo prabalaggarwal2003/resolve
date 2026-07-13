@@ -6,7 +6,10 @@ import { HOME_DASHBOARD_TEMPLATES } from '@/lib/homeDashboardTemplates';
 import type { HomeDataContext, HomeWidgetFilters } from '@/lib/homeDashboardWidgets';
 import { useHomeDashboard } from '@/hooks/useHomeDashboard';
 import HomeWidgetBoard from '@/components/home/HomeWidgetBoard';
+import HomeInsightsPanel from '@/components/home/HomeInsightsPanel';
 import { formatAssetStatusLabel } from '@/lib/assetStatuses';
+import { canAccessFeature, fetchOrgSubscription, getStoredSubscription } from '@/lib/subscriptionUtils';
+import { api } from '@/lib/homeDashboard';
 
 const buttonClass = 'px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors';
 const inputClass = 'px-2 py-1 text-xs border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200';
@@ -60,6 +63,10 @@ export default function HomeDashboardView({
   const [newDashScope, setNewDashScope] = useState<'personal' | 'organization'>('personal');
   const [deleting, setDeleting] = useState(false);
   const [userName, setUserName] = useState('');
+  const [tier, setTier] = useState(() => getStoredSubscription().tier);
+  const [isExpired, setIsExpired] = useState(() => getStoredSubscription().isExpired);
+
+  const hasInsightsAccess = canAccessFeature(tier, 'insights') && !isExpired;
 
   const {
     dashboards,
@@ -80,6 +87,13 @@ export default function HomeDashboardView({
 
   useEffect(() => {
     setUserName(getUserNameFromStorage());
+  }, []);
+
+  useEffect(() => {
+    fetchOrgSubscription(api).then((sub) => {
+      setTier(sub.tier);
+      setIsExpired(sub.isExpired);
+    });
   }, []);
 
   const load = useCallback(async () => {
@@ -156,6 +170,8 @@ export default function HomeDashboardView({
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">Your customizable home dashboard</p>
       </div>
+
+      {hasInsightsAccess ? <HomeInsightsPanel /> : null}
 
       <div className="rounded-xl border border-gray-700/50 bg-gray-900/30 p-3">
         <p className="text-[10px] text-gray-500 uppercase mb-2">Page filters</p>

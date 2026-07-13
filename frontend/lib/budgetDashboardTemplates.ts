@@ -36,6 +36,24 @@ export const BUDGET_DASHBOARD_TEMPLATES = [
       ],
     } as BudgetDashboardLayout,
   },
+  {
+    id: 'procurement',
+    name: 'Procurement focus',
+    description: 'Purchase pipeline, vendors, and payment status',
+    layout: {
+      version: 1,
+      widgets: [
+        { id: 'p1', kind: 'metric', title: 'Procurement Spend', metric: 'procurement_amount', chartType: 'kpi', filters: {}, filterFields: [], order: 0, colSpan: 3, rowSpan: 2 },
+        { id: 'p2', kind: 'metric', title: 'Committed', metric: 'committed_procurement_amount', chartType: 'kpi', filters: {}, filterFields: [], order: 1, colSpan: 3, rowSpan: 2 },
+        { id: 'p3', kind: 'metric', title: 'Pending Purchases', metric: 'pending_procurement_count', chartType: 'kpi', filters: {}, filterFields: [], order: 2, colSpan: 3, rowSpan: 2 },
+        { id: 'p4', kind: 'metric', title: 'Overdue Payments', metric: 'overdue_payment_count', chartType: 'kpi', filters: {}, filterFields: [], order: 3, colSpan: 3, rowSpan: 2 },
+        { id: 'p5', kind: 'metric', title: 'By Lifecycle Stage', metric: 'procurement_amount', groupBy: 'lifecycle_stage', chartType: 'donut', filters: {}, filterFields: [], order: 4, colSpan: 6, rowSpan: 3 },
+        { id: 'p6', kind: 'metric', title: 'By Vendor', metric: 'procurement_amount', groupBy: 'vendor', chartType: 'horizontal_bar', filters: {}, filterFields: [], order: 5, colSpan: 6, rowSpan: 3 },
+        { id: 'p7', kind: 'quick', title: 'Recent Procurements', quickType: 'recent_procurements', filters: {}, filterFields: [], order: 6, colSpan: 6, rowSpan: 3 },
+        { id: 'p8', kind: 'quick', title: 'Overdue Payments', quickType: 'overdue_payments', filters: {}, filterFields: [], order: 7, colSpan: 6, rowSpan: 3 },
+      ],
+    } as BudgetDashboardLayout,
+  },
 ];
 
 export function getTemplateById(id: string) {

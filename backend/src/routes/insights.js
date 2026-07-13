@@ -18,7 +18,12 @@ import {
   deleteInsightRule,
   resetInsightRule,
 } from '../services/insightOrgConfigService.js';
-import { evaluateInsights } from '../services/insightEvaluatorService.js';
+import { evaluateInsights, getMatchingAssetIdsForRule } from '../services/insightEvaluatorService.js';
+import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
+import {
+  buildInsightOrgConfigChanges,
+  buildInsightRuleChanges,
+} from '../services/moduleConfigAudit.js';
 
 const router = express.Router();
 router.use(protect);
@@ -47,7 +52,24 @@ router.get('/config', requireTabRead('insights'), async (req, res) => {
 /** PUT /api/insights/config */
 router.put('/config', requireTabWrite('insights'), async (req, res) => {
   try {
+    const before = await getInsightOrgConfig(req.user.organizationId);
     const config = await updateInsightOrgConfig(req.user.organizationId, req.user._id, req.body);
+    const changePayload = buildInsightOrgConfigChanges(before, config);
+    if (changePayload) {
+      await logAudit(
+        req.user._id,
+        AUDIT_ACTIONS.INSIGHT_CONFIG_UPDATED,
+        AUDIT_RESOURCES.INSIGHT,
+        req.user.organizationId,
+        {
+          resourceName: 'Insights configuration',
+          description: changePayload.summary,
+          details: changePayload,
+          severity: 'low',
+          ...getRequestMetadata(req),
+        }
+      );
+    }
     res.json({ config });
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });
@@ -79,6 +101,19 @@ router.get('/rules/:id', requireTabRead('insights'), async (req, res) => {
 router.post('/rules', requireTabWrite('insights'), async (req, res) => {
   try {
     const rule = await createCustomInsightRule(req.user.organizationId, req.user._id, req.body);
+    await logAudit(
+      req.user._id,
+      AUDIT_ACTIONS.INSIGHT_RULE_CREATED,
+      AUDIT_RESOURCES.INSIGHT,
+      rule._id,
+      {
+        resourceName: rule.name,
+        description: `Created insight rule "${rule.name}"`,
+        details: { ruleKey: rule.ruleKey, ruleType: rule.ruleType },
+        severity: 'medium',
+        ...getRequestMetadata(req),
+      }
+    );
     res.status(201).json({ rule });
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });
@@ -88,7 +123,25 @@ router.post('/rules', requireTabWrite('insights'), async (req, res) => {
 /** PUT /api/insights/rules/:id */
 router.put('/rules/:id', requireTabWrite('insights'), async (req, res) => {
   try {
+    const before = await getInsightRuleById(req.user.organizationId, req.params.id);
+    if (!before) return res.status(404).json({ message: 'Rule not found' });
     const rule = await updateInsightRule(req.user.organizationId, req.user._id, req.params.id, req.body);
+    const changePayload = buildInsightRuleChanges(before, rule);
+    if (changePayload) {
+      await logAudit(
+        req.user._id,
+        AUDIT_ACTIONS.INSIGHT_RULE_UPDATED,
+        AUDIT_RESOURCES.INSIGHT,
+        rule._id,
+        {
+          resourceName: rule.name,
+          description: changePayload.summary,
+          details: changePayload,
+          severity: 'medium',
+          ...getRequestMetadata(req),
+        }
+      );
+    }
     res.json({ rule });
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });
@@ -98,7 +151,25 @@ router.put('/rules/:id', requireTabWrite('insights'), async (req, res) => {
 /** POST /api/insights/rules/:id/reset */
 router.post('/rules/:id/reset', requireTabWrite('insights'), async (req, res) => {
   try {
+    const existing = await getInsightRuleById(req.user.organizationId, req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Rule not found' });
     const rule = await resetInsightRule(req.user.organizationId, req.user._id, req.params.id);
+    const changePayload = buildInsightRuleChanges(existing, rule);
+    if (changePayload) {
+      await logAudit(
+        req.user._id,
+        AUDIT_ACTIONS.INSIGHT_RULE_RESET,
+        AUDIT_RESOURCES.INSIGHT,
+        rule._id,
+        {
+          resourceName: rule.name,
+          description: changePayload.summary,
+          details: changePayload,
+          severity: 'low',
+          ...getRequestMetadata(req),
+        }
+      );
+    }
     res.json({ rule });
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });
@@ -108,8 +179,33 @@ router.post('/rules/:id/reset', requireTabWrite('insights'), async (req, res) =>
 /** DELETE /api/insights/rules/:id */
 router.delete('/rules/:id', requireTabWrite('insights'), async (req, res) => {
   try {
-    const result = await deleteInsightRule(req.user.organizationId, req.params.id);
-    res.json(result);
+    const existing = await getInsightRuleById(req.user.organizationId, req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Rule not found' });
+    await deleteInsightRule(req.user.organizationId, req.params.id);
+    await logAudit(
+      req.user._id,
+      AUDIT_ACTIONS.INSIGHT_RULE_DELETED,
+      AUDIT_RESOURCES.INSIGHT,
+      existing._id,
+      {
+        resourceName: existing.name,
+        description: `Deleted insight rule "${existing.name}"`,
+        details: { ruleKey: existing.ruleKey },
+        severity: 'high',
+        ...getRequestMetadata(req),
+      }
+    );
+    res.json({ message: 'Rule deleted' });
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+});
+
+/** GET /api/insights/match/:ruleKey — asset IDs matching an insight rule */
+router.get('/match/:ruleKey', requireTabRead('insights'), async (req, res) => {
+  try {
+    const match = await getMatchingAssetIdsForRule(req.user.organizationId, req.params.ruleKey);
+    res.json(match);
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });
   }

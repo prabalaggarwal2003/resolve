@@ -15,6 +15,13 @@ export default function BudgetWidgetFilters({
   budgetStatuses,
   financialYears,
   fundingSources = [],
+  budgets = [],
+  vendors = [],
+  projects = [],
+  costCenters = [],
+  categories = [],
+  lifecycleStages = [],
+  paymentStatuses = [],
 }: {
   widget: BudgetWidget;
   onChange: (patch: Partial<BudgetWidget>) => void;
@@ -25,6 +32,13 @@ export default function BudgetWidgetFilters({
   budgetStatuses: { id: string; name: string }[];
   financialYears: string[];
   fundingSources?: { id: string; name: string }[];
+  budgets?: { _id: string; name: string }[];
+  vendors?: { _id: string; name: string }[];
+  projects?: string[];
+  costCenters?: string[];
+  categories?: string[];
+  lifecycleStages?: { id: string; name: string }[];
+  paymentStatuses?: { id: string; name: string }[];
 }) {
   const fields = widget.filterFields ?? [];
   const filters = widget.filters ?? {};
@@ -73,6 +87,13 @@ export default function BudgetWidgetFilters({
               {budgetTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           );
+        case 'budgetId':
+          return (
+            <select className={inputClass} value={filters.budgetId || ''} onChange={(e) => setFilter('budgetId', e.target.value)}>
+              <option value="">All</option>
+              {budgets.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
+            </select>
+          );
         case 'departmentId':
           return (
             <select className={inputClass} value={filters.departmentId || ''} onChange={(e) => setFilter('departmentId', e.target.value)}>
@@ -99,6 +120,48 @@ export default function BudgetWidgetFilters({
             <select className={inputClass} value={filters.fundingSourceId || ''} onChange={(e) => setFilter('fundingSourceId', e.target.value)}>
               <option value="">All</option>
               {(fundingSources || []).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+            </select>
+          );
+        case 'vendorId':
+          return (
+            <select className={inputClass} value={filters.vendorId || ''} onChange={(e) => setFilter('vendorId', e.target.value)}>
+              <option value="">All</option>
+              {vendors.map((v) => <option key={v._id} value={v._id}>{v.name}</option>)}
+            </select>
+          );
+        case 'project':
+          return (
+            <select className={inputClass} value={filters.project || ''} onChange={(e) => setFilter('project', e.target.value)}>
+              <option value="">All</option>
+              {projects.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          );
+        case 'costCenter':
+          return (
+            <select className={inputClass} value={filters.costCenter || ''} onChange={(e) => setFilter('costCenter', e.target.value)}>
+              <option value="">All</option>
+              {costCenters.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          );
+        case 'category':
+          return (
+            <select className={inputClass} value={filters.category || ''} onChange={(e) => setFilter('category', e.target.value)}>
+              <option value="">All</option>
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          );
+        case 'lifecycleStage':
+          return (
+            <select className={inputClass} value={filters.lifecycleStage || ''} onChange={(e) => setFilter('lifecycleStage', e.target.value)}>
+              <option value="">All</option>
+              {lifecycleStages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          );
+        case 'paymentStatus':
+          return (
+            <select className={inputClass} value={filters.paymentStatus || ''} onChange={(e) => setFilter('paymentStatus', e.target.value)}>
+              <option value="">All</option>
+              {paymentStatuses.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           );
         default:

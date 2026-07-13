@@ -20,6 +20,7 @@ import {
   updateAssetHealthProfile,
   deleteAssetHealthProfile,
   resetAutomationRule,
+  getAssetHealthProfile,
 } from '../services/assetHealthOrgConfigService.js';
 import {
   getAssetHealthSummaryData,
@@ -29,6 +30,11 @@ import {
 } from '../services/assetHealthSummaryService.js';
 import { getDefaultHealthDashboardLayout } from '../constants/assetHealthDefaults.js';
 import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
+import {
+  buildAssetHealthOrgConfigChanges,
+  buildAssetHealthProfileChanges,
+  buildAssetHealthRuleResetChanges,
+} from '../services/moduleConfigAudit.js';
 import { getDepartmentScopeId } from '../services/permissions.js';
 
 const router = express.Router();
@@ -118,7 +124,24 @@ router.get('/config', requireTabRead('assetHealth'), async (req, res) => {
 
 router.put('/config', requireTabRead('assetHealth'), requireRole(['super_admin', 'admin']), async (req, res) => {
   try {
+    const before = await getAssetHealthOrgConfig(req.user.organizationId);
     const config = await updateAssetHealthOrgConfig(req.user.organizationId, req.user._id, req.body);
+    const changePayload = buildAssetHealthOrgConfigChanges(before, config);
+    if (changePayload) {
+      await logAudit(
+        req.user._id,
+        AUDIT_ACTIONS.ASSET_HEALTH_CONFIG_UPDATED,
+        AUDIT_RESOURCES.ASSET_HEALTH,
+        req.user.organizationId,
+        {
+          resourceName: 'Asset health settings',
+          description: changePayload.summary,
+          details: changePayload,
+          severity: 'medium',
+          ...getRequestMetadata(req),
+        }
+      );
+    }
     res.json({ config });
   } catch (error) {
     res.status(error.status || 500).json({ message: error.message });
@@ -136,7 +159,26 @@ router.post('/config/preview', requireTabRead('assetHealth'), async (req, res) =
 
 router.post('/config/rules/:ruleKey/reset', requireTabRead('assetHealth'), requireRole(['super_admin', 'admin']), async (req, res) => {
   try {
+    const beforeConfig = await getAssetHealthOrgConfig(req.user.organizationId);
+    const beforeRule = (beforeConfig.automationRules || []).find((r) => r.ruleKey === req.params.ruleKey);
     const config = await resetAutomationRule(req.user.organizationId, req.user._id, req.params.ruleKey);
+    const afterRule = (config.automationRules || []).find((r) => r.ruleKey === req.params.ruleKey);
+    const changePayload = buildAssetHealthRuleResetChanges(req.params.ruleKey, beforeRule, afterRule);
+    if (changePayload) {
+      await logAudit(
+        req.user._id,
+        AUDIT_ACTIONS.ASSET_HEALTH_RULE_RESET,
+        AUDIT_RESOURCES.ASSET_HEALTH,
+        req.user.organizationId,
+        {
+          resourceName: req.params.ruleKey,
+          description: changePayload.summary,
+          details: changePayload,
+          severity: 'low',
+          ...getRequestMetadata(req),
+        }
+      );
+    }
     res.json({ config });
   } catch (error) {
     res.status(error.status || 500).json({ message: error.message });
@@ -155,6 +197,18 @@ router.get('/profiles', requireTabRead('assetHealth'), async (req, res) => {
 router.post('/profiles', requireTabRead('assetHealth'), requireRole(['super_admin', 'admin']), async (req, res) => {
   try {
     const profile = await createAssetHealthProfile(req.user.organizationId, req.user._id, req.body);
+    await logAudit(
+      req.user._id,
+      AUDIT_ACTIONS.ASSET_HEALTH_PROFILE_CREATED,
+      AUDIT_RESOURCES.ASSET_HEALTH,
+      profile._id,
+      {
+        resourceName: profile.name,
+        description: `Created asset health profile "${profile.name}"`,
+        severity: 'medium',
+        ...getRequestMetadata(req),
+      }
+    );
     res.status(201).json({ profile });
   } catch (error) {
     res.status(error.status || 500).json({ message: error.message });
@@ -163,7 +217,25 @@ router.post('/profiles', requireTabRead('assetHealth'), requireRole(['super_admi
 
 router.put('/profiles/:id', requireTabRead('assetHealth'), requireRole(['super_admin', 'admin']), async (req, res) => {
   try {
+    const before = await getAssetHealthProfile(req.user.organizationId, req.params.id);
+    if (!before) return res.status(404).json({ message: 'Health profile not found' });
     const profile = await updateAssetHealthProfile(req.user.organizationId, req.user._id, req.params.id, req.body);
+    const changePayload = buildAssetHealthProfileChanges(before, profile);
+    if (changePayload) {
+      await logAudit(
+        req.user._id,
+        AUDIT_ACTIONS.ASSET_HEALTH_PROFILE_UPDATED,
+        AUDIT_RESOURCES.ASSET_HEALTH,
+        profile._id,
+        {
+          resourceName: profile.name,
+          description: changePayload.summary,
+          details: changePayload,
+          severity: 'medium',
+          ...getRequestMetadata(req),
+        }
+      );
+    }
     res.json({ profile });
   } catch (error) {
     res.status(error.status || 500).json({ message: error.message });
@@ -172,7 +244,21 @@ router.put('/profiles/:id', requireTabRead('assetHealth'), requireRole(['super_a
 
 router.delete('/profiles/:id', requireTabRead('assetHealth'), requireRole(['super_admin', 'admin']), async (req, res) => {
   try {
+    const existing = await getAssetHealthProfile(req.user.organizationId, req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Health profile not found' });
     await deleteAssetHealthProfile(req.user.organizationId, req.params.id);
+    await logAudit(
+      req.user._id,
+      AUDIT_ACTIONS.ASSET_HEALTH_PROFILE_DELETED,
+      AUDIT_RESOURCES.ASSET_HEALTH,
+      existing._id,
+      {
+        resourceName: existing.name,
+        description: `Deleted asset health profile "${existing.name}"`,
+        severity: 'high',
+        ...getRequestMetadata(req),
+      }
+    );
     res.json({ ok: true });
   } catch (error) {
     res.status(error.status || 500).json({ message: error.message });
@@ -209,6 +295,19 @@ router.post('/dashboards', requireTabRead('assetHealth'), async (req, res) => {
       autoRefresh: autoRefresh || 'manual',
       allowedRoleIds: allowedRoleIds || [],
     });
+    await logAudit(
+      req.user._id,
+      AUDIT_ACTIONS.ASSET_HEALTH_DASHBOARD_CREATED,
+      AUDIT_RESOURCES.ASSET_HEALTH,
+      dashboard._id,
+      {
+        resourceName: dashboard.name,
+        description: `Created asset health dashboard "${dashboard.name}"`,
+        details: { entityType: 'dashboard', scope: dashboard.scope },
+        severity: 'low',
+        ...getRequestMetadata(req),
+      }
+    );
     res.status(201).json({ dashboard });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -244,6 +343,19 @@ router.put('/dashboards/:id', requireTabRead('assetHealth'), async (req, res) =>
       dashboard.scope = scope === 'organization' ? 'organization' : 'personal';
     }
     await dashboard.save();
+    await logAudit(
+      req.user._id,
+      AUDIT_ACTIONS.ASSET_HEALTH_DASHBOARD_UPDATED,
+      AUDIT_RESOURCES.ASSET_HEALTH,
+      dashboard._id,
+      {
+        resourceName: dashboard.name,
+        description: `Updated asset health dashboard "${dashboard.name}"`,
+        details: { entityType: 'dashboard' },
+        severity: 'low',
+        ...getRequestMetadata(req),
+      }
+    );
     res.json({ dashboard });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -259,7 +371,22 @@ router.delete('/dashboards/:id', requireTabRead('assetHealth'), async (req, res)
     if (dashboard.scope === 'organization' && !['admin', 'super_admin'].includes(req.user.role)) {
       return res.status(403).json({ message: 'Only admins can delete organization dashboards' });
     }
+    const dashboardName = dashboard.name;
+    const dashboardId = dashboard._id;
     await dashboard.deleteOne();
+    await logAudit(
+      req.user._id,
+      AUDIT_ACTIONS.ASSET_HEALTH_DASHBOARD_DELETED,
+      AUDIT_RESOURCES.ASSET_HEALTH,
+      dashboardId,
+      {
+        resourceName: dashboardName,
+        description: `Deleted asset health dashboard "${dashboardName}"`,
+        details: { entityType: 'dashboard' },
+        severity: 'medium',
+        ...getRequestMetadata(req),
+      }
+    );
     res.json({ ok: true });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -279,6 +406,19 @@ router.get('/maintenance', requireTabRead('maintenance'), async (req, res) => {
 router.post('/maintenance/check-overdue', requireRole(['super_admin', 'admin']), async (req, res) => {
   try {
     const result = await checkOverdueMaintenanceAlerts();
+    await logAudit(
+      req.user._id,
+      AUDIT_ACTIONS.HEALTH_CHECK_RUN,
+      AUDIT_RESOURCES.ASSET_HEALTH,
+      req.user.organizationId,
+      {
+        resourceName: 'Overdue maintenance check',
+        description: 'Ran overdue maintenance alert check',
+        details: { scope: 'overdue_maintenance', ...result },
+        severity: 'low',
+        ...getRequestMetadata(req),
+      }
+    );
     res.json(result);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -289,6 +429,23 @@ router.post('/check/:assetId', requireRole(['super_admin', 'admin', 'manager']),
   try {
     const healthAnalysis = await checkAssetHealth(req.params.assetId, req.user._id);
     if (!healthAnalysis) return res.status(404).json({ message: 'Asset not found' });
+    await logAudit(
+      req.user._id,
+      AUDIT_ACTIONS.HEALTH_CHECK_RUN,
+      AUDIT_RESOURCES.ASSET_HEALTH,
+      req.params.assetId,
+      {
+        resourceName: String(req.params.assetId),
+        description: `Ran health check on asset`,
+        details: {
+          scope: 'single_asset',
+          recommendedCondition: healthAnalysis.recommendedCondition,
+          needsUpdate: healthAnalysis.needsUpdate,
+        },
+        severity: 'low',
+        ...getRequestMetadata(req),
+      }
+    );
     res.json(healthAnalysis);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -299,6 +456,19 @@ router.post('/check-all', requireRole(['super_admin', 'admin']), async (req, res
   try {
     const results = await runOrganizationHealthCheck(req.user.organizationId, req.user._id);
     await recordHealthSnapshot(req.user.organizationId);
+    await logAudit(
+      req.user._id,
+      AUDIT_ACTIONS.HEALTH_CHECK_RUN,
+      AUDIT_RESOURCES.ASSET_HEALTH,
+      req.user.organizationId,
+      {
+        resourceName: 'Organization health check',
+        description: `Ran organization health check on ${results.total} assets`,
+        details: { scope: 'organization', ...results },
+        severity: 'medium',
+        ...getRequestMetadata(req),
+      }
+    );
     res.json(results);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -377,13 +547,19 @@ router.patch('/:assetId/maintenance', requireRole(['super_admin', 'admin', 'mana
       await sendMaintenanceNotification(asset, reason || 'Manual maintenance request');
     }
 
-    await logAudit(req.user._id, AUDIT_ACTIONS.ASSET_UPDATED, AUDIT_RESOURCES.ASSET, asset._id, {
-      resourceName: `${asset.assetId} - ${asset.name}`,
-      description: `Manual ${status === 'start' ? 'started' : 'completed'} maintenance`,
-      details: { maintenanceAction: status, reason, manual: true },
-      severity: 'medium',
-      ...getRequestMetadata(req),
-    });
+    await logAudit(
+      req.user._id,
+      status === 'start' ? AUDIT_ACTIONS.MAINTENANCE_STARTED : AUDIT_ACTIONS.MAINTENANCE_COMPLETED,
+      AUDIT_RESOURCES.ASSET_HEALTH,
+      asset._id,
+      {
+        resourceName: `${asset.assetId} - ${asset.name}`,
+        description: `Manual ${status === 'start' ? 'started' : 'completed'} maintenance`,
+        details: { maintenanceAction: status, reason, manual: true },
+        severity: 'medium',
+        ...getRequestMetadata(req),
+      }
+    );
 
     res.json(asset);
   } catch (error) {

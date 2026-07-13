@@ -20,6 +20,8 @@ export default function BudgetAnalyticsTab({
   budgetTypes,
   budgetStatuses,
   fundingSources = [],
+  lifecycleStages = [],
+  paymentStatuses = [],
 }: {
   departments: { _id: string; name: string }[];
   locations: { _id: string; name: string }[];
@@ -27,6 +29,8 @@ export default function BudgetAnalyticsTab({
   budgetTypes: { id: string; name: string }[];
   budgetStatuses: { id: string; name: string }[];
   fundingSources?: { id: string; name: string }[];
+  lifecycleStages?: { id: string; name: string }[];
+  paymentStatuses?: { id: string; name: string }[];
 }) {
   const [ctx, setCtx] = useState<BudgetDataContext | null>(null);
   const [loading, setLoading] = useState(true);
@@ -92,6 +96,19 @@ export default function BudgetAnalyticsTab({
     }
   };
 
+  const filterLookups = useMemo(() => {
+    const fromApi = ctx?.lookups;
+    return {
+      budgets: fromApi?.budgets || (ctx?.budgets || []).map((b) => ({ _id: b.id, name: b.name })),
+      vendors: fromApi?.vendors || [],
+      projects: fromApi?.projects || Array.from(new Set((ctx?.budgets || []).map((b) => b.project).filter(Boolean))),
+      costCenters: fromApi?.costCenters || Array.from(new Set((ctx?.budgets || []).map((b) => b.costCenter).filter(Boolean))),
+      categories: fromApi?.categories || Array.from(new Set((ctx?.budgets || []).map((b) => b.category).filter(Boolean))),
+      lifecycleStages: fromApi?.lifecycleStages || lifecycleStages,
+      paymentStatuses: fromApi?.paymentStatuses || paymentStatuses,
+    };
+  }, [ctx, lifecycleStages, paymentStatuses]);
+
   if (!loaded) return <p className="text-sm text-gray-500 py-8 text-center">Loading dashboards…</p>;
 
   return (
@@ -119,16 +136,20 @@ export default function BudgetAnalyticsTab({
         onClear={clearFilters}
         showSearch={false}
         lookups={{
-          budgets: (ctx?.budgets || []).map((b) => ({ _id: b.id, name: b.name })),
+          budgets: filterLookups.budgets,
           budgetTypes,
           budgetStatuses,
           fundingSources,
           departments,
           locations,
           users,
+          vendors: filterLookups.vendors,
           financialYears,
-          projects: Array.from(new Set((ctx?.budgets || []).map((b) => b.project).filter(Boolean))),
-          costCenters: Array.from(new Set((ctx?.budgets || []).map((b) => b.costCenter).filter(Boolean))),
+          projects: filterLookups.projects,
+          costCenters: filterLookups.costCenters,
+          categories: filterLookups.categories,
+          lifecycleStages: filterLookups.lifecycleStages,
+          paymentStatuses: filterLookups.paymentStatuses,
         }}
       />
 
@@ -166,6 +187,13 @@ export default function BudgetAnalyticsTab({
           budgetStatuses={budgetStatuses}
           financialYears={financialYears}
           fundingSources={fundingSources}
+          budgets={filterLookups.budgets}
+          vendors={filterLookups.vendors}
+          projects={filterLookups.projects}
+          costCenters={filterLookups.costCenters}
+          categories={filterLookups.categories}
+          lifecycleStages={filterLookups.lifecycleStages}
+          paymentStatuses={filterLookups.paymentStatuses}
           saving={saving}
         />
       )}

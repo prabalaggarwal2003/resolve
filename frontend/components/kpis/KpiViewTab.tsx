@@ -57,7 +57,7 @@ export default function KpiViewTab({
     setLoading(true);
     try {
       const data = await fetchKpiSummary(pageFilters);
-      setCtx({ assets: data.assets, totals: data.totals, quick: data.quick });
+      setCtx({ assets: data.assets, totals: data.totals, quick: data.quick, budget: data.budget ?? null });
     } finally {
       setLoading(false);
     }
