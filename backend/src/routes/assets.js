@@ -20,6 +20,9 @@ import {
   validateAssetAgainstTemplate,
 } from '../services/assetTemplateService.js';
 import { buildAssetListQuery, resolveAssetSort } from '../services/assetQueryService.js';
+import { recalculateBudgetsForAsset } from '../services/budgetRollupService.js';
+import { linkAssetToProcurement } from '../services/procurementService.js';
+import { getAssetHealthOrgConfig } from '../services/assetHealthOrgConfigService.js';
 
 const router = express.Router();
 
@@ -55,6 +58,8 @@ router.get('/', requireCanRead, async (req, res) => {
         .populate('groupId', 'name')
         .populate('assignedTo', 'name email')
         .populate('vendorId', 'name vendorId')
+        .populate('budgetId', 'name code')
+        .populate('procurementId', 'purchaseId purchaseOrderNumber')
         .sort(sortOpt)
         .skip(skip)
         .limit(limitNum)
@@ -142,6 +147,8 @@ router.get('/:id', requireCanRead, async (req, res) => {
       .populate('departmentId', 'name')
       .populate('groupId', 'name')
       .populate('vendorId', 'name vendorId')
+      .populate('budgetId', 'name code currency')
+      .populate('procurementId', 'purchaseId purchaseOrderNumber invoiceNumber')
       .populate('assignedTo', 'name email')
       .lean();
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
@@ -230,12 +237,21 @@ router.post('/', requireCanEdit, async (req, res) => {
     );
 
     // Convert empty strings to null for ObjectId fields to prevent casting errors
-    const objectIdFields = ['vendorId', 'locationId', 'departmentId', 'assignedTo', 'purchaseInvoiceId', 'groupId'];
+    const objectIdFields = ['vendorId', 'locationId', 'departmentId', 'assignedTo', 'purchaseInvoiceId', 'groupId', 'budgetId', 'procurementId'];
     objectIdFields.forEach(field => {
       if (body[field] === '' || body[field] === 'null' || body[field] === 'undefined') {
         body[field] = null;
       }
     });
+
+    if (!body.condition) {
+      const healthConfig = await getAssetHealthOrgConfig(req.user.organizationId);
+      const allowed = ['excellent', 'good'];
+      const requested = req.body.initialCondition;
+      body.condition = allowed.includes(requested)
+        ? requested
+        : (healthConfig.defaultNewAssetCondition || 'excellent');
+    }
 
     const asset = await Asset.create(body);
     const url = getAssetPublicUrl(asset._id.toString(), env.frontendUrl);
@@ -273,6 +289,16 @@ router.post('/', requireCanEdit, async (req, res) => {
       summary: `Created: ${asset.name}`,
     });
 
+    if (body.procurementId) {
+      try {
+        await linkAssetToProcurement(req.user.organizationId, req.user, body.procurementId, asset._id);
+      } catch {
+        /* non-fatal */
+      }
+    } else {
+      await recalculateBudgetsForAsset(req.user.organizationId, asset, null, req.user);
+    }
+
     res.status(201).json({ ...populated, qrCodeUrl: qrCodeUrl || populated.qrCodeUrl });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -286,7 +312,7 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
 
     const changeReason = req.body.changeReason !== undefined ? String(req.body.changeReason).trim() : '';
 
-    const objectIdFields = ['vendorId', 'locationId', 'departmentId', 'assignedTo', 'purchaseInvoiceId', 'groupId'];
+    const objectIdFields = ['vendorId', 'locationId', 'departmentId', 'assignedTo', 'purchaseInvoiceId', 'groupId', 'budgetId', 'procurementId'];
     const patchForLog = { ...req.body };
     delete patchForLog.changeReason;
     objectIdFields.forEach((field) => {
@@ -302,7 +328,8 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
           'A change reason is required when modifying warranty, location, assignee, status, cost, or other important fields',
         importantChanges: pendingEditLog.fieldChanges.filter((c) =>
           ['status', 'locationId', 'departmentId', 'assignedTo', 'assignedToName', 'assignedToEmployeeCode',
-            'warrantyExpiry', 'amcExpiry', 'nextMaintenanceDate', 'cost', 'purchaseDate', 'vendorId', 'condition'].includes(c.field)
+            'warrantyExpiry', 'amcExpiry', 'nextMaintenanceDate', 'cost', 'purchaseDate', 'vendorId', 'condition',
+            'budgetId', 'procurementId', 'fundingSourceId', 'costCenter', 'purchaseOrderNumber', 'invoiceNumber'].includes(c.field)
         ),
       });
     }
@@ -435,6 +462,16 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
       }
     }
 
+    if (update.procurementId && update.procurementId !== String(prev.procurementId || '')) {
+      try {
+        await linkAssetToProcurement(req.user.organizationId, req.user, update.procurementId, asset._id);
+      } catch {
+        /* non-fatal */
+      }
+    } else {
+      await recalculateBudgetsForAsset(req.user.organizationId, asset, prev, req.user);
+    }
+
     res.json(asset);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -446,6 +483,7 @@ router.delete('/:id', requireCanEdit, async (req, res) => {
     const asset = await Asset.findById(req.params.id).lean();
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
     await Asset.deleteOne({ _id: req.params.id });
+    await recalculateBudgetsForAsset(req.user.organizationId, null, asset, req.user);
     await logAudit(req.user._id, 'asset.deleted', 'asset', asset._id, { name: asset.name });
     res.json({ message: 'Asset deleted' });
   } catch (err) {

@@ -5,6 +5,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { canWrite } from '@/lib/permissions';
 import AssetTemplateFieldsForm, { buildAssetPayloadFromTemplate } from '@/components/AssetTemplateFieldsForm';
+import AssetProcurementFields, {
+  assetProcurementPayload,
+  EMPTY_ASSET_PROCUREMENT,
+  type AssetProcurementValues,
+} from '@/components/AssetProcurementFields';
 import type { AssetTemplate } from '@/lib/assetTemplates';
 import type { LocationTreeNode } from '@/lib/locations';
 import type { AssetGroup } from '@/lib/assetGroups';
@@ -37,6 +42,8 @@ export default function NewAssetPage() {
   const [quantity, setQuantity] = useState(1);
   const [bulkCreating, setBulkCreating] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
+  const [procurementValues, setProcurementValues] = useState<AssetProcurementValues>(EMPTY_ASSET_PROCUREMENT);
+  const [initialCondition, setInitialCondition] = useState<'excellent' | 'good'>('excellent');
 
   const generateAssetId = async (categoryName?: string) => {
     setGeneratingAssetId(true);
@@ -167,10 +174,14 @@ export default function NewAssetPage() {
     const postOne = async (id: string, copyValues: Record<string, string | string[]>, includeSerial: boolean) => {
       const values = { ...copyValues };
       if (!includeSerial) delete values.serialNumber;
-      const payload = buildAssetPayloadFromTemplate(template, values, {
-        assetId: id,
-        templateId: template._id,
-      });
+      const payload = {
+        ...buildAssetPayloadFromTemplate(template, values, {
+          assetId: id,
+          templateId: template._id,
+        }),
+        ...assetProcurementPayload(procurementValues),
+        initialCondition,
+      };
       const res = await fetch(api('/api/assets'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -291,6 +302,17 @@ export default function NewAssetPage() {
               <input value={assetId} readOnly className={`${inputClass} bg-gray-900/50 text-gray-400 cursor-not-allowed`} />
             </div>
             <div>
+              <label className={labelClass}>Initial condition</label>
+              <select
+                value={initialCondition}
+                onChange={(e) => setInitialCondition(e.target.value as 'excellent' | 'good')}
+                className={inputClass}
+              >
+                <option value="excellent">Excellent</option>
+                <option value="good">Good</option>
+              </select>
+            </div>
+            <div>
               <label className={labelClass}>Quantity *</label>
               <input
                 type="number"
@@ -319,6 +341,23 @@ export default function NewAssetPage() {
             vendors={vendors}
           />
         )}
+
+        <AssetProcurementFields
+          values={procurementValues}
+          onChange={setProcurementValues}
+          onProcurementSelect={(proc) => {
+            if (!proc) return;
+            setFieldValues((prev) => ({
+              ...prev,
+              ...(proc.vendorId && typeof proc.vendorId === 'object'
+                ? { vendorId: proc.vendorId._id }
+                : typeof proc.vendorId === 'string'
+                ? { vendorId: proc.vendorId }
+                : {}),
+              ...(proc.purchaseDate ? { purchaseDate: proc.purchaseDate.slice(0, 10) } : {}),
+            }));
+          }}
+        />
 
         <button
           type="submit"

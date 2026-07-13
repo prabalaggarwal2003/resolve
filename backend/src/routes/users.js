@@ -105,6 +105,49 @@ router.put('/me/preferences/home-dashboard', async (req, res) => {
   }
 });
 
+router.get('/me/preferences/budget-dashboard', async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('preferences').lean();
+    const prefs = user?.preferences?.budgetDashboard || {};
+    res.json({ activeDashboardId: prefs.activeDashboardId || null });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.put('/me/preferences/budget-dashboard', async (req, res) => {
+  try {
+    const { activeDashboardId } = req.body || {};
+    await User.findByIdAndUpdate(req.user._id, {
+      $set: { 'preferences.budgetDashboard': { activeDashboardId: activeDashboardId || null } },
+    });
+    res.json({ activeDashboardId: activeDashboardId || null });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.get('/me/preferences/budget-module-filters', async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('preferences.budgetModuleFilters').lean();
+    res.json({ filters: user?.preferences?.budgetModuleFilters || {} });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.put('/me/preferences/budget-module-filters', async (req, res) => {
+  try {
+    const { filters } = req.body || {};
+    await User.findByIdAndUpdate(req.user._id, {
+      $set: { 'preferences.budgetModuleFilters': filters && typeof filters === 'object' ? filters : {} },
+    });
+    res.json({ filters: filters || {} });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 /** List users — super_admin sees all in org, others with roles tab read access */
 router.get('/', async (req, res) => {
   try {

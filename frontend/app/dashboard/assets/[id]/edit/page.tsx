@@ -14,6 +14,12 @@ import { detectImportantChanges, type ImportantChange } from '@/lib/assetChangeR
 import type { AssetTemplate } from '@/lib/assetTemplates';
 import { buildFallbackTemplateFromAsset } from '@/lib/assetFieldDisplay';
 import { breadcrumbForNode, flattenTree, type LocationTreeNode } from '@/lib/locations';
+import AssetProcurementFields, {
+  assetProcurementFromRecord,
+  assetProcurementPayload,
+  EMPTY_ASSET_PROCUREMENT,
+  type AssetProcurementValues,
+} from '@/components/AssetProcurementFields';
 
 function api(path: string) {
   const base = process.env.NEXT_PUBLIC_API_URL || '';
@@ -60,6 +66,8 @@ export default function EditAssetPage() {
   const [vendors, setVendors] = useState<{ _id: string; vendorId: string; name: string }[]>([]);
   const [photos, setPhotos] = useState<{ url: string; caption?: string }[]>([]);
   const [documents, setDocuments] = useState<{ url: string; name: string; type?: string }[]>([]);
+  const [procurementValues, setProcurementValues] = useState<AssetProcurementValues>(EMPTY_ASSET_PROCUREMENT);
+  const [originalProcurementValues, setOriginalProcurementValues] = useState<AssetProcurementValues>(EMPTY_ASSET_PROCUREMENT);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -96,6 +104,9 @@ export default function EditAssetPage() {
         });
         setFieldValues(assetToFieldValues(record, matched));
         setOriginalFieldValues(assetToFieldValues(record, matched));
+        const procVals = assetProcurementFromRecord(record);
+        setProcurementValues(procVals);
+        setOriginalProcurementValues(procVals);
         setPhotos(
           Array.isArray(record.photos)
             ? record.photos.map((p) => ({ url: p.url, caption: p.caption ?? '' }))
@@ -129,6 +140,7 @@ export default function EditAssetPage() {
     try {
       const payload = {
         ...buildAssetPatchFromTemplate(template, fieldValues),
+        ...assetProcurementPayload(procurementValues),
         photos,
         documents,
         ...(reason ? { changeReason: reason } : {}),
@@ -266,6 +278,22 @@ export default function EditAssetPage() {
             vendors={vendors}
           />
         )}
+
+        <AssetProcurementFields
+          values={procurementValues}
+          onChange={setProcurementValues}
+          onProcurementSelect={(proc) => {
+            if (!proc) return;
+            setFieldValues((prev) => ({
+              ...prev,
+              ...(proc.vendorId && typeof proc.vendorId === 'object'
+                ? { vendorId: proc.vendorId._id }
+                : typeof proc.vendorId === 'string'
+                ? { vendorId: proc.vendorId }
+                : {}),
+            }));
+          }}
+        />
 
         <div className="flex flex-wrap gap-2">
           <button

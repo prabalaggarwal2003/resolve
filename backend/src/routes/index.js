@@ -27,5 +27,9 @@ import orgRoles from './orgRoles.js';
 import assetTemplates from './assetTemplates.js';
 import homeDashboard from './homeDashboard.js';
 import assetGroups from './assetGroups.js';
+import budgets from './budgets.js';
+import procurement from './procurement.js';
+import budgetDashboard from './budgetDashboard.js';
+import insights from './insights.js';
 
-export { auth, signup, health, assets, issues, dashboard, notifications, users, locations, locationTypes, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth, testNotifications, qrPdf, depreciation, kpis, homeDashboard, vendors, invoices, reports, payments, testPayments, orgRoles, assetTemplates, assetGroups };
+export { auth, signup, health, assets, issues, dashboard, notifications, users, locations, locationTypes, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth, testNotifications, qrPdf, depreciation, kpis, homeDashboard, vendors, invoices, reports, payments, testPayments, orgRoles, assetTemplates, assetGroups, budgets, procurement, budgetDashboard, insights };

@@ -1,14 +1,17 @@
 import { Asset, Issue, Notification, User } from '../models/index.js';
 import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from './auditService.js';
+import { ensureAssetHealthOrgConfig, resolveProfileForAsset } from './assetHealthOrgConfigService.js';
+import { scoreAsset } from './assetHealthSummaryService.js';
+import { scoreToCondition } from './assetHealthScoreService.js';
 
-// Asset health thresholds configuration
+/** @deprecated Use org config automation rules instead — kept for API compatibility */
 export const HEALTH_THRESHOLDS = {
-  AGE_CRITICAL_YEARS: 3,        // Asset becomes critical after 3 years
-  AGE_MAINTENANCE_YEARS: 5,     // Asset needs maintenance after 5 years
-  OPEN_ISSUES_WARNING: 3,       // Warning if more than 3 open issues
-  OPEN_ISSUES_CRITICAL: 5,      // Critical if more than 5 open issues
-  OPEN_ISSUES_MAINTENANCE: 8,   // Auto-maintenance if more than 8 open issues
-  WARRANTY_EXPIRY_DAYS: 30,     // Warning 30 days before warranty expires
+  AGE_CRITICAL_YEARS: 3,
+  AGE_MAINTENANCE_YEARS: 5,
+  OPEN_ISSUES_WARNING: 3,
+  OPEN_ISSUES_CRITICAL: 5,
+  OPEN_ISSUES_MAINTENANCE: 8,
+  WARRANTY_EXPIRY_DAYS: 30,
 };
 
 export const ASSET_CONDITIONS = {
@@ -60,93 +63,140 @@ function isWarrantyExpired(warrantyExpiry) {
   return warranty < now;
 }
 
+function compareRuleMetric(actual, operator, expected) {
+  switch (operator) {
+    case 'eq': return String(actual) === String(expected);
+    case 'ne': return String(actual) !== String(expected);
+    case 'gt': return Number(actual) > Number(expected);
+    case 'gte': return Number(actual) >= Number(expected);
+    case 'lt': return Number(actual) < Number(expected);
+    case 'lte': return Number(actual) <= Number(expected);
+    default: return false;
+  }
+}
+
+function evaluateAutomationRules(rules, context, orgConfig) {
+  let recommendedCondition = context.recommendedCondition;
+  let recommendedStatus = context.currentStatus;
+  let maintenanceReason = null;
+
+  const sorted = [...(rules || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  for (const rule of sorted) {
+    if (!rule.enabled) continue;
+
+    if (rule.action?.type === 'sync_condition_from_score') {
+      recommendedCondition = scoreToCondition(context.healthScore, orgConfig.healthLevels);
+      continue;
+    }
+
+    if (rule.conditions?.length) {
+      const matches = rule.conditions.every((c) =>
+        compareRuleMetric(context[c.metric], c.operator, c.value)
+      );
+      if (!matches) continue;
+    } else if (rule.action?.type !== 'sync_condition_from_score') {
+      continue;
+    }
+
+    if (rule.action?.type === 'set_condition') {
+      recommendedCondition = rule.action.condition || recommendedCondition;
+      if (rule.action.status) recommendedStatus = rule.action.status;
+      if (rule.action.maintenanceReason) maintenanceReason = rule.action.maintenanceReason;
+    }
+  }
+
+  if (context.currentStatus === 'under_maintenance' && recommendedCondition !== ASSET_CONDITIONS.MAINTENANCE) {
+    recommendedCondition = ASSET_CONDITIONS.MAINTENANCE;
+    maintenanceReason = maintenanceReason || 'Asset currently under maintenance';
+    recommendedStatus = 'under_maintenance';
+  }
+
+  return { recommendedCondition, recommendedStatus, maintenanceReason };
+}
+
+function riskFromScore(score) {
+  if (score < 30) return 'critical';
+  if (score < 50) return 'high';
+  if (score < 75) return 'medium';
+  return 'low';
+}
+
 /**
- * Analyze asset health based on multiple factors
+ * Analyze asset health using configurable weighted scoring and automation rules
  */
 async function analyzeAssetHealth(assetId) {
   try {
-    // Get asset details
     const asset = await Asset.findById(assetId).lean();
     if (!asset) return null;
 
-    // Count open issues for this asset
+    const orgConfig = await ensureAssetHealthOrgConfig(asset.organizationId);
+    const groupId = asset.groupId?._id || asset.groupId;
+    const profile = groupId ? await resolveProfileForAsset(asset.organizationId, groupId) : null;
+
     const openIssuesCount = await Issue.countDocuments({
       assetId,
-      status: { $in: ['open', 'in_progress'] }
+      status: { $in: ['open', 'in_progress'] },
     });
 
-    // Calculate asset age
-    const assetAge = calculateAssetAge(asset.purchaseDate);
+    const issueMap = { [String(assetId)]: { total: openIssuesCount, open: openIssuesCount } };
+    const auditDaysMap = {};
+    const scoreResult = await scoreAsset(asset, orgConfig, profile, auditDaysMap, issueMap);
 
-    // Check warranty status
+    const assetAge = calculateAssetAge(asset.purchaseDate);
     const warrantyExpiring = isWarrantyExpiring(asset.warrantyExpiry);
     const warrantyExpired = isWarrantyExpired(asset.warrantyExpiry);
 
-    // Determine health factors
+    const ruleContext = {
+      healthScore: scoreResult.healthScore,
+      ageYears: assetAge,
+      openIssuesCount,
+      currentStatus: asset.status,
+      recommendedCondition: scoreResult.recommendedCondition,
+    };
+
+    let { recommendedCondition, recommendedStatus, maintenanceReason } = evaluateAutomationRules(
+      orgConfig.automationRules,
+      ruleContext,
+      orgConfig
+    );
+
+    if (!orgConfig.autoUpdateCondition) {
+      recommendedCondition = asset.condition || 'good';
+      recommendedStatus = asset.status;
+      maintenanceReason = null;
+    }
+
     const healthFactors = {
       assetAge,
       openIssuesCount,
       warrantyExpiring,
       warrantyExpired,
-      currentCondition: asset.condition || 'good'
+      currentCondition: asset.condition || 'good',
+      healthScore: scoreResult.healthScore,
+      healthLabel: scoreResult.healthLabel,
+      factorScores: scoreResult.factorScores,
+      breakdown: scoreResult.breakdown,
     };
 
-    // Calculate recommended condition
-    let recommendedCondition = ASSET_CONDITIONS.EXCELLENT;
-    let maintenanceReason = null;
-    let riskLevel = 'low';
-
-    // Age-based assessment
-    if (assetAge >= HEALTH_THRESHOLDS.AGE_MAINTENANCE_YEARS) {
-      recommendedCondition = ASSET_CONDITIONS.MAINTENANCE;
-      maintenanceReason = MAINTENANCE_REASONS.AGE;
-      riskLevel = 'critical';
-    } else if (assetAge >= HEALTH_THRESHOLDS.AGE_CRITICAL_YEARS) {
-      recommendedCondition = ASSET_CONDITIONS.CRITICAL;
-      riskLevel = 'high';
-    }
-
-    // Issues-based assessment (overrides age if more severe)
-    if (openIssuesCount >= HEALTH_THRESHOLDS.OPEN_ISSUES_MAINTENANCE) {
-      recommendedCondition = ASSET_CONDITIONS.MAINTENANCE;
-      maintenanceReason = MAINTENANCE_REASONS.ISSUES;
-      riskLevel = 'critical';
-    } else if (openIssuesCount >= HEALTH_THRESHOLDS.OPEN_ISSUES_CRITICAL) {
-      if (recommendedCondition !== ASSET_CONDITIONS.MAINTENANCE) {
-        recommendedCondition = ASSET_CONDITIONS.CRITICAL;
-        riskLevel = 'high';
-      }
-    } else if (openIssuesCount >= HEALTH_THRESHOLDS.OPEN_ISSUES_WARNING) {
-      if (!['under_maintenance', 'critical'].includes(recommendedCondition)) {
-        recommendedCondition = ASSET_CONDITIONS.POOR;
-        riskLevel = 'medium';
-      }
-    }
-
-    // Warranty-based adjustments
-    if (warrantyExpired && recommendedCondition === ASSET_CONDITIONS.EXCELLENT) {
-      recommendedCondition = ASSET_CONDITIONS.GOOD;
-    }
-
-    // If currently under maintenance, don't downgrade
-    if (asset.status === 'under_maintenance' && recommendedCondition !== ASSET_CONDITIONS.MAINTENANCE) {
-      recommendedCondition = ASSET_CONDITIONS.MAINTENANCE;
-      maintenanceReason = 'Asset currently under maintenance';
-    }
+    const riskLevel = riskFromScore(scoreResult.healthScore);
+    const targetStatus =
+      recommendedCondition === ASSET_CONDITIONS.MAINTENANCE ? 'under_maintenance' : recommendedStatus;
 
     return {
       assetId,
       currentCondition: asset.condition || 'good',
       currentStatus: asset.status,
       recommendedCondition,
-      recommendedStatus: recommendedCondition === ASSET_CONDITIONS.MAINTENANCE ? 'under_maintenance' : asset.status,
+      recommendedStatus: targetStatus,
+      healthScore: scoreResult.healthScore,
+      healthLabel: scoreResult.healthLabel,
       healthFactors,
       maintenanceReason,
       riskLevel,
       needsUpdate:
-        asset.condition !== recommendedCondition ||
-        asset.status !== (recommendedCondition === ASSET_CONDITIONS.MAINTENANCE ? 'under_maintenance' : asset.status),
-      canReportIssues: recommendedCondition !== ASSET_CONDITIONS.MAINTENANCE
+        orgConfig.autoUpdateCondition &&
+        (asset.condition !== recommendedCondition || asset.status !== targetStatus),
+      canReportIssues: recommendedCondition !== ASSET_CONDITIONS.MAINTENANCE,
     };
   } catch (error) {
     console.error('Error analyzing asset health:', error);

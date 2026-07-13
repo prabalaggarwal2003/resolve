@@ -5,25 +5,9 @@ import {
   effectiveRate,
   getRateForDepreciationYear,
 } from './depreciationPolicyService.js';
-
-const CONDITION_BASE = {
-  excellent: 95,
-  good: 82,
-  fair: 65,
-  poor: 45,
-  critical: 25,
-  under_maintenance: 40,
-};
-
-const STATUS_PENALTY = {
-  available: 0,
-  in_use: 0,
-  working: 0,
-  under_maintenance: -12,
-  needs_repair: -22,
-  out_of_service: -35,
-  retired: -50,
-};
+import { buildHealthScoreResult, healthLabel as healthLabelFromScore } from './assetHealthScoreService.js';
+import { DEFAULT_ASSET_HEALTH_CONFIG } from '../constants/assetHealthDefaults.js';
+import { ensureAssetHealthOrgConfig, listAssetHealthProfiles } from './assetHealthOrgConfigService.js';
 
 const REPLACEMENT_PRIORITY = {
   low: { label: 'Low', emoji: '🟢', description: 'Healthy' },
@@ -187,27 +171,27 @@ function calculateFromPolicy(cost, ageYears, policy, overrideRate) {
   return calculatePolicySLM(cost, ageYears, policy, overrideRate);
 }
 
-function calculateHealthScore(asset, ageYears, issueCount, openIssueCount, maintenanceCount, usefulLife) {
-  const condition = asset.condition || 'good';
-  let score = CONDITION_BASE[condition] ?? 70;
-  score -= Math.min(openIssueCount * 4, 24);
-  score -= Math.min((issueCount - openIssueCount) * 1.5, 12);
-  score -= Math.min(maintenanceCount * 3, 18);
-  if (isUnderWarranty(asset.warrantyExpiry)) score += 5;
-  else if (isWarrantyExpired(asset.warrantyExpiry)) score -= 8;
-  score += STATUS_PENALTY[asset.status] ?? 0;
-  const ageRatio = usefulLife > 0 ? ageYears / usefulLife : 0;
-  if (ageRatio > 1) score -= 15;
-  else if (ageRatio > 0.75) score -= 8;
-  else if (ageRatio > 0.5) score -= 4;
-  return Math.max(0, Math.min(100, Math.round(score)));
+function calculateHealthScore(asset, ageYears, issueCount, openIssueCount, maintenanceCount, usefulLife, healthCtx = null) {
+  const input = {
+    ageYears,
+    condition: asset.condition || 'good',
+    openIssueCount,
+    issueCount,
+    maintenanceCount,
+    warrantyExpiry: asset.warrantyExpiry,
+    daysSinceLastAudit: healthCtx?.auditDaysMap?.[String(asset._id)] ?? 180,
+    status: asset.status || 'available',
+  };
+  const orgConfig = healthCtx?.orgConfig || DEFAULT_ASSET_HEALTH_CONFIG;
+  const groupId = asset.groupId?._id || asset.groupId;
+  const profile = groupId && healthCtx?.profileByGroup
+    ? healthCtx.profileByGroup[String(groupId)] || null
+    : null;
+  return buildHealthScoreResult(input, orgConfig, profile).healthScore;
 }
 
-function healthLabel(score) {
-  if (score >= 90) return 'Excellent';
-  if (score >= 75) return 'Good';
-  if (score >= 50) return 'Needs Attention';
-  return 'Poor';
+function healthLabel(score, healthLevels) {
+  return healthLabelFromScore(score, healthLevels || DEFAULT_ASSET_HEALTH_CONFIG.healthLevels);
 }
 
 function calculateReplacementPriority(asset, healthScore, ageYears, issueCount, openIssueCount, maintenanceCount, usefulLife) {
@@ -251,7 +235,7 @@ function buildIndicators(financial, operational, cost) {
   };
 }
 
-function buildAssetMetrics(asset, issueCount, openIssueCount, ctx) {
+function buildAssetMetrics(asset, issueCount, openIssueCount, ctx, healthCtx = null) {
   const cost = typeof asset.cost === 'number' ? asset.cost : parseFloat(asset.cost) || 0;
   const category = asset.category || 'Other';
   const ageYears = calculateAssetAge(asset.purchaseDate);
@@ -266,14 +250,14 @@ function buildAssetMetrics(asset, issueCount, openIssueCount, ctx) {
   const financial = calculateFromPolicy(cost, ageYears, policy, overrideRate);
   const usefulLife = financial.usefulLife || 5;
 
-  const healthScore = calculateHealthScore(asset, ageYears, issueCount, openIssueCount, maintenanceCount, usefulLife);
+  const healthScore = calculateHealthScore(asset, ageYears, issueCount, openIssueCount, maintenanceCount, usefulLife, healthCtx);
   const replacement = calculateReplacementPriority(
     asset, healthScore, ageYears, issueCount, openIssueCount, maintenanceCount, usefulLife
   );
 
   const operational = {
     healthScore,
-    healthLabel: healthLabel(healthScore),
+    healthLabel: healthLabel(healthScore, healthCtx?.orgConfig?.healthLevels),
     replacementPriority: replacement.level,
     replacementLabel: replacement.label,
     replacementEmoji: replacement.emoji,
@@ -453,6 +437,14 @@ function buildDashboardExtras(assets, summary) {
 
 export async function calculateOrganizationMetrics(organizationId, userId, filters = {}) {
   const ctx = await loadPolicyContext(organizationId, userId);
+  const [orgConfig, profiles] = await Promise.all([
+    ensureAssetHealthOrgConfig(organizationId),
+    listAssetHealthProfiles(organizationId),
+  ]);
+  const profileByGroup = Object.fromEntries(
+    profiles.filter((p) => p.groupId && p.enabled).map((p) => [String(p.groupId), p])
+  );
+  const healthCtx = { orgConfig, profileByGroup, auditDaysMap: {} };
 
   const assets = await Asset.find({ organizationId })
     .populate('locationId', 'name')
@@ -477,7 +469,7 @@ export async function calculateOrganizationMetrics(organizationId, userId, filte
   for (const asset of assets) {
     try {
       const counts = issueStats.get(String(asset._id)) || { issueCount: 0, openIssueCount: 0 };
-      const metrics = buildAssetMetrics(asset, counts.issueCount, counts.openIssueCount, ctx);
+      const metrics = buildAssetMetrics(asset, counts.issueCount, counts.openIssueCount, ctx, healthCtx);
       if (!matchesFilters(metrics, filters)) continue;
 
       results.push(metrics);
