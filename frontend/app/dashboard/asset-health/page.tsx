@@ -1,229 +1,87 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { UpgradePrompt, fetchOrgSubscription, getStoredSubscription } from '@/lib/subscriptionUtils';
 import LoadingSpinner from '@/components/LoadingSpinner';
-
-interface HealthSummary {
-  total: number;
-  excellent: number;
-  good: number;
-  fair: number;
-  poor: number;
-  critical: number;
-  under_maintenance: number;
-}
-
-interface HealthThresholds {
-  AGE_CRITICAL_YEARS: number;
-  AGE_MAINTENANCE_YEARS: number;
-  OPEN_ISSUES_WARNING: number;
-  OPEN_ISSUES_CRITICAL: number;
-  OPEN_ISSUES_MAINTENANCE: number;
-  WARRANTY_EXPIRY_DAYS: number;
-}
-
-const CONDITION_COLORS = {
-  excellent: 'bg-green-100 text-green-800 border-green-800',
-  good: 'bg-blue-100 text-blue-800 border-blue-200',
-  fair: 'bg-yellow-100 text-yellow-400 border-yellow-200',
-  poor: 'bg-orange-100 text-orange-800 border-orange-200',
-  critical: 'bg-red-100 text-red-800 border-red-800',
-  under_maintenance: 'bg-gray-800 text-gray-300 border-gray-700'
-};
-
-const CONDITION_ICONS = {
-  excellent: '✨',
-  good: '✅',
-  fair: '⚠️',
-  poor: '🔶',
-  critical: '🚨',
-  under_maintenance: '🔧'
-};
-
-function api(path: string) {
-  const base = process.env.NEXT_PUBLIC_API_URL || '';
-  return base ? `${base}${path}` : path;
-}
+import AssetHealthModuleNav from '@/components/asset-health/AssetHealthModuleNav';
+import AssetHealthViewTab from '@/components/asset-health/AssetHealthViewTab';
+import { collectAssetStatusOptions } from '@/lib/assetStatuses';
+import { api } from '@/lib/assetHealth';
 
 export default function AssetHealthPage() {
-  const [summary, setSummary] = useState<HealthSummary | null>(null);
-  const [thresholds, setThresholds] = useState<HealthThresholds | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [runningCheck, setRunningCheck] = useState(false);
-
-  const fetchHealthSummary = async () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (!token) return;
-
-    try {
-      const res = await fetch(api('/api/asset-health/summary'), {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSummary(data.summary);
-        setThresholds(data.thresholds);
-      } else {
-        setError(data.message || 'Failed to load health summary');
-      }
-    } catch (err) {
-      setError('Network error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const runHealthCheck = async () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (!token) return;
-
-    setRunningCheck(true);
-    try {
-      const res = await fetch(api('/api/asset-health/check-all'), {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const results = await res.json();
-      if (res.ok) {
-        alert(`Health check complete!\nUpdated: ${results.updated} assets\nMaintenance: ${results.maintenance} assets\nCritical: ${results.critical} assets`);
-        await fetchHealthSummary(); // Refresh data
-      } else {
-        setError(results.message || 'Failed to run health check');
-      }
-    } catch (err) {
-      setError('Network error during health check');
-    } finally {
-      setRunningCheck(false);
-    }
-  };
+  const [tier, setTier] = useState(() => getStoredSubscription().tier);
+  const [isExpired, setIsExpired] = useState(() => getStoredSubscription().isExpired);
+  const [groups, setGroups] = useState<{ _id: string; name: string }[]>([]);
+  const [departments, setDepartments] = useState<{ _id: string; name: string }[]>([]);
+  const [locations, setLocations] = useState<{ _id: string; name: string }[]>([]);
+  const [statusOptions, setStatusOptions] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
 
   useEffect(() => {
-    fetchHealthSummary();
+    const init = async () => {
+      const sub = await fetchOrgSubscription(api);
+      setTier(sub.tier);
+      setIsExpired(sub.isExpired);
+      if (sub.tier === 'free' || sub.isExpired) {
+        setLoading(false);
+        return;
+      }
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+      const headers = { Authorization: `Bearer ${token}` };
+      try {
+        const [grpRes, deptRes, locRes, tplRes, healthRes] = await Promise.all([
+          fetch(api('/api/asset-groups'), { headers }).then((r) => r.json()),
+          fetch(api('/api/departments'), { headers }).then((r) => r.json()),
+          fetch(api('/api/locations'), { headers }).then((r) => r.json()),
+          fetch(api('/api/asset-templates'), { headers }).then((r) => r.json()),
+          fetch(api('/api/asset-health/data'), { headers }).then((r) => r.json()),
+        ]);
+        setGroups(grpRes.groups || []);
+        setDepartments(deptRes.departments || []);
+        setLocations((locRes.locations || []).map((l: { _id: string; name: string }) => ({ _id: l._id, name: l.name })));
+        const tplList = tplRes.templates || [];
+        setStatusOptions(collectAssetStatusOptions(tplList));
+        const cats = new Set<string>();
+        (healthRes.assets || []).forEach((a: { category?: string }) => { if (a.category) cats.add(a.category); });
+        tplList.forEach((t: { name?: string }) => { if (t.name) cats.add(t.name); });
+        setCategories(Array.from(cats).sort());
+      } catch {
+        /* ignore */
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
   }, []);
 
-  if (loading) {
-    return (
-      <LoadingSpinner message="Loading asset health..." />
-    );
-  }
+  if (loading) return <LoadingSpinner message="Loading asset health…" />;
 
-  if (error) {
+  if (tier === 'free' || isExpired) {
     return (
-      <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
-        <p className="text-red-400">{error}</p>
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-2xl font-bold text-gray-100 mb-6">Asset Health</h1>
+        <UpgradePrompt feature="Asset Health" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-100">Asset Health Monitor</h1>
-          <p className="text-gray-400 mt-1">
-            Monitor asset conditions and automate maintenance scheduling
-          </p>
-        </div>
-        <button
-          onClick={runHealthCheck}
-          disabled={runningCheck}
-          className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {runningCheck ? (
-            <>
-              <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Running Check...
-            </>
-          ) : (
-            '🔍 Run Health Check'
-          )}
-        </button>
-      </div>
-
-      {/* Health Summary Cards */}
-      {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-          <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-            <div className="text-center">
-              <p className="text-sm text-gray-400 mb-1">Total Assets</p>
-              <p className="text-2xl font-bold text-gray-100">{summary.total}</p>
-            </div>
-          </div>
-
-          {Object.entries(summary).filter(([key]) => key !== 'total').map(([condition, count]) => (
-            <div
-              key={condition}
-              className={`p-4 rounded-lg border ${CONDITION_COLORS[condition as keyof typeof CONDITION_COLORS]}`}
-            >
-              <div className="text-center">
-                <div className="text-2xl mb-1">{CONDITION_ICONS[condition as keyof typeof CONDITION_ICONS]}</div>
-                <p className="text-sm font-medium capitalize mb-1">{condition.replace('_', ' ')}</p>
-                <p className="text-xl font-bold">{count}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Health Thresholds */}
-      {thresholds && (
-        <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-          <h2 className="text-lg font-semibold text-gray-100 mb-4">Health Check Thresholds</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="p-3 bg-gray-900 rounded-lg">
-              <h3 className="font-medium text-gray-100 mb-2">Age Thresholds</h3>
-              <p className="text-sm text-gray-400">Critical: {thresholds.AGE_CRITICAL_YEARS} years</p>
-              <p className="text-sm text-gray-400">Maintenance: {thresholds.AGE_MAINTENANCE_YEARS} years</p>
-            </div>
-            <div className="p-3 bg-gray-900 rounded-lg">
-              <h3 className="font-medium text-gray-100 mb-2">Open Issues</h3>
-              <p className="text-sm text-gray-400">Warning: {thresholds.OPEN_ISSUES_WARNING} issues</p>
-              <p className="text-sm text-gray-400">Critical: {thresholds.OPEN_ISSUES_CRITICAL} issues</p>
-              <p className="text-sm text-gray-400">Maintenance: {thresholds.OPEN_ISSUES_MAINTENANCE} issues</p>
-            </div>
-            <div className="p-3 bg-gray-900 rounded-lg">
-              <h3 className="font-medium text-gray-100 mb-2">Warranty Alert</h3>
-              <p className="text-sm text-gray-400">Expiry warning: {thresholds.WARRANTY_EXPIRY_DAYS} days</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Maintenance Actions */}
-      <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-        <h2 className="text-lg font-semibold text-gray-100 mb-4">Automated Actions</h2>
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 p-3 bg-yellow-900/20 rounded-lg">
-            <span className="text-xl">🔧</span>
-            <div>
-              <p className="font-medium text-gray-100">Automatic Maintenance Mode</p>
-              <p className="text-sm text-gray-400">
-                Assets automatically enter maintenance when they exceed age or issue thresholds
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-red-900/20 rounded-lg">
-            <span className="text-xl">🚫</span>
-            <div>
-              <p className="font-medium text-gray-100">Issue Reporting Blocked</p>
-              <p className="text-sm text-gray-400">
-                Users cannot report issues for assets under maintenance
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-blue-900/20 rounded-lg">
-            <span className="text-xl">📊</span>
-            <div>
-              <p className="font-medium text-gray-100">Health Monitoring</p>
-              <p className="text-sm text-gray-400">
-                Continuous monitoring of asset age, issues, and warranty status
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="max-w-[1600px] mx-auto min-w-0">
+      <h1 className="text-2xl font-bold text-gray-100 mb-2">Asset Health</h1>
+      <p className="text-sm text-gray-500 mb-4">Weighted health scoring with customizable widget dashboards — drag, resize, and filter each widget.</p>
+      <AssetHealthModuleNav />
+      <AssetHealthViewTab
+        groups={groups}
+        departments={departments}
+        locations={locations}
+        categories={categories}
+        statusOptions={statusOptions}
+      />
     </div>
   );
 }

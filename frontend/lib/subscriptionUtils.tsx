@@ -9,17 +9,20 @@ export type OrgSubscription = {
 };
 
 export const TIER_LIMITS = {
-  free: { assets: 50, users: 5, showKPIs: false, showDepreciation: false, showVendors: false, showDataExports: false },
-  pro: { assets: 200, users: 10, showKPIs: true, showDepreciation: true, showVendors: true, showDataExports: true },
-  premium: { assets: 1000, users: 20, showKPIs: true, showDepreciation: true, showVendors: true, showDataExports: true },
+  free: { assets: 50, users: 5, showKPIs: false, showDepreciation: false, showVendors: false, showBudgets: false, showInsights: false, showAssetHealth: false, showDataExports: false },
+  pro: { assets: 200, users: 10, showKPIs: true, showDepreciation: true, showVendors: true, showBudgets: true, showInsights: true, showAssetHealth: true, showDataExports: true },
+  premium: { assets: 1000, users: 20, showKPIs: true, showDepreciation: true, showVendors: true, showBudgets: true, showInsights: true, showAssetHealth: true, showDataExports: true },
 };
 
 /** @ts-ignore - Exported for future use */
-export function canAccessFeature(tier: string, feature: 'kpis' | 'depreciation' | 'vendors' | 'dataExports'): boolean {
+export function canAccessFeature(tier: string, feature: 'kpis' | 'depreciation' | 'vendors' | 'budgets' | 'insights' | 'assetHealth' | 'dataExports'): boolean {
   const limits = TIER_LIMITS[tier as keyof typeof TIER_LIMITS] || TIER_LIMITS.free;
   if (feature === 'kpis') return limits.showKPIs;
   if (feature === 'depreciation') return limits.showDepreciation;
   if (feature === 'vendors') return limits.showVendors;
+  if (feature === 'budgets') return limits.showBudgets;
+  if (feature === 'insights') return limits.showInsights;
+  if (feature === 'assetHealth') return limits.showAssetHealth;
   if (feature === 'dataExports') return limits.showDataExports;
   return false;
 }

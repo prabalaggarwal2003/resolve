@@ -128,6 +128,20 @@ function formatFieldValue(field: AssetFieldDef, raw: unknown, asset: Record<stri
     return '—';
   }
 
+  if (field.key === 'budgetId') {
+    const b = asset.budgetId as { name?: string; code?: string } | string | undefined;
+    if (b && typeof b === 'object' && b.name) return b.code ? `${b.name} (${b.code})` : b.name;
+    return isEmpty(raw) ? '—' : String(raw);
+  }
+
+  if (field.key === 'procurementId') {
+    const p = asset.procurementId as { purchaseId?: string; purchaseOrderNumber?: string } | string | undefined;
+    if (p && typeof p === 'object' && p.purchaseId) {
+      return p.purchaseOrderNumber ? `${p.purchaseId} · PO ${p.purchaseOrderNumber}` : p.purchaseId;
+    }
+    return isEmpty(raw) ? '—' : String(raw);
+  }
+
   if (field.kind === 'user') {
     const u = asset.assignedTo as { name?: string; email?: string } | undefined;
     if (u?.name) return u.email ? `${u.name} (${u.email})` : u.name;
