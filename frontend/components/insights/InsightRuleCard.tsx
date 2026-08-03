@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import type { InsightRule, InsightCatalog } from '@/lib/insights';
 import {
   SEVERITY_STYLES,
@@ -21,6 +20,7 @@ export default function InsightRuleCard({
   onSave,
   onReset,
   onDelete,
+  onEditConditions,
 }: {
   rule: InsightRule;
   catalog: InsightCatalog;
@@ -29,6 +29,7 @@ export default function InsightRuleCard({
   onSave: (patch: Partial<InsightRule>) => Promise<void>;
   onReset?: () => Promise<void>;
   onDelete?: () => Promise<void>;
+  onEditConditions?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -106,10 +107,10 @@ export default function InsightRuleCard({
           <p><span className="text-gray-600">Alert message:</span> {rule.messageTemplate}</p>
           <p><span className="text-gray-600">Applies to:</span> {rule.ruleType === 'budget' ? 'Budgets' : rule.ruleType === 'aggregate' ? 'Organization' : 'Assets'}</p>
           <div className="flex flex-wrap gap-2 pt-1">
-            {canEdit && !rule.isBuiltin && (
-              <Link href={`/dashboard/insights/builder?edit=${rule._id}`} className="text-xs text-blue-400 no-underline hover:text-blue-300">
-                Open in rule builder
-              </Link>
+            {canEdit && !rule.isBuiltin && onEditConditions && (
+              <button type="button" onClick={onEditConditions} className="text-xs text-blue-400 hover:text-blue-300">
+                Edit checks
+              </button>
             )}
             {canEdit && rule.isBuiltin && onReset && (
               <button type="button" onClick={onReset} className="text-xs text-amber-400">Reset to default</button>
@@ -145,10 +146,10 @@ export default function InsightRuleCard({
               <input className={inputClass} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
             </div>
           </div>
-          {!rule.isBuiltin && (
-            <Link href={`/dashboard/insights/builder?edit=${rule._id}`} className="text-xs text-blue-400 no-underline">
-              Edit conditions in rule builder →
-            </Link>
+          {!rule.isBuiltin && onEditConditions && (
+            <button type="button" onClick={onEditConditions} className="text-xs text-blue-400 hover:text-blue-300">
+              Edit checks →
+            </button>
           )}
           <button type="button" onClick={handleSave} disabled={saving} className="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white disabled:opacity-50">
             {saving ? 'Saving…' : 'Save changes'}

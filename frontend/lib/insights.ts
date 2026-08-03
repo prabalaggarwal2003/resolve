@@ -43,6 +43,8 @@ export type InsightRule = {
   conditionTree: InsightConditionTree;
   link: string;
   order: number;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type InsightThresholds = Record<string, number>;
@@ -66,6 +68,7 @@ export type InsightResult = {
   ruleType: string;
   enabled: boolean;
   isBuiltin: boolean;
+  createdAt?: string | null;
   count: number;
   message: string;
   link: string;
@@ -323,9 +326,6 @@ export const THRESHOLD_FIELDS: { key: string; label: string; hint?: string }[] =
   { key: 'warrantyAlertDays', label: 'Warranty alert (days)' },
   { key: 'warrantyAlertDaysSecondary', label: 'Warranty alert — secondary (days)' },
   { key: 'warrantyAlertDaysTertiary', label: 'Warranty alert — early (days)' },
-  { key: 'healthScoreWarning', label: 'Health score warning' },
-  { key: 'healthScoreCritical', label: 'Health score critical' },
-  { key: 'replacementScoreHigh', label: 'Replacement score high' },
   { key: 'repairCountThreshold', label: 'Repair count threshold' },
   { key: 'ageYearsThreshold', label: 'Asset age threshold (years)' },
   { key: 'maintenanceCostThreshold', label: 'Maintenance cost threshold (₹)' },

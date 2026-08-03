@@ -15,7 +15,40 @@ function stageBuckets(stages) {
   };
 }
 
-export async function recalculateBudgetRollups(organizationId, budgetId, user = null) {
+function formatMoney(n, currency = 'INR') {
+  try {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(Number(n) || 0);
+  } catch {
+    return String(n ?? 0);
+  }
+}
+
+function buildRollupChanges(prev, next, currency = 'INR') {
+  const fields = [
+    { key: 'plannedAmount', label: 'Planned amount' },
+    { key: 'committedAmount', label: 'Committed amount' },
+    { key: 'actualSpend', label: 'Actual spend' },
+  ];
+  const changes = [];
+  for (const f of fields) {
+    const from = Number(prev[f.key]) || 0;
+    const to = Number(next[f.key]) || 0;
+    if (from === to) continue;
+    changes.push({
+      field: f.key,
+      label: f.label,
+      from: formatMoney(from, currency),
+      to: formatMoney(to, currency),
+    });
+  }
+  return changes;
+}
+
+export async function recalculateBudgetRollups(organizationId, budgetId, user = null, context = {}) {
   if (!budgetId) return null;
 
   const config = await ensureBudgetOrgConfig(organizationId);
@@ -64,36 +97,51 @@ export async function recalculateBudgetRollups(organizationId, budgetId, user = 
     committedAmount: budget.committedAmount || 0,
     actualSpend: budget.actualSpend || 0,
   };
+  const next = { plannedAmount, committedAmount, actualSpend };
 
   budget.plannedAmount = plannedAmount;
   budget.committedAmount = committedAmount;
   budget.actualSpend = actualSpend;
   await budget.save();
 
-  const changed =
-    prev.plannedAmount !== plannedAmount ||
-    prev.committedAmount !== committedAmount ||
-    prev.actualSpend !== actualSpend;
+  const changes = buildRollupChanges(prev, next, budget.currency || 'INR');
+  if (!changes.length) return budget;
 
-  if (changed && user) {
-    await BudgetHistory.create({
-      organizationId,
-      budgetId,
-      eventType: 'budget_updated',
-      label: 'Budget rollups recalculated',
-      description: `Planned ${plannedAmount}, committed ${committedAmount}, actual ${actualSpend}`,
-      metadata: { prev, next: { plannedAmount, committedAmount, actualSpend } },
-      userId: user._id,
-      userName: user.name || '',
-    });
-  }
+  const triggerLabel = context.triggerLabel
+    || (context.procurementId ? 'after purchase change' : context.assetId ? 'after asset change' : 'automatically');
+
+  await BudgetHistory.create({
+    organizationId,
+    entityType: 'budget',
+    budgetId,
+    entityLabel: budget.name,
+    eventType: 'budget_updated',
+    label: 'Financial totals updated',
+    description: changes.map((c) => `${c.label}: ${c.from} → ${c.to}`).join('; '),
+    changes,
+    metadata: {
+      source: 'rollup',
+      trigger: triggerLabel,
+      prev,
+      next,
+      procurementId: context.procurementId || null,
+      assetId: context.assetId || null,
+    },
+    userId: user?._id || null,
+    userName: user?.name || 'System',
+  });
 
   return budget;
 }
 
 export async function recalculateBudgetsForProcurement(organizationId, procurement, user = null) {
   if (procurement?.budgetId) {
-    await recalculateBudgetRollups(organizationId, procurement.budgetId, user);
+    await recalculateBudgetRollups(organizationId, procurement.budgetId, user, {
+      triggerLabel: procurement.purchaseId
+        ? `after purchase ${procurement.purchaseId}`
+        : 'after purchase change',
+      procurementId: procurement._id,
+    });
   }
 }
 
@@ -103,7 +151,10 @@ export async function recalculateBudgetsForAsset(organizationId, asset, prevAsse
   if (prevAsset?.budgetId) budgetIds.add(String(prevAsset.budgetId));
 
   for (const budgetId of budgetIds) {
-    await recalculateBudgetRollups(organizationId, budgetId, user);
+    await recalculateBudgetRollups(organizationId, budgetId, user, {
+      triggerLabel: asset?.assetId ? `after asset ${asset.assetId}` : 'after asset change',
+      assetId: asset?._id || prevAsset?._id || null,
+    });
   }
 }
 

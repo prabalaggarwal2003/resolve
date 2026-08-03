@@ -37,6 +37,7 @@ async function buildProcurementChanges(before, after, config) {
     { key: 'tax', label: 'Tax' },
     { key: 'discount', label: 'Discount' },
     { key: 'shipping', label: 'Shipping' },
+    { key: 'totalCost', label: 'Total cost' },
     { key: 'lifecycleStage', label: 'Lifecycle stage', type: 'option', options: config.procurementLifecycleStages },
     { key: 'paymentStatus', label: 'Payment status', type: 'option', options: config.procurementPaymentStatuses },
     { key: 'fundingSourceId', label: 'Funding source', type: 'option', options: config.fundingSources },
@@ -126,15 +127,20 @@ async function logBudgetPurchaseEvent({
   label,
   description,
   metadata,
+  changes = [],
+  entityLabel = '',
   user,
 }) {
   if (!budgetId) return;
   await BudgetHistory.create({
     organizationId,
+    entityType: 'budget',
     budgetId,
+    entityLabel,
     eventType,
     label,
     description,
+    changes,
     metadata,
     userId: user?._id,
     userName: user?.name || '',
@@ -247,30 +253,62 @@ export async function createProcurement(organizationId, user, body) {
     updatedBy: user._id,
   });
 
+  const created = await getProcurementById(organizationId, procurement._id);
+  const createChanges = (await buildProcurementChanges({}, procurement.toObject(), config)).filter(
+    (c) => c.to != null && c.to !== '—' && c.to !== '' && c.to !== '0'
+  );
+
   await logProcurementEvent({
     organizationId,
     procurement,
     eventType: 'procurement_created',
     label: 'Purchase created',
-    description: `Procurement ${procurement.purchaseId} created`,
+    description: formatChangesSummary(
+      createChanges.map((c) => ({ field: c.field, label: c.label, oldValue: c.from, newValue: c.to }))
+    ) || `Procurement ${procurement.purchaseId} created`,
+    changes: createChanges,
     metadata: { totalCost: procurement.totalCost },
     user,
   });
 
   if (procurement.budgetId) {
+    const budgetName =
+      created && typeof created.budgetId === 'object' && created.budgetId
+        ? created.budgetId.name
+        : '';
     await logBudgetPurchaseEvent({
       organizationId,
       budgetId: procurement.budgetId,
       eventType: 'purchase_linked',
       label: 'Purchase linked',
-      description: `Procurement ${procurement.purchaseId} linked`,
-      metadata: { procurementId: procurement._id, totalCost: procurement.totalCost },
+      description: `Procurement ${procurement.purchaseId} linked · total ${procurement.totalCost}`,
+      metadata: {
+        procurementId: procurement._id,
+        purchaseId: procurement.purchaseId,
+        totalCost: procurement.totalCost,
+        amount: procurement.totalCost,
+      },
+      changes: [
+        {
+          field: 'purchase',
+          label: 'Linked purchase',
+          from: '—',
+          to: `${procurement.purchaseId}`,
+        },
+        {
+          field: 'totalCost',
+          label: 'Purchase total',
+          from: '—',
+          to: String(procurement.totalCost ?? 0),
+        },
+      ],
+      entityLabel: budgetName,
       user,
     });
     await recalculateBudgetsForProcurement(organizationId, procurement, user);
   }
 
-  return formatProcurement(procurement);
+  return created || formatProcurement(procurement);
 }
 
 export async function updateProcurement(organizationId, user, id, body) {

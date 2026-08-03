@@ -85,7 +85,18 @@ export async function updateInsightOrgConfig(organizationId, userId, body) {
 
 export async function listInsightRules(organizationId) {
   await ensureInsightOrgConfig(organizationId);
-  return InsightRule.find({ organizationId }).sort({ order: 1, name: 1 }).lean();
+  // Newest first so recently added insights appear at the top of Configure + dashboards.
+  const rules = await InsightRule.find({ organizationId }).sort({ createdAt: -1, order: 1, name: 1 }).lean();
+  const retiredMetrics = new Set(['healthScore', 'replacementScore', 'replacementPriority']);
+  return rules.filter((rule) => {
+    const groups = rule?.conditionTree?.groups || [];
+    for (const group of groups) {
+      for (const condition of group.conditions || []) {
+        if (retiredMetrics.has(condition.metric)) return false;
+      }
+    }
+    return rule.category !== 'health';
+  });
 }
 
 export async function getInsightRuleById(organizationId, id) {
@@ -118,8 +129,14 @@ export async function createCustomInsightRule(organizationId, userId, body) {
     err.status = 400;
     throw err;
   }
+  const tree = body.conditionTree || { rootLogic: 'and', groups: [{ logic: 'and', conditions: [] }] };
+  const hasCondition = (tree.groups || []).some((g) => (g.conditions || []).length > 0);
+  if (!hasCondition) {
+    const err = new Error('Add at least one check before saving this insight');
+    err.status = 400;
+    throw err;
+  }
   const ruleKey = `custom_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const maxOrder = await InsightRule.findOne({ organizationId }).sort({ order: -1 }).select('order').lean();
   const rule = await InsightRule.create({
     organizationId,
     ruleKey,
@@ -131,9 +148,10 @@ export async function createCustomInsightRule(organizationId, userId, body) {
     severity: body.severity || 'warning',
     enabled: body.enabled !== false,
     messageTemplate: body.messageTemplate || '{{count}} items match "{{name}}"',
-    conditionTree: body.conditionTree || { rootLogic: 'and', groups: [{ logic: 'and', conditions: [] }] },
+    conditionTree: tree,
     link: body.link || '/dashboard/assets',
-    order: body.order ?? (maxOrder?.order ?? 0) + 1,
+    // Lower order + newest createdAt keeps customs near the top of sorted lists.
+    order: body.order ?? 0,
     createdBy: userId,
     updatedBy: userId,
   });

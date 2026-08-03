@@ -15,6 +15,7 @@ import {
   getStoredSubscription,
 } from '@/lib/subscriptionUtils';
 import FieldChangesAlert from '@/components/budgets/FieldChangesAlert';
+import ProcurementDetailFields from '@/components/budgets/ProcurementDetailFields';
 import {
   fetchBudgetConfig,
   fetchBudgets,
@@ -430,35 +431,33 @@ export default function ProcurementPage() {
             </table>
           </div>
 
-          <div className="rounded-xl border border-gray-800/80 bg-gray-900/20 p-3 min-h-[280px]">
+          <div className="rounded-xl border border-gray-800/80 bg-gray-900/20 p-4 min-h-[320px]">
             {!detail ? (
-              <p className="text-sm text-gray-500 text-center py-12">Select a record for details</p>
+              <p className="text-sm text-gray-500 text-center py-12">Select a purchase to view its details</p>
             ) : (
-              <div className="space-y-3 text-xs">
-                <div>
-                  <h2 className="text-base font-semibold text-gray-100">{detail.purchaseId}</h2>
-                  <p className="text-gray-500 mt-1">{detail.notes || 'No notes'}</p>
+              <div className="space-y-4">
+                <ProcurementDetailFields record={detail} config={config} />
+                <div className="flex items-center justify-end gap-3 pt-1 border-t border-gray-800/60">
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => openEdit(detail)}
+                      className="text-xs text-blue-400 hover:text-blue-300"
+                    >
+                      Edit purchase
+                    </button>
+                  )}
+                  <Link
+                    href={
+                      typeof detail.budgetId === 'object' && detail.budgetId?._id
+                        ? `/dashboard/budgets/history?budgetId=${detail.budgetId._id}`
+                        : '/dashboard/budgets/history'
+                    }
+                    className="text-xs text-gray-400 hover:text-gray-200 no-underline"
+                  >
+                    View history →
+                  </Link>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div><p className="text-gray-600">Amount</p><p className="text-gray-200">{formatBudgetCurrency(detail.amount)}</p></div>
-                  <div><p className="text-gray-600">Total</p><p className="text-gray-200 font-medium">{formatBudgetCurrency(detail.totalCost)}</p></div>
-                  <div><p className="text-gray-600">PO</p><p className="text-gray-200">{detail.purchaseOrderNumber || '—'}</p></div>
-                  <div><p className="text-gray-600">Invoice</p><p className="text-gray-200">{detail.invoiceNumber || '—'}</p></div>
-                </div>
-                {detail.assetIds && detail.assetIds.length > 0 && (
-                  <div>
-                    <p className="text-[10px] uppercase text-gray-500 mb-1">Linked assets</p>
-                    <ul className="space-y-1">
-                      {detail.assetIds.map((a) => (
-                        <li key={a._id}>
-                          <Link href={`/dashboard/assets/${a._id}`} className="text-blue-400 hover:underline no-underline">
-                            {a.assetId} — {a.name}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </div>
             )}
           </div>

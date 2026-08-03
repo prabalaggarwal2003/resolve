@@ -15,22 +15,14 @@ import {
 import DepreciationWidgetBoard from '@/components/depreciation/DepreciationWidgetBoard';
 import { useDepreciationDashboardLayout } from '@/hooks/useDepreciationDashboardLayout';
 
-const buttonClass = 'px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors';
+  const buttonClass = 'px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors';
 const inputClass =
   'px-2 py-1 text-xs border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200 w-full';
-
-function healthColor(score: number) {
-  if (score >= 90) return 'text-green-400';
-  if (score >= 75) return 'text-blue-400';
-  if (score >= 50) return 'text-amber-400';
-  return 'text-red-400';
-}
 
 function IndicatorBadges({ a }: { a: AssetDepreciationMetrics }) {
   const badges = [];
   if (a.indicators?.fullyDepreciated) badges.push({ label: 'Fully depreciated', cls: 'border-gray-500/40 text-gray-400' });
   if (a.indicators?.nearEndOfLife) badges.push({ label: 'Near end of life', cls: 'border-amber-500/40 text-amber-300' });
-  if (a.indicators?.replacementRecommended) badges.push({ label: 'Replacement recommended', cls: 'border-orange-500/40 text-orange-300' });
   if (a.indicators?.highValueAsset) badges.push({ label: 'High value', cls: 'border-violet-500/40 text-violet-300' });
   if (!badges.length) return null;
   return (
@@ -151,9 +143,7 @@ export default function DepreciationViewTab({
           <FilterInput label="Book value max" value={filters.bookMax || ''} onChange={(v) => setFilters((f) => ({ ...f, bookMax: v }))} type="number" />
           <FilterInput label="Dep % min" value={filters.depPctMin || ''} onChange={(v) => setFilters((f) => ({ ...f, depPctMin: v }))} type="number" />
           <FilterInput label="Dep % max" value={filters.depPctMax || ''} onChange={(v) => setFilters((f) => ({ ...f, depPctMax: v }))} type="number" />
-          <FilterInput label="Health min" value={filters.healthMin || ''} onChange={(v) => setFilters((f) => ({ ...f, healthMin: v }))} type="number" />
           <FilterSelect label="Warranty" value={filters.warrantyStatus || ''} onChange={(v) => setFilters((f) => ({ ...f, warrantyStatus: v }))} options={[{ v: 'active', l: 'Active' }, { v: 'expiring', l: 'Expiring' }, { v: 'expired', l: 'Expired' }]} />
-          <FilterSelect label="Replacement" value={filters.replacementPriority || ''} onChange={(v) => setFilters((f) => ({ ...f, replacementPriority: v }))} options={[{ v: 'low', l: 'Low' }, { v: 'medium', l: 'Medium' }, { v: 'high', l: 'High' }, { v: 'critical', l: 'Critical' }]} />
           <FilterSelect label="Fully depreciated" value={filters.fullyDepreciated || ''} onChange={(v) => setFilters((f) => ({ ...f, fullyDepreciated: v }))} options={[{ v: 'true', l: 'Yes' }]} />
           <FilterSelect label="Department" value={filters.departmentId || ''} onChange={(v) => setFilters((f) => ({ ...f, departmentId: v }))} options={departments.map((d) => ({ v: d._id, l: d.name }))} />
           <FilterSelect label="Location" value={filters.locationId || ''} onChange={(v) => setFilters((f) => ({ ...f, locationId: v }))} options={locations.map((l) => ({ v: l._id, l: l.name }))} />
@@ -202,7 +192,6 @@ export default function DepreciationViewTab({
                       <th className="px-3 py-2 text-right text-[10px] uppercase text-gray-500">Cost</th>
                       <th className="px-3 py-2 text-right text-[10px] uppercase text-gray-500">Book value</th>
                       <th className="px-3 py-2 text-right text-[10px] uppercase text-gray-500">Dep %</th>
-                      <th className="px-3 py-2 text-center text-[10px] uppercase text-gray-500">Health</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-700/40">
@@ -226,13 +215,10 @@ export default function DepreciationViewTab({
                         <td className="px-3 py-2 text-right text-gray-300">{a.financial.purchaseCost > 0 ? formatCurrency(a.financial.purchaseCost) : '—'}</td>
                         <td className="px-3 py-2 text-right text-blue-300">{formatCurrency(a.financial.currentBookValue)}</td>
                         <td className="px-3 py-2 text-right text-gray-400">{a.financial.depreciationPercentage}%</td>
-                        <td className="px-3 py-2 text-center">
-                          <span className={`font-semibold ${healthColor(a.operational.healthScore)}`}>{a.operational.healthScore}%</span>
-                        </td>
                       </tr>
                     ))}
                     {!paginated.length && (
-                      <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-600 text-sm">No assets match filters</td></tr>
+                      <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-600 text-sm">No assets match filters</td></tr>
                     )}
                   </tbody>
                 </table>

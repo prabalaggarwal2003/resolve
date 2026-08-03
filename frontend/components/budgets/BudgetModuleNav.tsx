@@ -3,11 +3,33 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+const RESERVED = new Set(['analytics', 'procurement', 'history', 'settings']);
+
 const tabs = [
-  { href: '/dashboard/budgets', label: 'Budgets' },
-  { href: '/dashboard/budgets/procurement', label: 'Procurement' },
-  { href: '/dashboard/budgets/analytics', label: 'Analytics' },
-  { href: '/dashboard/budgets/history', label: 'History' },
+  {
+    href: '/dashboard/budgets/analytics',
+    label: 'Analytics',
+    match: (path: string) => path.startsWith('/dashboard/budgets/analytics'),
+  },
+  {
+    href: '/dashboard/budgets',
+    label: 'Budgets',
+    match: (path: string) => {
+      if (path === '/dashboard/budgets' || path === '/dashboard/budgets/settings') return true;
+      const m = path.match(/^\/dashboard\/budgets\/([^/]+)$/);
+      return Boolean(m && !RESERVED.has(m[1]));
+    },
+  },
+  {
+    href: '/dashboard/budgets/procurement',
+    label: 'Procurement',
+    match: (path: string) => path.startsWith('/dashboard/budgets/procurement'),
+  },
+  {
+    href: '/dashboard/budgets/history',
+    label: 'History',
+    match: (path: string) => path.startsWith('/dashboard/budgets/history'),
+  },
 ];
 
 export default function BudgetModuleNav() {
@@ -16,12 +38,7 @@ export default function BudgetModuleNav() {
   return (
     <div className="flex flex-wrap gap-1 border-b border-gray-800/80 pb-1">
       {tabs.map((tab) => {
-        const active =
-          tab.href === '/dashboard/budgets'
-            ? pathname === '/dashboard/budgets' || pathname === '/dashboard/budgets/settings'
-            : tab.href === '/dashboard/budgets/history'
-              ? pathname.startsWith('/dashboard/budgets/history') || /^\/dashboard\/budgets\/[^/]+$/.test(pathname)
-              : pathname.startsWith(tab.href);
+        const active = tab.match(pathname);
         return (
           <Link
             key={tab.href}

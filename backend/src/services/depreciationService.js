@@ -8,6 +8,11 @@ import {
 import { buildHealthScoreResult, healthLabel as healthLabelFromScore } from './assetHealthScoreService.js';
 import { DEFAULT_ASSET_HEALTH_CONFIG } from '../constants/assetHealthDefaults.js';
 import { ensureAssetHealthOrgConfig, listAssetHealthProfiles } from './assetHealthOrgConfigService.js';
+import {
+  isUnderWarranty,
+  isWarrantyExpired,
+  isWarrantyExpiringSoon,
+} from '../utils/warrantyStatus.js';
 
 const REPLACEMENT_PRIORITY = {
   low: { label: 'Low', emoji: '🟢', description: 'Healthy' },
@@ -26,22 +31,6 @@ function calculateAssetAge(purchaseDate) {
   if (!purchaseDate) return 0;
   const diff = Date.now() - new Date(purchaseDate).getTime();
   return Math.max(0, diff / (1000 * 60 * 60 * 24 * 365.25));
-}
-
-function isWarrantyExpired(warrantyExpiry) {
-  if (!warrantyExpiry) return true;
-  return new Date(warrantyExpiry) < new Date();
-}
-
-function isWarrantyExpiringSoon(warrantyExpiry, days = 30) {
-  if (!warrantyExpiry) return false;
-  const diff = (new Date(warrantyExpiry) - Date.now()) / (1000 * 60 * 60 * 24);
-  return diff > 0 && diff <= days;
-}
-
-function isUnderWarranty(warrantyExpiry) {
-  if (!warrantyExpiry) return false;
-  return new Date(warrantyExpiry) >= new Date();
 }
 
 function usefulLifeFromPolicy(policy, overrideRate) {

@@ -5,6 +5,7 @@ import { getOrganizationKPIs } from './kpiService.js';
 import { isActiveAssetStatus } from '../constants/assetStatuses.js';
 import { canRead } from './permissions.js';
 import { getBudgetAnalyticsSummary } from './budgetSummaryService.js';
+import { getWarrantyStatus, isUnderWarranty, isWarrantyExpiringSoon, WARRANTY_EXPIRING_DAYS } from '../utils/warrantyStatus.js';
 
 function mapAssetFiltersToBudget(filters = {}) {
   const mapped = {};
@@ -17,17 +18,9 @@ function mapAssetFiltersToBudget(filters = {}) {
 
 const REPLACEMENT_SCORES = { low: 25, medium: 50, high: 75, critical: 100 };
 
-function warrantyStatus(expiry, now) {
-  if (!expiry) return 'none';
-  const d = new Date(expiry);
-  if (d < now) return 'expired';
-  const days = (d - now) / (24 * 60 * 60 * 1000);
-  if (days <= 90) return 'expiring';
-  return 'active';
-}
-
 function mapAssetToKpi(metrics, raw) {
   const assigned = !!(raw?.assignedTo || metrics.assignedTo);
+  const warrantyExpiry = metrics.warrantyExpiry || raw?.warrantyExpiry;
   return {
     assetId: String(metrics.assetId),
     assetIdString: metrics.assetIdString,
@@ -64,9 +57,10 @@ function mapAssetToKpi(metrics, raw) {
     isAssigned: assigned,
     isActive: isActiveAssetStatus(metrics.status),
     isRetired: metrics.status === 'retired',
-    warrantyStatus: warrantyStatus(metrics.warrantyExpiry || raw?.warrantyExpiry, new Date()),
-    warrantyActive: metrics.operational?.warrantyActive || false,
-    warrantyExpiringSoon: metrics.operational?.warrantyExpiringSoon || false,
+    warrantyExpiry: warrantyExpiry || null,
+    warrantyStatus: getWarrantyStatus(warrantyExpiry),
+    warrantyActive: isUnderWarranty(warrantyExpiry),
+    warrantyExpiringSoon: isWarrantyExpiringSoon(warrantyExpiry),
     ageYears: metrics.ageYears || 0,
   };
 }
@@ -74,7 +68,7 @@ function mapAssetToKpi(metrics, raw) {
 async function fetchQuickLists(organizationId) {
   const orgId = new mongoose.Types.ObjectId(organizationId);
   const now = new Date();
-  const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const inWindow = new Date(now.getTime() + WARRANTY_EXPIRING_DAYS * 24 * 60 * 60 * 1000);
 
   const [
     latestIssues,
@@ -94,7 +88,7 @@ async function fetchQuickLists(organizationId) {
     Asset.find({ organizationId: orgId }).sort({ updatedAt: -1 }).limit(8).select('name assetId status updatedAt').lean(),
     Asset.find({
       organizationId: orgId,
-      nextMaintenanceDate: { $gte: now, $lte: in30 },
+      nextMaintenanceDate: { $gte: now, $lte: inWindow },
     })
       .sort({ nextMaintenanceDate: 1 })
       .limit(8)
@@ -102,7 +96,7 @@ async function fetchQuickLists(organizationId) {
       .lean(),
     Asset.find({
       organizationId: orgId,
-      warrantyExpiry: { $gte: now, $lte: in30 },
+      warrantyExpiry: { $gt: now, $lte: inWindow },
     })
       .sort({ warrantyExpiry: 1 })
       .limit(8)

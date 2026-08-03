@@ -312,7 +312,7 @@ export function getDefaultInsightRules() {
       category: 'health',
       ruleType: 'asset',
       severity: 'warning',
-      enabled: true,
+      enabled: false,
       messageTemplate: '{{count}} asset(s) have health score below {{threshold}}',
       conditionTree: {
         rootLogic: 'and',
@@ -333,7 +333,7 @@ export function getDefaultInsightRules() {
       category: 'health',
       ruleType: 'asset',
       severity: 'critical',
-      enabled: true,
+      enabled: false,
       messageTemplate: '{{count}} asset(s) have critically low health scores',
       conditionTree: {
         rootLogic: 'and',
@@ -354,7 +354,7 @@ export function getDefaultInsightRules() {
       category: 'health',
       ruleType: 'asset',
       severity: 'warning',
-      enabled: true,
+      enabled: false,
       messageTemplate: '{{count}} asset(s) have replacement score above {{threshold}}',
       conditionTree: {
         rootLogic: 'and',
@@ -375,7 +375,7 @@ export function getDefaultInsightRules() {
       category: 'health',
       ruleType: 'asset',
       severity: 'warning',
-      enabled: true,
+      enabled: false,
       messageTemplate: '{{count}} asset(s) are recommended for replacement',
       conditionTree: {
         rootLogic: 'or',
@@ -571,7 +571,7 @@ export function getDefaultInsightRules() {
       category: 'health',
       ruleType: 'asset',
       severity: 'critical',
-      enabled: true,
+      enabled: false,
       messageTemplate: '{{count}} asset(s) have critical replacement priority',
       conditionTree: {
         rootLogic: 'and',
@@ -584,9 +584,6 @@ export function getDefaultInsightRules() {
 }
 
 export const INSIGHT_METRIC_CATALOG = [
-  { key: 'healthScore', label: 'Health Score', type: 'number', scope: 'asset' },
-  { key: 'replacementScore', label: 'Replacement Score', type: 'number', scope: 'asset' },
-  { key: 'replacementPriority', label: 'Replacement Priority', type: 'select', scope: 'asset', options: ['low', 'medium', 'high', 'critical'] },
   { key: 'ageYears', label: 'Asset Age (years)', type: 'number', scope: 'asset' },
   { key: 'repairCount', label: 'Repair Count', type: 'number', scope: 'asset' },
   { key: 'maintenanceCost', label: 'Maintenance Cost', type: 'currency', scope: 'asset' },

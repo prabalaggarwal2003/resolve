@@ -1,6 +1,6 @@
 import type { AssetTemplate, TemplateField } from '@/lib/assetTemplates';
 
-export type DisplaySection = 'basic' | 'assignment' | 'purchase' | 'health' | 'custom' | 'system';
+export type DisplaySection = 'basic' | 'assignment' | 'purchase' | 'custom' | 'system';
 
 export type AssetFieldDef = {
   key: string;
@@ -27,7 +27,6 @@ export const SECTION_LABELS: Record<DisplaySection, string> = {
   basic: 'Basic information',
   assignment: 'Assignment & location',
   purchase: 'Purchase & warranty',
-  health: 'Health & condition',
   custom: 'Additional details',
   system: 'Record info',
 };
@@ -70,8 +69,7 @@ export const STANDARD_ASSET_FIELDS: AssetFieldDef[] = [
   { key: 'costCenter', label: 'Cost center', section: 'purchase', kind: 'text' },
   { key: 'purchaseOrderNumber', label: 'Purchase order', section: 'purchase', kind: 'text' },
   { key: 'invoiceNumber', label: 'Invoice number', section: 'purchase', kind: 'text' },
-  { key: 'condition', label: 'Condition', section: 'health', kind: 'text' },
-  { key: 'lastHealthCheck', label: 'Last health check', section: 'health', kind: 'datetime' },
+  { key: 'condition', label: 'Condition', section: 'basic', kind: 'text' },
   { key: 'createdAt', label: 'Date added', section: 'system', kind: 'datetime' },
   { key: 'updatedAt', label: 'Last updated', section: 'system', kind: 'datetime' },
 ];
@@ -92,6 +90,7 @@ const SKIP_KEYS = new Set([
   'maintenanceStartDate',
   'maintenanceCompletedDate',
   'customFields',
+  'lastHealthCheck',
 ]);
 
 function humanizeKey(key: string): string {
@@ -198,7 +197,7 @@ export function buildFallbackTemplateFromAsset(asset: Record<string, unknown>): 
 }
 
 export function groupDisplayFieldsBySection(fields: AssetFieldDef[]) {
-  const order: DisplaySection[] = ['basic', 'assignment', 'purchase', 'health', 'custom', 'system'];
+  const order: DisplaySection[] = ['basic', 'assignment', 'purchase', 'custom', 'system'];
   const groups: { section: DisplaySection; fields: AssetFieldDef[] }[] = [];
   for (const section of order) {
     const sectionFields = fields.filter((f) => f.section === section);

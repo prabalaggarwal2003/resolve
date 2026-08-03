@@ -30,9 +30,9 @@ export default function InsightThresholdsForm({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-sm font-semibold text-gray-200 mb-1">Organization thresholds</h2>
+        <h2 className="text-sm font-semibold text-gray-200 mb-1">Shared limits</h2>
         <p className="text-xs text-gray-500">
-          These values feed built-in insight rules. Rules with linked thresholds update automatically when you save.
+          Built-in insights use these numbers. Change them once and matching rules update automatically.
         </p>
       </div>
 
@@ -79,20 +79,23 @@ export default function InsightThresholdsForm({
             Enable in-app notifications (future)
           </label>
           <div className="max-w-[200px]">
-            <label className="block text-[10px] text-gray-500 uppercase mb-1">Max dashboard items</label>
+            <label className="block text-[10px] text-gray-500 uppercase mb-1">Max items per page</label>
             <input
               type="number"
               className={inputClass}
+              min={1}
+              max={50}
               value={config.notifications.maxDashboardItems}
               onChange={(e) =>
                 onChange({
                   notifications: {
                     ...config.notifications,
-                    maxDashboardItems: Number(e.target.value) || 20,
+                    maxDashboardItems: Number(e.target.value) || 15,
                   },
                 })
               }
             />
+            <p className="text-[10px] text-gray-600 mt-0.5">Dashboards paginate in pages of 15.</p>
           </div>
         </div>
       </div>

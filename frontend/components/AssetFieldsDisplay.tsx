@@ -35,7 +35,6 @@ const SECTION_ACCENT: Record<DisplaySection, { border: string; title: string }> 
   basic: { border: 'border-l-violet-500/50', title: 'text-violet-400/80' },
   assignment: { border: 'border-l-amber-500/50', title: 'text-amber-400/80' },
   purchase: { border: 'border-l-emerald-500/50', title: 'text-emerald-400/80' },
-  health: { border: 'border-l-rose-500/50', title: 'text-rose-400/80' },
   custom: { border: 'border-l-blue-500/50', title: 'text-blue-400/80' },
   system: { border: 'border-l-gray-500/50', title: 'text-gray-400/80' },
 };
