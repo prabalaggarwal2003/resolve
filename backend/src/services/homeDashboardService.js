@@ -169,9 +169,7 @@ export async function getHomeDashboardData(user, query = {}) {
     activeAssets: assets.filter((a) => isActiveAssetStatus(a.status)).length,
     underMaintenance: assets.filter((a) => ['under_maintenance', 'needs_repair'].includes(a.status)).length,
     warrantyExpiring30: assets.filter((a) => a.warrantyStatus === 'expiring').length,
-    replacementRequired: assets.filter((a) => a.replacementScore >= 75).length,
     unassigned: assets.filter((a) => !a.isAssigned).length,
-    lowHealth: assets.filter((a) => a.healthScore < 50).length,
   };
 
   const [
@@ -213,7 +211,6 @@ export async function getHomeDashboardData(user, query = {}) {
     { key: 'overdue_maintenance', icon: '🔧', label: 'Overdue maintenance', count: overdueMaintenance, href: '/dashboard/maintenance' },
     { key: 'warranty_expiring', icon: '📅', label: 'Warranties expiring soon', count: totals.warrantyExpiring30, href: '/dashboard/assets' },
     { key: 'unassigned', icon: '📍', label: 'Unassigned assets', count: totals.unassigned, href: '/dashboard/assets' },
-    { key: 'low_health', icon: '⚠️', label: 'Low health assets', count: totals.lowHealth, href: '/dashboard/asset-health' },
   ].filter((i) => i.count > 0);
 
   const activity = [
@@ -255,9 +252,6 @@ export async function getHomeDashboardData(user, query = {}) {
   const performance = {
     avgResolutionHours,
     utilizationPct: kpi.totals.utilizationPct,
-    avgHealthScore: assets.length
-      ? Math.round(assets.reduce((s, a) => s + a.healthScore, 0) / assets.length)
-      : 0,
   };
 
   const notifications = [];

@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AUTO_REFRESH_OPTIONS, fetchKpiSummary } from '@/lib/kpi';
 import { KPI_DASHBOARD_TEMPLATES } from '@/lib/kpiDashboardTemplates';
-import type { KpiDataContext, KpiWidgetFilters } from '@/lib/kpiWidgets';
+import type { KpiDataContext, KpiFilterFieldKey, KpiWidgetFilters } from '@/lib/kpiWidgets';
 import { useKpiDashboard } from '@/hooks/useKpiDashboard';
 import KpiWidgetBoard from '@/components/kpis/KpiWidgetBoard';
+import { formatAssetStatusLabel } from '@/lib/assetStatuses';
 
 const buttonClass = 'px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors';
-const inputClass = 'px-2 py-1 text-xs border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200';
+const inputClass = 'px-2 py-1 text-xs border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200 min-w-[120px]';
 
 export default function KpiViewTab({
   groups,
@@ -30,6 +31,7 @@ export default function KpiViewTab({
   const [ctx, setCtx] = useState<KpiDataContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [pageFilters, setPageFilters] = useState<KpiWidgetFilters>({});
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [configureMode, setConfigureMode] = useState(false);
   const [showNewDashboard, setShowNewDashboard] = useState(false);
   const [newDashName, setNewDashName] = useState('');
@@ -78,6 +80,22 @@ export default function KpiViewTab({
 
   const categories = useMemo(() => Array.from(new Set(ctx?.assets.map((a) => a.category).filter(Boolean) || [])), [ctx?.assets]);
 
+  const activePageFilterCount = useMemo(
+    () => Object.values(pageFilters).filter((v) => v != null && v !== '').length,
+    [pageFilters]
+  );
+
+  const setPageFilter = (key: KpiFilterFieldKey, value: string) => {
+    setPageFilters((prev) => {
+      const next = { ...prev };
+      if (value) next[key] = value;
+      else delete next[key];
+      return next;
+    });
+  };
+
+  const clearPageFilters = () => setPageFilters({});
+
   const sharedDashboards = useMemo(
     () => dashboards.filter((d) => d.scope === 'organization'),
     [dashboards]
@@ -113,6 +131,126 @@ export default function KpiViewTab({
 
   return (
     <div className="space-y-4">
+      <div className="rounded-xl border border-gray-700/50 bg-gray-900/30 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <p className="text-[10px] text-gray-500 uppercase">Page filters</p>
+          <div className="flex items-center gap-2">
+            {activePageFilterCount > 0 && (
+              <span className="text-[11px] text-violet-400/80">
+                {activePageFilterCount} active · applied to all widgets
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowMoreFilters((s) => !s)}
+              className={`${buttonClass} border-gray-700/60 text-gray-400`}
+            >
+              {showMoreFilters ? 'Fewer filters' : 'More filters'}
+            </button>
+            <button
+              type="button"
+              onClick={clearPageFilters}
+              disabled={activePageFilterCount === 0}
+              className={`${buttonClass} border-gray-700/60 text-gray-400 disabled:opacity-40`}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 items-end">
+          <div>
+            <label className="text-[9px] text-gray-600 block mb-0.5">Department</label>
+            <select className={inputClass} value={pageFilters.departmentId || ''} onChange={(e) => setPageFilter('departmentId', e.target.value)}>
+              <option value="">All</option>
+              {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[9px] text-gray-600 block mb-0.5">Location</label>
+            <select className={inputClass} value={pageFilters.locationId || ''} onChange={(e) => setPageFilter('locationId', e.target.value)}>
+              <option value="">All</option>
+              {locations.map((l) => <option key={l._id} value={l._id}>{l.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[9px] text-gray-600 block mb-0.5">Group</label>
+            <select className={inputClass} value={pageFilters.groupId || ''} onChange={(e) => setPageFilter('groupId', e.target.value)}>
+              <option value="">All</option>
+              {groups.map((g) => <option key={g._id} value={g._id}>{g.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[9px] text-gray-600 block mb-0.5">Status</label>
+            <select className={inputClass} value={pageFilters.status || ''} onChange={(e) => setPageFilter('status', e.target.value)}>
+              <option value="">All</option>
+              {statusOptions.map((s) => <option key={s} value={s}>{formatAssetStatusLabel(s)}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[9px] text-gray-600 block mb-0.5">Vendor</label>
+            <select className={inputClass} value={pageFilters.vendorId || ''} onChange={(e) => setPageFilter('vendorId', e.target.value)}>
+              <option value="">All</option>
+              {vendors.map((v) => <option key={v._id} value={v._id}>{v.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[9px] text-gray-600 block mb-0.5">From</label>
+            <input type="date" className={inputClass} value={pageFilters.dateFrom || ''} onChange={(e) => setPageFilter('dateFrom', e.target.value)} />
+          </div>
+          <div>
+            <label className="text-[9px] text-gray-600 block mb-0.5">To</label>
+            <input type="date" className={inputClass} value={pageFilters.dateTo || ''} onChange={(e) => setPageFilter('dateTo', e.target.value)} />
+          </div>
+        </div>
+        {showMoreFilters && (
+          <div className="flex flex-wrap gap-2 items-end mt-2 pt-2 border-t border-gray-800/80">
+            <div>
+              <label className="text-[9px] text-gray-600 block mb-0.5">Template</label>
+              <select className={inputClass} value={pageFilters.templateId || ''} onChange={(e) => setPageFilter('templateId', e.target.value)}>
+                <option value="">All</option>
+                {templates.map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[9px] text-gray-600 block mb-0.5">Category</label>
+              <select className={inputClass} value={pageFilters.category || ''} onChange={(e) => setPageFilter('category', e.target.value)}>
+                <option value="">All</option>
+                {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[9px] text-gray-600 block mb-0.5">Warranty</label>
+              <select className={inputClass} value={pageFilters.warrantyStatus || ''} onChange={(e) => setPageFilter('warrantyStatus', e.target.value)}>
+                <option value="">All</option>
+                <option value="active">Active</option>
+                <option value="expiring">Expiring</option>
+                <option value="expired">Expired</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[9px] text-gray-600 block mb-0.5">Condition</label>
+              <select className={inputClass} value={pageFilters.condition || ''} onChange={(e) => setPageFilter('condition', e.target.value)}>
+                <option value="">All</option>
+                {['excellent', 'good', 'fair', 'poor', 'critical', 'under_maintenance'].map((c) => (
+                  <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[9px] text-gray-600 block mb-0.5">Assigned user</label>
+              <select className={inputClass} value={pageFilters.assignedUserId || ''} onChange={(e) => setPageFilter('assignedUserId', e.target.value)}>
+                <option value="">All</option>
+                {users.map((u) => <option key={u._id} value={u._id}>{u.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[9px] text-gray-600 block mb-0.5">Purchase year</label>
+              <input type="number" className={inputClass} placeholder="Year" value={pageFilters.purchaseYear || ''} onChange={(e) => setPageFilter('purchaseYear', e.target.value)} />
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="flex flex-wrap gap-2 items-center">
         <select
           className={inputClass}

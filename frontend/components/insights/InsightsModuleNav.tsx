@@ -4,10 +4,15 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const tabs = [
-  { href: '/dashboard/insights', label: 'Dashboard' },
-  { href: '/dashboard/insights/rules', label: 'Rules' },
-  { href: '/dashboard/insights/thresholds', label: 'Thresholds' },
-  { href: '/dashboard/insights/builder', label: 'Rule Builder' },
+  { href: '/dashboard/insights', label: 'Dashboard', match: (path: string) => path === '/dashboard/insights' },
+  {
+    href: '/dashboard/insights/rules',
+    label: 'Configure',
+    match: (path: string) =>
+      path.startsWith('/dashboard/insights/rules')
+      || path.startsWith('/dashboard/insights/builder')
+      || path.startsWith('/dashboard/insights/thresholds'),
+  },
 ];
 
 export default function InsightsModuleNav() {
@@ -16,10 +21,7 @@ export default function InsightsModuleNav() {
   return (
     <div className="flex flex-wrap gap-1 border-b border-gray-800/80 pb-1">
       {tabs.map((tab) => {
-        const active =
-          tab.href === '/dashboard/insights'
-            ? pathname === '/dashboard/insights'
-            : pathname.startsWith(tab.href);
+        const active = tab.match(pathname);
         return (
           <Link
             key={tab.href}

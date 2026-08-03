@@ -178,6 +178,7 @@ export async function getBudgetById(organizationId, id) {
 
 export async function getBudgetHistory(organizationId, budgetId, limit = 50) {
   return BudgetHistory.find({ organizationId, budgetId })
+    .populate('procurementId', 'purchaseId purchaseOrderNumber')
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean();
@@ -198,6 +199,7 @@ export async function listOrganizationBudgetHistory(organizationId, filters = {}
   }
   return BudgetHistory.find(query)
     .populate('budgetId', 'name code')
+    .populate('procurementId', 'purchaseId purchaseOrderNumber')
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean();

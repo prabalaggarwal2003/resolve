@@ -79,7 +79,7 @@ export default function KPIsPage() {
   return (
     <div className="max-w-[1600px] mx-auto">
       <h1 className="text-2xl font-bold text-gray-100 mb-2">KPIs & Metrics</h1>
-      <p className="text-sm text-gray-500 mb-6">Customizable widget dashboard — drag, resize, and filter each widget independently.</p>
+      <p className="text-sm text-gray-500 mb-6">Customizable widget dashboard — use page filters for all widgets, or filter each widget independently.</p>
       <KpiViewTab
         groups={groups}
         templates={templates}

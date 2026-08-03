@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import InsightsModuleNav from '@/components/insights/InsightsModuleNav';
 import InsightDashboardCards from '@/components/insights/InsightDashboardCards';
+import InsightsPagination, { INSIGHTS_PAGE_SIZE } from '@/components/insights/InsightsPagination';
 import {
   UpgradePrompt,
   canAccessFeature,
@@ -28,6 +29,7 @@ export default function InsightsDashboardPage() {
   const [isExpired, setIsExpired] = useState(() => getStoredSubscription().isExpired);
   const [data, setData] = useState<InsightDashboardData | null>(null);
   const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
 
   const hasAccess = canAccessFeature(tier, 'insights') && !isExpired;
 
@@ -37,6 +39,7 @@ export default function InsightsDashboardPage() {
     try {
       const result = await fetchInsightDashboard();
       setData(result);
+      setPage(1);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load insights');
     } finally {
@@ -56,6 +59,12 @@ export default function InsightsDashboardPage() {
     load();
   }, [hasAccess, load]);
 
+  const insights = data?.insights || [];
+  const pageInsights = useMemo(() => {
+    const start = (page - 1) * INSIGHTS_PAGE_SIZE;
+    return insights.slice(start, start + INSIGHTS_PAGE_SIZE);
+  }, [insights, page]);
+
   if (!hasAccess) {
     return (
       <div className="max-w-4xl mx-auto p-6">
@@ -66,15 +75,23 @@ export default function InsightsDashboardPage() {
   }
 
   return (
-    <div className="max-w-[1200px] mx-auto px-4 py-5 space-y-4">
+    <div className="max-w-[1000px] mx-auto px-4 py-5 space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h1 className="text-xl font-semibold text-gray-100">Insights</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Proactive alerts from your asset, budget, and maintenance data</p>
+          <p className="text-sm text-gray-500 mt-0.5">Simple alerts when something needs attention</p>
         </div>
-        <button type="button" onClick={load} className="px-3 py-1.5 text-sm rounded-lg border border-gray-700/60 text-gray-300 hover:bg-gray-800/60">
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/dashboard/insights/rules?new=1"
+            className="px-3 py-1.5 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white no-underline"
+          >
+            + Add insight
+          </Link>
+          <button type="button" onClick={load} className="px-3 py-1.5 text-sm rounded-lg border border-gray-700/60 text-gray-300 hover:bg-gray-800/60">
+            Refresh
+          </button>
+        </div>
       </div>
 
       <InsightsModuleNav />
@@ -84,31 +101,36 @@ export default function InsightsDashboardPage() {
       )}
 
       {data && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
-          <SummaryCard label="Active insights" value={data.summary.activeInsights} accent="text-violet-300" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <SummaryCard label="Active alerts" value={data.summary.activeInsights} accent="text-violet-300" />
           <SummaryCard label="Critical" value={data.summary.criticalCount} accent="text-red-300" />
           <SummaryCard label="Warnings" value={data.summary.warningCount} accent="text-amber-300" />
-          <SummaryCard label="Info" value={data.summary.infoCount} />
-          <SummaryCard label="Rules enabled" value={`${data.summary.enabledRules}/${data.summary.totalRules}`} />
-          <SummaryCard label="Assets affected" value={data.summary.affectedAssets} />
+          <SummaryCard label="Rules on" value={`${data.summary.enabledRules}/${data.summary.totalRules}`} />
         </div>
       )}
 
       {loading ? (
-        <LoadingSpinner message="Evaluating insight rules…" />
+        <LoadingSpinner message="Checking insights…" />
       ) : data?.notifications?.showOnDashboard === false ? (
         <div className="text-center py-12 rounded-xl border border-dashed border-gray-700/50">
-          <p className="text-gray-400 mb-1">Insights hidden on dashboard</p>
+          <p className="text-gray-400 mb-1">Insights are hidden</p>
           <p className="text-sm text-gray-600">
-            Enable &quot;Show insights on Insights dashboard&quot; in{' '}
-            <Link href="/dashboard/insights/thresholds" className="text-blue-400 hover:text-blue-300 no-underline">
-              Thresholds settings
+            Turn them back on in{' '}
+            <Link href="/dashboard/insights/rules#defaults" className="text-blue-400 hover:text-blue-300 no-underline">
+              Configure → Defaults
             </Link>
             .
           </p>
         </div>
       ) : (
-        <InsightDashboardCards insights={data?.insights || []} />
+        <div className="space-y-3">
+          <InsightDashboardCards insights={pageInsights} />
+          <InsightsPagination
+            page={page}
+            total={insights.length}
+            onChange={setPage}
+          />
+        </div>
       )}
     </div>
   );

@@ -15,6 +15,7 @@ import type {
 import {
   applyKpiWidgetFilters,
   computeKpiWidgetData,
+  isRetiredHealthWidget,
   suggestKpiWidgetSize,
 } from '@/lib/kpiWidgets';
 
@@ -43,8 +44,7 @@ export type HomeKpiMetric =
   | 'total_assets'
   | 'active_assets'
   | 'under_maintenance'
-  | 'warranty_expiring'
-  | 'replacement_required';
+  | 'warranty_expiring';
 
 export type HomeChartMetric = 'by_group' | 'by_status' | 'by_location';
 
@@ -95,9 +95,7 @@ export type HomeTotals = {
   activeAssets: number;
   underMaintenance: number;
   warrantyExpiring30: number;
-  replacementRequired: number;
   unassigned: number;
-  lowHealth: number;
 };
 
 export type HomeAttentionItem = {
@@ -123,7 +121,7 @@ export type HomeDataContext = {
   activity: HomeActivityItem[];
   warranty: { active: number; expiring: number; expired: number };
   financial: { enabled: boolean; purchaseValue: number; bookValue: number; depreciation: number };
-  performance: { avgResolutionHours: number; utilizationPct: number; avgHealthScore: number };
+  performance: { avgResolutionHours: number; utilizationPct: number };
   notifications: Array<{ type: string; message: string; href: string }>;
   distributions: {
     byGroup: { label: string; value: number }[];
@@ -223,7 +221,6 @@ export const KPI_METRIC_OPTIONS: { id: HomeKpiMetric; label: string }[] = [
   { id: 'active_assets', label: 'Active assets' },
   { id: 'under_maintenance', label: 'Under maintenance' },
   { id: 'warranty_expiring', label: 'Warranty expiring' },
-  { id: 'replacement_required', label: 'Needs replacement' },
 ];
 
 export const CHART_METRIC_OPTIONS: { id: HomeChartMetric; label: string }[] = [
@@ -263,9 +260,7 @@ function computeTotalsFromAssets(assets: KpiAssetMetrics[]): HomeTotals {
     activeAssets: assets.filter((a) => isActiveAssetStatus(a.status)).length,
     underMaintenance: assets.filter((a) => ['under_maintenance', 'needs_repair'].includes(a.status || '')).length,
     warrantyExpiring30: assets.filter((a) => a.warrantyStatus === 'expiring').length,
-    replacementRequired: assets.filter((a) => a.replacementScore >= 75).length,
     unassigned: assets.filter((a) => !a.isAssigned).length,
-    lowHealth: assets.filter((a) => a.healthScore < 50).length,
   };
 }
 
@@ -292,9 +287,6 @@ function computePerformanceFromAssets(assets: KpiAssetMetrics[], ctx: HomeDataCo
     utilizationPct: assets.length
       ? Math.round((assets.filter((a) => a.isAssigned).length / assets.length) * 1000) / 10
       : 0,
-    avgHealthScore: assets.length
-      ? Math.round(assets.reduce((s, a) => s + a.healthScore, 0) / assets.length)
-      : 0,
   };
 }
 
@@ -302,7 +294,6 @@ function computeAttentionFromTotals(totals: HomeTotals): HomeAttentionItem[] {
   return [
     { key: 'warranty_expiring', icon: '📅', label: 'Warranties expiring soon', count: totals.warrantyExpiring30, href: '/dashboard/assets' },
     { key: 'unassigned', icon: '📍', label: 'Unassigned assets', count: totals.unassigned, href: '/dashboard/assets' },
-    { key: 'low_health', icon: '⚠️', label: 'Low health assets', count: totals.lowHealth, href: '/dashboard/asset-health' },
     { key: 'under_maintenance', icon: '🔧', label: 'Under maintenance', count: totals.underMaintenance, href: '/dashboard/maintenance' },
   ].filter((i) => i.count > 0);
 }
@@ -313,7 +304,6 @@ function kpiValueFromMetric(metric: HomeKpiMetric, totals: HomeTotals): string {
     case 'active_assets': return String(totals.activeAssets);
     case 'under_maintenance': return String(totals.underMaintenance);
     case 'warranty_expiring': return String(totals.warrantyExpiring30);
-    case 'replacement_required': return String(totals.replacementRequired);
     default: return '—';
   }
 }
@@ -543,12 +533,20 @@ export function mergeHomeLayout(incoming: Partial<HomeDashboardLayout> | null | 
   return {
     version: incoming.version ?? 1,
     widgets: [...incoming.widgets]
+      .filter((w) => {
+        if (w.metric === 'replacement_required') return false;
+        if (w.kind === 'metric' || w.kind === 'quick') {
+          return !isRetiredHealthWidget({ metric: w.metric, quickType: w.quickType });
+        }
+        return true;
+      })
       .sort((a, b) => a.order - b.order)
-      .map((w) => {
+      .map((w, i) => {
         const size = w.size || 'medium';
         const spans = sizeToSpans(size);
         return {
           ...w,
+          order: i,
           size,
           filterFields: w.filterFields ?? [],
           filters: w.filters ?? {},

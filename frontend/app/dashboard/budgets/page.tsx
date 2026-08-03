@@ -511,11 +511,9 @@ export default function BudgetsPage() {
 
       <BudgetModuleNav />
 
-      <BudgetModuleNav />
-
       {lastChanges?.length ? (
         <FieldChangesAlert
-          title="Procurement updated — changes saved"
+          title="Budget updated — changes saved"
           changes={lastChanges}
           onDismiss={() => setLastChanges(null)}
         />

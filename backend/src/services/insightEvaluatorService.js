@@ -5,6 +5,7 @@ import { getBudgetAnalyticsSummary } from './budgetSummaryService.js';
 import { countPendingProcurements } from './budgetRollupService.js';
 import { ensureInsightOrgConfig } from './insightOrgConfigService.js';
 import { listInsightRules } from './insightOrgConfigService.js';
+import { daysUntilWarrantyExpiry } from '../utils/warrantyStatus.js';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -150,8 +151,8 @@ async function buildAssetContext(organizationId) {
       maintenanceCost,
       openIssueCount: kpi.openIssueCount,
       openCriticalIssueCount: criticalMap[kpi.assetId] || 0,
-      warrantyDaysUntilExpiry: daysUntil(raw.warrantyExpiry || kpi.warrantyExpiry, now),
-      amcDaysUntilExpiry: daysUntil(raw.amcExpiry, now),
+      warrantyDaysUntilExpiry: daysUntilWarrantyExpiry(raw.warrantyExpiry || kpi.warrantyExpiry, now),
+      amcDaysUntilExpiry: daysUntilWarrantyExpiry(raw.amcExpiry, now),
       daysUntilMaintenance: daysUntil(raw.nextMaintenanceDate, now),
       daysSinceLastScan: scanMap[kpi.assetId]
         ? Math.abs(daysBetween(scanMap[kpi.assetId], now))
@@ -181,10 +182,7 @@ async function buildOrgContext(organizationId) {
   return { pendingProcurementCount };
 }
 
-function evaluateAssetRule(rule, assets, thresholds) {
-  const matches = assets.filter((asset) =>
-    evaluateConditionTree(rule.conditionTree, (metric) => asset[metric], thresholds)
-  );
+function resultBase(rule, count, message, items = []) {
   return {
     ruleId: String(rule._id),
     ruleKey: rule.ruleKey,
@@ -195,22 +193,36 @@ function evaluateAssetRule(rule, assets, thresholds) {
     ruleType: rule.ruleType,
     enabled: rule.enabled,
     isBuiltin: rule.isBuiltin,
-    count: matches.length,
-    message: formatMessage(rule.messageTemplate, {
-      count: matches.length,
+    createdAt: rule.createdAt ? new Date(rule.createdAt).toISOString() : null,
+    count,
+    message,
+    link: rule.link,
+    items,
+  };
+}
+
+function evaluateAssetRule(rule, assets, thresholds) {
+  const matches = assets.filter((asset) =>
+    evaluateConditionTree(rule.conditionTree, (metric) => asset[metric], thresholds)
+  );
+  const count = matches.length;
+  return resultBase(
+    rule,
+    count,
+    formatMessage(rule.messageTemplate, {
+      count,
       name: rule.name,
       days: thresholds.warrantyAlertDays,
       threshold: thresholds.repairCountThreshold,
       pct: thresholds.budgetUtilizationWarning,
     }),
-    link: rule.link,
-    items: matches.slice(0, 10).map((a) => ({
+    matches.slice(0, 10).map((a) => ({
       id: a.assetId,
       label: a.name,
       sublabel: a.assetIdString,
-      meta: `Health ${a.healthScore}%`,
-    })),
-  };
+      meta: a.status ? String(a.status).replace(/_/g, ' ') : '',
+    }))
+  );
 }
 
 function evaluateBudgetRule(rule, budgets, thresholds) {
@@ -221,30 +233,22 @@ function evaluateBudgetRule(rule, budgets, thresholds) {
       thresholds
     )
   );
-  return {
-    ruleId: String(rule._id),
-    ruleKey: rule.ruleKey,
-    name: rule.name,
-    description: rule.description,
-    category: rule.category,
-    severity: rule.severity,
-    ruleType: rule.ruleType,
-    enabled: rule.enabled,
-    isBuiltin: rule.isBuiltin,
-    count: matches.length,
-    message: formatMessage(rule.messageTemplate, {
-      count: matches.length,
+  const count = matches.length;
+  return resultBase(
+    rule,
+    count,
+    formatMessage(rule.messageTemplate, {
+      count,
       name: rule.name,
       pct: thresholds.budgetUtilizationWarning,
     }),
-    link: rule.link,
-    items: matches.slice(0, 10).map((b) => ({
+    matches.slice(0, 10).map((b) => ({
       id: b.id,
       label: b.name,
       sublabel: `${b.utilizationPct}% utilized`,
       meta: b.statusLabel,
-    })),
-  };
+    }))
+  );
 }
 
 function evaluateAggregateRule(rule, orgCtx, thresholds) {
@@ -254,38 +258,12 @@ function evaluateAggregateRule(rule, orgCtx, thresholds) {
     thresholds
   );
   const count = matches ? orgCtx.pendingProcurementCount || 1 : 0;
-  if (!matches) {
-    return {
-      ruleId: String(rule._id),
-      ruleKey: rule.ruleKey,
-      name: rule.name,
-      description: rule.description,
-      category: rule.category,
-      severity: rule.severity,
-      ruleType: rule.ruleType,
-      enabled: rule.enabled,
-      isBuiltin: rule.isBuiltin,
-      count: 0,
-      message: formatMessage(rule.messageTemplate, { count: 0, name: rule.name }),
-      link: rule.link,
-      items: [],
-    };
-  }
-  return {
-    ruleId: String(rule._id),
-    ruleKey: rule.ruleKey,
-    name: rule.name,
-    description: rule.description,
-    category: rule.category,
-    severity: rule.severity,
-    ruleType: rule.ruleType,
-    enabled: rule.enabled,
-    isBuiltin: rule.isBuiltin,
+  return resultBase(
+    rule,
     count,
-    message: formatMessage(rule.messageTemplate, { count, name: rule.name }),
-    link: rule.link,
-    items: [],
-  };
+    formatMessage(rule.messageTemplate, { count, name: rule.name }),
+    []
+  );
 }
 
 export async function getMatchingAssetIdsForRule(organizationId, ruleKey) {
@@ -326,6 +304,17 @@ export async function getMatchingAssetIdsForRule(organizationId, ruleKey) {
   };
 }
 
+function ruleUsesRetiredHealthMetrics(rule) {
+  const retired = new Set(['healthScore', 'replacementScore', 'replacementPriority']);
+  const groups = rule?.conditionTree?.groups || [];
+  for (const group of groups) {
+    for (const condition of group.conditions || []) {
+      if (retired.has(condition.metric)) return true;
+    }
+  }
+  return false;
+}
+
 export async function evaluateInsights(organizationId) {
   const [config, rules, assets, budgets, orgCtx] = await Promise.all([
     ensureInsightOrgConfig(organizationId),
@@ -336,7 +325,7 @@ export async function evaluateInsights(organizationId) {
   ]);
 
   const thresholds = { ...config.thresholds };
-  const enabledRules = rules.filter((r) => r.enabled);
+  const enabledRules = rules.filter((r) => r.enabled && !ruleUsesRetiredHealthMetrics(r));
 
   const results = enabledRules.map((rule) => {
     if (rule.ruleType === 'budget') return evaluateBudgetRule(rule, budgets, thresholds);
@@ -346,6 +335,9 @@ export async function evaluateInsights(organizationId) {
     return evaluateAssetRule(rule, assets, thresholds);
   });
 
+  // Active matches always show. Custom rules also show when count is 0 so newly
+  // added insights appear on Insights / Home instead of vanishing until data matches.
+  const visible = results.filter((r) => r.count > 0 || !r.isBuiltin);
   const active = results.filter((r) => r.count > 0);
   const bySeverity = {
     critical: active.filter((r) => r.severity === 'critical'),
@@ -353,11 +345,17 @@ export async function evaluateInsights(organizationId) {
     info: active.filter((r) => r.severity === 'info'),
   };
 
+  const createdMs = (r) => (r.createdAt ? new Date(r.createdAt).getTime() : 0);
+  const sorted = visible.sort((a, b) => {
+    // Newest first; among same timestamp prefer higher match counts / severity.
+    const byCreated = createdMs(b) - createdMs(a);
+    if (byCreated !== 0) return byCreated;
+    const sev = { critical: 0, warning: 1, info: 2 };
+    return (sev[a.severity] ?? 3) - (sev[b.severity] ?? 3) || b.count - a.count;
+  });
+
   return {
-    insights: active.sort((a, b) => {
-      const sev = { critical: 0, warning: 1, info: 2 };
-      return (sev[a.severity] ?? 3) - (sev[b.severity] ?? 3) || b.count - a.count;
-    }),
+    insights: sorted,
     allResults: results,
     summary: {
       totalRules: rules.length,

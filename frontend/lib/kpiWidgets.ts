@@ -184,8 +184,6 @@ export const METRIC_OPTIONS: { id: KpiMetric; label: string; category: string }[
   { id: 'depreciation', label: 'Depreciation', category: 'Metrics' },
   { id: 'issues', label: 'Issues', category: 'Metrics' },
   { id: 'maintenance_cost', label: 'Maintenance Cost', category: 'Metrics' },
-  { id: 'health_score', label: 'Health Score', category: 'Metrics' },
-  { id: 'replacement_score', label: 'Replacement Score', category: 'Metrics' },
   { id: 'utilization', label: 'Utilization', category: 'Metrics' },
   { id: 'warranty', label: 'Warranty', category: 'Metrics' },
 ];
@@ -227,8 +225,6 @@ export const QUICK_WIDGET_OPTIONS: { id: KpiQuickType; label: string }[] = [
   { id: 'recent_audit_logs', label: 'Recent Audit Logs' },
   { id: 'recently_added_assets', label: 'Recently Added Assets' },
   { id: 'top_vendors', label: 'Top Vendors' },
-  { id: 'low_health_assets', label: 'Low Health Assets' },
-  { id: 'replacement_recommendations', label: 'Replacement Recommendations' },
 ];
 
 export const WIDGET_FILTER_CATALOG: { key: KpiFilterFieldKey; label: string }[] = [
@@ -415,6 +411,9 @@ export function computeKpiWidgetData(ctx: KpiDataContext, widget: KpiWidget): Kp
   if (isBudgetWidget(widget)) {
     return { kpiValue: '—', kpiHint: 'Budget data unavailable', points: [], listRows: [] };
   }
+  if (isRetiredHealthWidget(widget)) {
+    return { kpiValue: '—', kpiHint: 'Removed', points: [], listRows: [] };
+  }
 
   const filtered = applyKpiWidgetFilters(ctx.assets, widget.filters);
 
@@ -595,19 +594,31 @@ export function suggestKpiWidgetSize(widget: KpiWidget, result: KpiWidgetResult)
   return { colSpan: 6, rowSpan: clampKpiSpan(2 + Math.ceil(n / 4), KPI_MIN_ROW_SPAN, KPI_MAX_ROW_SPAN) };
 }
 
+export function isRetiredHealthWidget(widget: Pick<KpiWidget, 'metric' | 'quickType'>): boolean {
+  const healthMetrics = new Set(['health_score', 'replacement_score']);
+  const healthQuick = new Set(['low_health_assets', 'replacement_recommendations']);
+  if (widget.metric && healthMetrics.has(widget.metric)) return true;
+  if (widget.quickType && healthQuick.has(widget.quickType)) return true;
+  return false;
+}
+
 export function mergeKpiLayout(incoming: Partial<KpiDashboardLayout> | null | undefined): KpiDashboardLayout {
   if (!incoming?.widgets?.length) {
     return { version: 1, widgets: [] };
   }
   return {
     version: incoming.version ?? 1,
-    widgets: [...incoming.widgets].sort((a, b) => a.order - b.order).map((w) => ({
-      ...w,
-      filterFields: w.filterFields ?? [],
-      filters: w.filters ?? {},
-      colSpan: w.colSpan ?? 6,
-      rowSpan: w.rowSpan ?? 2,
-      sizeLocked: w.sizeLocked ?? false,
-    })),
+    widgets: [...incoming.widgets]
+      .filter((w) => !isRetiredHealthWidget(w))
+      .sort((a, b) => a.order - b.order)
+      .map((w, i) => ({
+        ...w,
+        order: i,
+        filterFields: w.filterFields ?? [],
+        filters: w.filters ?? {},
+        colSpan: w.colSpan ?? 6,
+        rowSpan: w.rowSpan ?? 2,
+        sizeLocked: w.sizeLocked ?? false,
+      })),
   };
 }

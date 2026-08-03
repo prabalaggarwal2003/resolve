@@ -9,11 +9,14 @@ export default function InsightDashboardCards({
   loading,
   scrollable = false,
   maxHeight = '320px',
+  showItems = false,
 }: {
   insights: InsightResult[];
   loading?: boolean;
   scrollable?: boolean;
   maxHeight?: string;
+  /** When false (default), hide the affected assets/items list for a simpler card. */
+  showItems?: boolean;
 }) {
   if (loading) {
     return <p className="text-sm text-gray-500 py-8 text-center">Evaluating insights…</p>;
@@ -22,8 +25,13 @@ export default function InsightDashboardCards({
   if (!insights.length) {
     return (
       <div className="text-center py-16 rounded-xl border border-dashed border-gray-700/50">
-        <p className="text-gray-400 mb-1">No active insights</p>
-        <p className="text-sm text-gray-600">All rules are clear or disabled. Check Rules to configure.</p>
+        <p className="text-gray-400 mb-1">No insights yet</p>
+        <p className="text-sm text-gray-600">
+          Add a check on Configure, or turn on built-in rules.{' '}
+          <Link href="/dashboard/insights/rules" className="text-blue-400 hover:text-blue-300 no-underline">
+            Configure insights
+          </Link>
+        </p>
       </div>
     );
   }
@@ -32,39 +40,46 @@ export default function InsightDashboardCards({
     <div className="space-y-3">
       {insights.map((insight) => {
         const style = SEVERITY_STYLES[insight.severity] || SEVERITY_STYLES.info;
+        const quiet = insight.count === 0;
         return (
           <div
             key={insight.ruleId}
-            className={`rounded-xl border p-4 ${style.border} ${style.bg}`}
+            className={`rounded-xl border p-4 ${quiet ? 'border-gray-700/50 bg-gray-900/20' : `${style.border} ${style.bg}`}`}
           >
-            <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-start gap-2 min-w-0">
-                <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${style.dot}`} />
+                <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${quiet ? 'bg-gray-500' : style.dot}`} />
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className={`text-sm font-semibold ${style.text}`}>{insight.name}</h3>
-                    <span className="text-[10px] uppercase tracking-wide text-gray-500">{insight.category}</span>
-                    {insight.isBuiltin ? (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded border border-gray-700/60 text-gray-500">Built-in</span>
-                    ) : null}
-                  </div>
-                  <p className="text-sm text-gray-300 mt-0.5">{insight.message}</p>
-                  {insight.description ? (
-                    <p className="text-xs text-gray-500 mt-1">{insight.description}</p>
-                  ) : null}
+                  <h3 className={`text-sm font-semibold ${quiet ? 'text-gray-300' : style.text}`}>{insight.name}</h3>
+                  <p className="text-sm text-gray-300 mt-0.5">
+                    {quiet ? 'No matches yet — adjust the check or wait for data to change.' : insight.message}
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className={`text-lg font-bold ${style.text}`}>{insight.count}</span>
-                <Link
-                  href={insightViewHref(insight)}
-                  className="text-xs text-blue-400 hover:text-blue-300 no-underline"
-                >
-                  View →
-                </Link>
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="text-right">
+                  <p className={`text-lg font-bold tabular-nums ${quiet ? 'text-gray-400' : style.text}`}>{insight.count}</p>
+                  <p className="text-[10px] text-gray-500 uppercase">matches</p>
+                </div>
+                {!quiet && (
+                  <Link
+                    href={insightViewHref(insight)}
+                    className="text-xs text-blue-400 hover:text-blue-300 no-underline"
+                  >
+                    View →
+                  </Link>
+                )}
+                {quiet && (
+                  <Link
+                    href={`/dashboard/insights/rules?edit=${insight.ruleId}`}
+                    className="text-xs text-blue-400 hover:text-blue-300 no-underline"
+                  >
+                    Edit →
+                  </Link>
+                )}
               </div>
             </div>
-            {insight.items.length > 0 && (
+            {showItems && insight.items.length > 0 && (
               <ul className="mt-3 pt-3 border-t border-gray-700/30 space-y-1">
                 {insight.items.slice(0, 5).map((item) => (
                   <li key={item.id} className="flex justify-between text-xs text-gray-400">

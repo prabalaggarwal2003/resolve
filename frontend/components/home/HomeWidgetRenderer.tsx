@@ -192,9 +192,9 @@ export default function HomeWidgetRenderer({
   }
 
   if (widget.kind === 'performance' && result.performance) {
-    const { avgResolutionHours, utilizationPct, avgHealthScore } = result.performance;
+    const { avgResolutionHours, utilizationPct } = result.performance;
     return (
-      <div className="grid grid-cols-3 gap-2 h-full items-center">
+      <div className="grid grid-cols-2 gap-2 h-full items-center">
         <div className="text-center px-1">
           <p className="text-[9px] text-gray-500 uppercase">Avg resolution</p>
           <p className="text-lg font-bold text-gray-100 tabular-nums">{avgResolutionHours}h</p>
@@ -202,10 +202,6 @@ export default function HomeWidgetRenderer({
         <div className="text-center px-1">
           <p className="text-[9px] text-gray-500 uppercase">Utilization</p>
           <p className="text-lg font-bold text-gray-100 tabular-nums">{utilizationPct}%</p>
-        </div>
-        <div className="text-center px-1">
-          <p className="text-[9px] text-gray-500 uppercase">Avg health</p>
-          <p className="text-lg font-bold text-gray-100 tabular-nums">{avgHealthScore}</p>
         </div>
       </div>
     );

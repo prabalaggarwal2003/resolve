@@ -114,8 +114,6 @@ export const METRIC_OPTIONS: { id: WidgetMetric; label: string }[] = [
   { id: 'book_value', label: 'Current Book Value' },
   { id: 'depreciation', label: 'Depreciation' },
   { id: 'asset_count', label: 'Asset Count' },
-  { id: 'replacement_score', label: 'Replacement Score' },
-  { id: 'health_score', label: 'Health Score' },
   { id: 'warranty_status', label: 'Warranty Status' },
   { id: 'issue_count', label: 'Issue Count' },
   { id: 'maintenance_cost', label: 'Maintenance Cost' },
