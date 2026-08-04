@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { env } from './config/env.js';
-import { auth, signup, health, assets, issues, dashboard, notifications, users, locations, locationTypes, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth, testNotifications, qrPdf, depreciation, kpis, homeDashboard, vendors, invoices, reports, payments, testPayments, orgRoles, assetTemplates, assetGroups, budgets, procurement, budgetDashboard, insights } from './routes/index.js';
+import { auth, signup, health, assets, issues, dashboard, notifications, users, locations, locationTypes, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth, testNotifications, qrPdf, depreciation, kpis, homeDashboard, vendors, invoices, reports, payments, testPayments, orgRoles, assetTemplates, assetGroups, budgets, procurement, budgetDashboard, insights, reportStudio } from './routes/index.js';
 
 const app = express();
 
@@ -52,6 +52,7 @@ app.use('/api/home-dashboard', homeDashboard);
 app.use('/api/vendors', vendors);
 app.use('/api/invoices', invoices);
 app.use('/api/reports', reports);
+app.use('/api/report-studio', reportStudio);
 app.use('/api/payments', payments);
 app.use('/api/test-payments', testPayments);
 app.use('/api/budgets', budgets);

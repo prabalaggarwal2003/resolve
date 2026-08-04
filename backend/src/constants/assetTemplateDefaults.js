@@ -19,7 +19,7 @@ function f(key, label, type, { required = false, order, section = SECTION.BASIC,
   return { key, label, type, required, order, section, builtIn: true, options: options || [] };
 }
 
-function custom(key, label, type, { required = false, order, section = SECTION.BASIC, options } = {}) {
+function custom(key, label, type, { required = false, order, section = 'custom', options } = {}) {
   return { key, label, type, required, order, section, builtIn: false, options: options || [] };
 }
 

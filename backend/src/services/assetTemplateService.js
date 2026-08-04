@@ -8,6 +8,33 @@ import {
 import { DEFAULT_TEMPLATE_GROUP_MAP } from '../constants/assetGroupDefaults.js';
 import { ensureDefaultAssetGroups } from './assetGroupService.js';
 
+const BUILTIN_SECTION_BY_KEY = {
+  name: 'basic',
+  model: 'basic',
+  serialNumber: 'basic',
+  status: 'basic',
+  tags: 'basic',
+  condition: 'basic',
+  assignedToName: 'assignment',
+  assignedToEmployeeCode: 'assignment',
+  locationId: 'assignment',
+  departmentId: 'assignment',
+  purchaseDate: 'purchase',
+  warrantyExpiry: 'purchase',
+  amcExpiry: 'purchase',
+  nextMaintenanceDate: 'purchase',
+  vendorId: 'purchase',
+  cost: 'purchase',
+  budgetId: 'purchase',
+  procurementId: 'purchase',
+  fundingSourceId: 'purchase',
+  costCenter: 'purchase',
+  purchaseOrderNumber: 'purchase',
+  invoiceNumber: 'purchase',
+};
+
+const DYNAMIC_OPTION_FIELD_KEYS = new Set(['departmentId', 'vendorId']);
+
 export async function ensureDefaultTemplates(organizationId, userId) {
   const count = await AssetTemplate.countDocuments({ organizationId });
   if (count > 0) return;
@@ -49,18 +76,64 @@ export function normalizeTemplateFields(fields) {
     .map((field, index) => {
       const key = field.key?.trim() || slugKey(field.label || `field_${index}`);
       const builtIn = BUILTIN_FIELD_KEYS.has(key);
+      // Match asset info: built-ins keep fixed sections; everything else is Additional details
+      const normalizedSection = builtIn
+        ? (BUILTIN_SECTION_BY_KEY[key] || field.section || 'basic')
+        : 'custom';
       return {
         key,
         label: String(field.label || key).trim(),
         type: FIELD_TYPES.includes(field.type) ? field.type : 'text',
         required: Boolean(field.required),
         order: typeof field.order === 'number' ? field.order : index,
-        section: field.section || (builtIn ? 'basic' : 'custom'),
+        section: normalizedSection,
         builtIn,
+        // Default true so existing templates keep showing fields on QR until configured
+        qrVisible: field.qrVisible !== false,
         options: Array.isArray(field.options) ? field.options.map(String) : [],
       };
     })
     .sort((a, b) => a.order - b.order);
+}
+
+/** Persist corrected sections for older templates seeded with custom fields under basic. */
+export async function repairTemplateSections(template) {
+  if (!template?.fields?.length) return template;
+  const normalized = normalizeTemplateFields(template.fields);
+  const changed = normalized.some((field) => {
+    const current = (template.fields || []).find((f) => f.key === field.key);
+    return !current || current.section !== field.section || Boolean(current.builtIn) !== field.builtIn;
+  }) || normalized.length !== (template.fields || []).length;
+
+  if (!changed) {
+    return { ...template, fields: normalized };
+  }
+
+  await AssetTemplate.updateOne(
+    { _id: template._id },
+    { $set: { fields: normalized } }
+  );
+  return { ...template, fields: normalized };
+}
+
+const QR_SECTION_KEYS = [
+  'basic',
+  'assignment',
+  'purchase',
+  'custom',
+  'photos',
+  'documents',
+  'maintenance',
+  'issues',
+];
+
+export function normalizeQrSections(input) {
+  const out = {};
+  for (const key of QR_SECTION_KEYS) {
+    // Default true when unset (backward compatible)
+    out[key] = input?.[key] !== false;
+  }
+  return out;
 }
 
 export function validateTemplatePayload(body) {
@@ -75,7 +148,9 @@ export function validateTemplatePayload(body) {
   for (const f of fields) {
     if (keys.has(f.key)) return { ok: false, message: `Duplicate field key: ${f.key}` };
     keys.add(f.key);
-    if (['select', 'checkbox', 'radio'].includes(f.type) && (!f.options || f.options.length === 0)) {
+    const needsStaticOptions =
+      ['select', 'checkbox', 'radio'].includes(f.type) && !DYNAMIC_OPTION_FIELD_KEYS.has(f.key);
+    if (needsStaticOptions && (!f.options || f.options.length === 0)) {
       return { ok: false, message: `"${f.label}" requires at least one option` };
     }
   }
@@ -92,10 +167,33 @@ export function validateTemplatePayload(body) {
       name: body.name.trim(),
       description: body.description?.trim() || '',
       fields,
+      qrSections: normalizeQrSections(body.qrSections),
       statuses: statuses.length ? statuses : [...DEFAULT_ASSET_STATUSES],
       tagSuggestions,
     },
   };
+}
+
+/**
+ * Build QR visibility config from a template (or safe defaults when no template).
+ * A field is shown when its section is enabled AND field.qrVisible is true.
+ */
+export function getQrVisibilityFromTemplate(template) {
+  const qrSections = normalizeQrSections(template?.qrSections);
+  const fields = (template?.fields || []).map((f) => ({
+    key: f.key,
+    label: f.label,
+    type: f.type,
+    section: f.section || 'basic',
+    builtIn: Boolean(f.builtIn),
+    qrVisible: f.qrVisible !== false,
+  }));
+
+  const visibleFields = fields.filter(
+    (f) => qrSections[f.section] !== false && f.qrVisible !== false
+  );
+
+  return { qrSections, fields, visibleFields };
 }
 
 /** Split incoming asset body into schema fields vs customFields based on template */

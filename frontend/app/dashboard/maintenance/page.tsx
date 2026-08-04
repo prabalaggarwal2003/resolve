@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import ChangeReasonModal from '@/components/ChangeReasonModal';
+import type { ImportantChange } from '@/lib/assetChangeReason';
 
 interface MaintenanceAsset {
   _id: string;
@@ -133,20 +135,13 @@ function DetailTile({
 
 function AssetCard({
   asset,
-  onCompleteMaintenance,
+  onRequestComplete,
 }: {
   asset: MaintenanceAsset;
-  onCompleteMaintenance: (assetId: string) => void;
+  onRequestComplete: (asset: MaintenanceAsset) => void;
 }) {
-  const [completing, setCompleting] = useState(false);
   const elapsed = useElapsed(asset.maintenanceStartDate);
   const isOverdue = useIsOverdue(asset.maintenanceStartDate);
-
-  const handleComplete = async () => {
-    setCompleting(true);
-    await onCompleteMaintenance(asset._id);
-    setCompleting(false);
-  };
 
   return (
     <div
@@ -230,11 +225,10 @@ function AssetCard({
           View asset
         </Link>
         <button
-          onClick={handleComplete}
-          disabled={completing}
-          className="flex-1 min-w-[120px] px-2.5 py-1.5 text-xs font-medium rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-400/50 transition-colors disabled:opacity-50"
+          onClick={() => onRequestComplete(asset)}
+          className="flex-1 min-w-[120px] px-2.5 py-1.5 text-xs font-medium rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-400/50 transition-colors"
         >
-          {completing ? 'Completing…' : 'Mark complete'}
+          Mark complete
         </button>
       </div>
     </div>
@@ -247,6 +241,10 @@ export default function MaintenancePage() {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<'all' | 'overdue'>('all');
   const [, setTick] = useState(0);
+  const [completeTarget, setCompleteTarget] = useState<MaintenanceAsset | null>(null);
+  const [completeReason, setCompleteReason] = useState('');
+  const [completeError, setCompleteError] = useState('');
+  const [completing, setCompleting] = useState(false);
 
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 30_000);
@@ -282,30 +280,63 @@ export default function MaintenancePage() {
     fetchAssets();
   }, []);
 
-  const completeMaintenance = async (assetId: string) => {
+  const requestComplete = (asset: MaintenanceAsset) => {
+    setCompleteTarget(asset);
+    setCompleteReason('');
+    setCompleteError('');
+  };
+
+  const closeCompleteModal = () => {
+    if (completing) return;
+    setCompleteTarget(null);
+    setCompleteReason('');
+    setCompleteError('');
+  };
+
+  const confirmComplete = async () => {
+    if (!completeTarget || !completeReason.trim()) return;
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     if (!token) return;
 
+    setCompleting(true);
+    setCompleteError('');
     try {
-      const res = await fetch(api(`/api/asset-health/${assetId}/maintenance`), {
+      const res = await fetch(api(`/api/asset-health/${completeTarget._id}/maintenance`), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ status: 'complete' }),
+        body: JSON.stringify({ status: 'complete', reason: completeReason.trim() }),
       });
 
       if (res.ok) {
-        setAssets((prev) => prev.filter((a) => a._id !== assetId));
+        const completedId = completeTarget._id;
+        setAssets((prev) => prev.filter((a) => a._id !== completedId));
+        setCompleteTarget(null);
+        setCompleteReason('');
+        setCompleteError('');
       } else {
         const data = await res.json();
-        alert(data.message || 'Failed to complete maintenance');
+        setCompleteError(data.message || 'Failed to complete maintenance');
       }
     } catch {
-      alert('Network error');
+      setCompleteError('Network error');
+    } finally {
+      setCompleting(false);
     }
   };
+
+  const completeChanges: ImportantChange[] = completeTarget
+    ? [
+        {
+          field: 'status',
+          label: 'Status',
+          oldValue: 'under maintenance',
+          newValue: 'available',
+        },
+      ]
+    : [];
 
   const isAssetOverdue = (a: MaintenanceAsset) =>
     a.maintenanceStartDate
@@ -322,6 +353,26 @@ export default function MaintenancePage() {
 
   return (
     <div className="max-w-7xl mx-auto">
+      {completeTarget && (
+        <ChangeReasonModal
+          changes={completeChanges}
+          reason={completeReason}
+          onReasonChange={(value) => {
+            setCompleteReason(value);
+            if (completeError) setCompleteError('');
+          }}
+          onConfirm={confirmComplete}
+          onCancel={closeCompleteModal}
+          saving={completing}
+          title="Change reason required"
+          description={`Completing maintenance for “${completeTarget.name}”. Please explain why — this will be recorded in the timeline and audit log.`}
+          confirmLabel="Complete with reason"
+          savingLabel="Completing…"
+          placeholder="e.g. Replaced worn belt, tested and returned to service…"
+          error={completeError}
+        />
+      )}
+
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-100">Maintenance</h1>
         <p className="text-gray-400 mt-1 text-sm">
@@ -410,7 +461,7 @@ export default function MaintenancePage() {
             <AssetCard
               key={asset._id}
               asset={asset}
-              onCompleteMaintenance={completeMaintenance}
+              onRequestComplete={requestComplete}
             />
           ))}
         </div>

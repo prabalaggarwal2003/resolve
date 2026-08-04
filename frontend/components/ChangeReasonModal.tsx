@@ -13,6 +13,12 @@ export default function ChangeReasonModal({
   onConfirm,
   onCancel,
   saving,
+  title = 'Change reason required',
+  description = 'You changed asset fields. Please explain why — this will be recorded in the timeline and audit log.',
+  confirmLabel = 'Save with reason',
+  savingLabel = 'Saving…',
+  placeholder = 'e.g. Reassigned after employee transfer, warranty renewed after service…',
+  error,
 }: {
   changes: ImportantChange[];
   reason: string;
@@ -20,6 +26,12 @@ export default function ChangeReasonModal({
   onConfirm: () => void;
   onCancel: () => void;
   saving?: boolean;
+  title?: string;
+  description?: string;
+  confirmLabel?: string;
+  savingLabel?: string;
+  placeholder?: string;
+  error?: string;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
@@ -30,29 +42,29 @@ export default function ChangeReasonModal({
       >
         <div className="px-5 py-4 border-b border-gray-700/60">
           <h2 id="change-reason-title" className="text-base font-semibold text-gray-100">
-            Change reason required
+            {title}
           </h2>
-          <p className="text-xs text-gray-500 mt-1">
-            You modified important fields. Please explain why — this will be recorded in the timeline and audit log.
-          </p>
+          <p className="text-xs text-gray-500 mt-1">{description}</p>
         </div>
 
-        <div className="px-5 py-4 max-h-48 overflow-y-auto">
-          <ul className="space-y-2">
-            {changes.map((c) => (
-              <li key={c.field} className="text-xs rounded-lg border border-gray-700/50 bg-gray-800/40 px-3 py-2">
-                <span className="text-gray-500 uppercase tracking-wide text-[10px]">{c.label}</span>
-                <p className="text-gray-300 mt-0.5">
-                  <span className="text-gray-500">{c.oldValue}</span>
-                  <span className="text-gray-600 mx-1.5">→</span>
-                  <span className="text-amber-200">{c.newValue}</span>
-                </p>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {changes.length > 0 && (
+          <div className="px-5 py-4 max-h-48 overflow-y-auto">
+            <ul className="space-y-2">
+              {changes.map((c) => (
+                <li key={c.field} className="text-xs rounded-lg border border-gray-700/50 bg-gray-800/40 px-3 py-2">
+                  <span className="text-gray-500 uppercase tracking-wide text-[10px]">{c.label}</span>
+                  <p className="text-gray-300 mt-0.5">
+                    <span className="text-gray-500">{c.oldValue}</span>
+                    <span className="text-gray-600 mx-1.5">→</span>
+                    <span className="text-amber-200">{c.newValue}</span>
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-        <div className="px-5 pb-5">
+        <div className={`px-5 ${changes.length > 0 ? 'pb-5' : 'py-4'}`}>
           <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1">
             Reason *
           </label>
@@ -60,10 +72,11 @@ export default function ChangeReasonModal({
             value={reason}
             onChange={(e) => onReasonChange(e.target.value)}
             rows={3}
-            placeholder="e.g. Reassigned after employee transfer, warranty renewed after service…"
+            placeholder={placeholder}
             className={inputClass}
             autoFocus
           />
+          {error && <p className="text-[11px] text-red-400 mt-2">{error}</p>}
         </div>
 
         <div className="px-5 py-4 border-t border-gray-700/60 flex justify-end gap-2">
@@ -81,7 +94,7 @@ export default function ChangeReasonModal({
             disabled={saving || !reason.trim()}
             className={`${buttonClass} border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 disabled:opacity-50`}
           >
-            {saving ? 'Saving…' : 'Save with reason'}
+            {saving ? savingLabel : confirmLabel}
           </button>
         </div>
       </div>

@@ -17,7 +17,23 @@ const templateFieldSchema = new mongoose.Schema(
       default: 'basic',
     },
     builtIn: { type: Boolean, default: false },
+    /** When parent section is QR-enabled, show this field on the public QR page */
+    qrVisible: { type: Boolean, default: true },
     options: [{ type: String }],
+  },
+  { _id: false }
+);
+
+const qrSectionsSchema = new mongoose.Schema(
+  {
+    basic: { type: Boolean, default: true },
+    assignment: { type: Boolean, default: true },
+    purchase: { type: Boolean, default: true },
+    custom: { type: Boolean, default: true },
+    photos: { type: Boolean, default: true },
+    documents: { type: Boolean, default: true },
+    maintenance: { type: Boolean, default: true },
+    issues: { type: Boolean, default: true },
   },
   { _id: false }
 );
@@ -34,6 +50,8 @@ const assetTemplateSchema = new mongoose.Schema(
     description: { type: String, default: '' },
     isDefault: { type: Boolean, default: false },
     fields: [templateFieldSchema],
+    /** Which sections appear when an asset using this template is scanned via QR */
+    qrSections: { type: qrSectionsSchema, default: () => ({}) },
     statuses: [{ type: String, trim: true }],
     tagSuggestions: [{ type: String, trim: true }],
     groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'AssetGroup', default: null },
