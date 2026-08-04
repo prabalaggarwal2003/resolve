@@ -324,13 +324,8 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
 
     if (pendingEditLog && requiresChangeReason(pendingEditLog.fieldChanges) && !changeReason) {
       return res.status(400).json({
-        message:
-          'A change reason is required when modifying warranty, location, assignee, status, cost, or other important fields',
-        importantChanges: pendingEditLog.fieldChanges.filter((c) =>
-          ['status', 'locationId', 'departmentId', 'assignedTo', 'assignedToName', 'assignedToEmployeeCode',
-            'warrantyExpiry', 'amcExpiry', 'nextMaintenanceDate', 'cost', 'purchaseDate', 'vendorId', 'condition',
-            'budgetId', 'procurementId', 'fundingSourceId', 'costCenter', 'purchaseOrderNumber', 'invoiceNumber'].includes(c.field)
-        ),
+        message: 'A change reason is required when modifying asset fields',
+        importantChanges: pendingEditLog.fieldChanges,
       });
     }
 
@@ -376,23 +371,32 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
       const history = currentAsset.maintenanceHistory || [];
 
       if (update.status === 'under_maintenance') {
+        const startReason = update.maintenanceReason || changeReason || 'Status changed to under maintenance';
+        if (!update.maintenanceReason) update.maintenanceReason = startReason;
         const hasOpenEntry = history.length > 0 && !history[history.length - 1].endDate;
         if (!hasOpenEntry) {
           update.$push = {
             maintenanceHistory: {
               startDate: now,
-              reason: update.maintenanceReason || changeReason || 'Status changed to under maintenance',
+              reason: startReason,
             },
           };
           if (!update.maintenanceStartDate) update.maintenanceStartDate = now;
         }
+        auditAction = AUDIT_ACTIONS.MAINTENANCE_STARTED;
+        auditDescription = `Started maintenance on "${prev.name}"`;
+        auditSeverity = 'medium';
         await createAssetMaintenanceLog(AssetLog, {
           assetId: prev._id,
           userId: req.user._id,
           summary: 'Entered maintenance',
-          notes: update.maintenanceReason || changeReason || undefined,
+          notes: startReason,
         });
       } else if (prev.status === 'under_maintenance') {
+        const completionReason = (changeReason || update.maintenanceCompletionReason || '').trim();
+        if (!completionReason) {
+          return res.status(400).json({ message: 'A reason is required to complete maintenance' });
+        }
         const lastIdx = history.length - 1;
         const hasOpenEntry = lastIdx >= 0 && !history[lastIdx].endDate;
         const startDate = prev.maintenanceStartDate;
@@ -401,23 +405,31 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
         if (hasOpenEntry) {
           update[`maintenanceHistory.${lastIdx}.endDate`] = now;
           update[`maintenanceHistory.${lastIdx}.durationMinutes`] = durationMinutes;
+          update[`maintenanceHistory.${lastIdx}.completionReason`] = completionReason;
+          update[`maintenanceHistory.${lastIdx}.completedBy`] = req.user._id;
         } else {
           update.$push = {
             maintenanceHistory: {
               startDate: startDate || now,
               endDate: now,
               reason: prev.maintenanceReason || 'Maintenance completed',
+              completionReason,
+              completedBy: req.user._id,
               durationMinutes,
             },
           };
         }
         if (!update.maintenanceCompletedDate) update.maintenanceCompletedDate = now;
         update.maintenanceStartDate = null;
+        update.maintenanceReason = null;
+        auditAction = AUDIT_ACTIONS.MAINTENANCE_COMPLETED;
+        auditDescription = `Completed maintenance on "${prev.name}"`;
+        auditSeverity = 'medium';
         await createAssetMaintenanceLog(AssetLog, {
           assetId: prev._id,
           userId: req.user._id,
           summary: 'Maintenance completed',
-          notes: changeReason || undefined,
+          notes: completionReason,
         });
       }
     }
@@ -448,6 +460,9 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
         fieldChanges,
         changeReason: changeReason || null,
         summary: pendingEditLog?.summary || formatChangesSummary(fieldChanges) || null,
+        ...(auditAction === AUDIT_ACTIONS.MAINTENANCE_STARTED || auditAction === AUDIT_ACTIONS.MAINTENANCE_COMPLETED
+          ? { maintenanceAction: auditAction === AUDIT_ACTIONS.MAINTENANCE_STARTED ? 'start' : 'complete', reason: changeReason || null }
+          : {}),
       },
       severity: auditSeverity,
       ...getRequestMetadata(req),

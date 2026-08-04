@@ -1,19 +1,5 @@
 import type { AssetTemplate } from '@/lib/assetTemplates';
 
-export const IMPORTANT_ASSET_FIELD_KEYS = new Set([
-  'status',
-  'locationId',
-  'departmentId',
-  'assignedToName',
-  'assignedToEmployeeCode',
-  'warrantyExpiry',
-  'amcExpiry',
-  'nextMaintenanceDate',
-  'cost',
-  'purchaseDate',
-  'vendorId',
-]);
-
 function displayValue(key: string, val: string | string[] | undefined): string {
   if (val === undefined || val === null || val === '') return '—';
   if (Array.isArray(val)) return val.length ? val.join(', ') : '—';
@@ -47,6 +33,7 @@ export type ImportantChange = {
   newValue: string;
 };
 
+/** Detect any changed template field (reason required for all edits). */
 export function detectImportantChanges(
   template: AssetTemplate,
   original: Record<string, string | string[]>,
@@ -55,7 +42,6 @@ export function detectImportantChanges(
   const changes: ImportantChange[] = [];
 
   for (const field of template.fields) {
-    if (!IMPORTANT_ASSET_FIELD_KEYS.has(field.key)) continue;
     if (valuesEqual(field.key, original[field.key], current[field.key])) continue;
     changes.push({
       field: field.key,
@@ -65,5 +51,32 @@ export function detectImportantChanges(
     });
   }
 
+  return changes;
+}
+
+const PROCUREMENT_LABELS: Record<string, string> = {
+  budgetId: 'Budget',
+  procurementId: 'Procurement',
+  fundingSourceId: 'Funding source',
+  costCenter: 'Cost center',
+  purchaseOrderNumber: 'Purchase order',
+  invoiceNumber: 'Invoice number',
+};
+
+/** Detect procurement/finance field changes on the edit form. */
+export function detectProcurementChanges(
+  original: Record<string, string>,
+  current: Record<string, string>
+): ImportantChange[] {
+  const changes: ImportantChange[] = [];
+  for (const key of Object.keys(PROCUREMENT_LABELS)) {
+    if (valuesEqual(key, original[key], current[key])) continue;
+    changes.push({
+      field: key,
+      label: PROCUREMENT_LABELS[key],
+      oldValue: displayValue(key, original[key]),
+      newValue: displayValue(key, current[key]),
+    });
+  }
   return changes;
 }

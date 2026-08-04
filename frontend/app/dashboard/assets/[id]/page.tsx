@@ -52,6 +52,7 @@ type Asset = {
     startDate: string;
     endDate?: string;
     reason?: string;
+    completionReason?: string;
     durationMinutes?: number;
     notes?: string;
   }[];
@@ -456,8 +457,8 @@ export default function AssetDetailPage() {
         {noteEntries.length === 0 ? (
           <p className="text-[11px] text-gray-500 py-1">No notes yet.</p>
         ) : (
-          <div className="space-y-2">
-            {noteEntries.slice(0, 8).map((entry) => (
+          <div className="max-h-56 overflow-y-auto pr-1 space-y-2">
+            {noteEntries.map((entry) => (
               <div key={entry._id} className="rounded-lg border border-gray-700/40 bg-gray-900/30 px-3 py-2">
                 <p className="text-xs text-gray-200">{entry.noteText || entry.notes}</p>
                 <p className="text-[10px] text-gray-500 mt-1">
@@ -487,68 +488,78 @@ export default function AssetDetailPage() {
         {timeline.length === 0 ? (
           <p className="text-[11px] text-gray-500 py-1">Activity will appear here as changes are made.</p>
         ) : (
-          <div className="relative pl-4 border-l border-gray-700/40 space-y-4">
-            {timeline.map((entry) => {
-              const meta = TIMELINE_TYPE_META[entry.type] || TIMELINE_TYPE_META.edit;
-              return (
-                <div key={entry._id} className="relative">
-                  <span className={`absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full ${meta.dot}`} />
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                      <span className={`text-[11px] font-semibold uppercase tracking-wide ${meta.title}`}>
-                        {meta.label}
-                      </span>
-                      <span className="text-[10px] text-gray-500 tabular-nums">
-                        {new Date(entry.createdAt).toLocaleString('en-IN', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                      {entry.user?.name && (
-                        <span className="text-[10px] text-gray-500">by {entry.user.name}</span>
-                      )}
-                    </div>
-
-                    {entry.type === 'note' && (
-                      <p className="text-xs text-gray-300 mt-1">{entry.noteText || entry.notes}</p>
-                    )}
-
-                    {entry.type === 'maintenance' && (
-                      <p className="text-xs text-gray-300 mt-1">{entry.summary}{entry.notes ? ` — ${entry.notes}` : ''}</p>
-                    )}
-
-                    {entry.type === 'created' && (
-                      <p className="text-xs text-gray-300 mt-1">{entry.summary || 'Asset created'}</p>
-                    )}
-
-                    {entry.type === 'edit' && (
-                      <div className="mt-1 space-y-1">
-                        {entry.fieldChanges?.map((c, i) => (
-                          <p key={`${c.field}-${i}`} className="text-xs text-gray-400">
-                            <span className="text-gray-500">{c.label}:</span>{' '}
-                            <span>{c.oldValue}</span>
-                            <span className="text-gray-600 mx-1">→</span>
-                            <span className="text-gray-200">{c.newValue}</span>
-                          </p>
-                        ))}
-                        {!entry.fieldChanges?.length && entry.summary && (
-                          <p className="text-xs text-gray-400">{entry.summary}</p>
-                        )}
-                        {entry.changeReason && (
-                          <p className="text-xs text-amber-300/90 mt-1.5 rounded border border-amber-500/20 bg-amber-500/5 px-2 py-1">
-                            <span className="text-amber-500/80 text-[10px] uppercase tracking-wide">Reason · </span>
-                            {entry.changeReason}
-                          </p>
+          <div className="max-h-80 overflow-y-auto pr-1">
+            <div className="relative pl-4 border-l border-gray-700/40 space-y-4">
+              {timeline.map((entry) => {
+                const meta = TIMELINE_TYPE_META[entry.type] || TIMELINE_TYPE_META.edit;
+                return (
+                  <div key={entry._id} className="relative">
+                    <span className={`absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full ${meta.dot}`} />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <span className={`text-[11px] font-semibold uppercase tracking-wide ${meta.title}`}>
+                          {meta.label}
+                        </span>
+                        <span className="text-[10px] text-gray-500 tabular-nums">
+                          {new Date(entry.createdAt).toLocaleString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                        {entry.user?.name && (
+                          <span className="text-[10px] text-gray-500">by {entry.user.name}</span>
                         )}
                       </div>
-                    )}
+
+                      {entry.type === 'note' && (
+                        <p className="text-xs text-gray-300 mt-1">{entry.noteText || entry.notes}</p>
+                      )}
+
+                      {entry.type === 'maintenance' && (
+                        <div className="mt-1">
+                          <p className="text-xs text-gray-300">{entry.summary}</p>
+                          {entry.notes && (
+                            <p className="text-xs text-amber-300/90 mt-1.5 rounded border border-amber-500/20 bg-amber-500/5 px-2 py-1">
+                              <span className="text-amber-500/80 text-[10px] uppercase tracking-wide">Reason · </span>
+                              {entry.notes}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {entry.type === 'created' && (
+                        <p className="text-xs text-gray-300 mt-1">{entry.summary || 'Asset created'}</p>
+                      )}
+
+                      {entry.type === 'edit' && (
+                        <div className="mt-1 space-y-1">
+                          {entry.fieldChanges?.map((c, i) => (
+                            <p key={`${c.field}-${i}`} className="text-xs text-gray-400">
+                              <span className="text-gray-500">{c.label}:</span>{' '}
+                              <span>{c.oldValue}</span>
+                              <span className="text-gray-600 mx-1">→</span>
+                              <span className="text-gray-200">{c.newValue}</span>
+                            </p>
+                          ))}
+                          {!entry.fieldChanges?.length && entry.summary && (
+                            <p className="text-xs text-gray-400">{entry.summary}</p>
+                          )}
+                          {entry.changeReason && (
+                            <p className="text-xs text-amber-300/90 mt-1.5 rounded border border-amber-500/20 bg-amber-500/5 px-2 py-1">
+                              <span className="text-amber-500/80 text-[10px] uppercase tracking-wide">Reason · </span>
+                              {entry.changeReason}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
       </Section>
@@ -637,23 +648,34 @@ export default function AssetDetailPage() {
                   : null;
 
               return (
-                <div key={i} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 py-1.5 text-xs min-w-0">
-                  <span
-                    className={`shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded border ${
-                      !end
-                        ? 'text-amber-300 bg-amber-500/15 border-amber-500/30'
-                        : 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30'
-                    }`}
-                  >
-                    {!end ? 'Active' : 'Done'}
-                  </span>
-                  <span className="text-gray-400 shrink-0 tabular-nums">
-                    {start.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                    {end ? ` → ${end.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''}
-                  </span>
-                  {durationLabel && <span className="text-gray-500 shrink-0">{durationLabel}</span>}
+                <div key={i} className="py-2 text-xs min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <span
+                      className={`shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded border ${
+                        !end
+                          ? 'text-amber-300 bg-amber-500/15 border-amber-500/30'
+                          : 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30'
+                      }`}
+                    >
+                      {!end ? 'Active' : 'Done'}
+                    </span>
+                    <span className="text-gray-400 shrink-0 tabular-nums">
+                      {start.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      {end ? ` → ${end.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''}
+                    </span>
+                    {durationLabel && <span className="text-gray-500 shrink-0">{durationLabel}</span>}
+                  </div>
                   {entry.reason && (
-                    <span className="text-gray-500 truncate min-w-0 flex-1">{entry.reason}</span>
+                    <p className="text-gray-400 mt-1">
+                      <span className="text-gray-500">Started · </span>
+                      {entry.reason}
+                    </p>
+                  )}
+                  {entry.completionReason && (
+                    <p className="text-emerald-300/90 mt-1">
+                      <span className="text-emerald-500/80">Completed · </span>
+                      {entry.completionReason}
+                    </p>
                   )}
                 </div>
               );

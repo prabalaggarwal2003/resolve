@@ -35,6 +35,7 @@ type AuditLog = {
     fileName?: string;
     fieldChanges?: FieldChange[];
     summary?: string;
+    reason?: string;
     changes?: Record<string, { old: unknown; new: unknown }>;
   };
   severity: 'low' | 'medium' | 'high' | 'critical';
@@ -73,6 +74,14 @@ const labelClass = 'block text-[10px] font-medium text-gray-500 uppercase tracki
 function formatAuditDetails(log: AuditLog): string {
   if (log.action === 'downloaded' && log.details?.fileName) {
     return `Downloaded ${log.details.fileName}`;
+  }
+
+  if (
+    (log.action === 'maintenance_started' || log.action === 'maintenance_completed') &&
+    typeof log.details?.reason === 'string' &&
+    log.details.reason
+  ) {
+    return log.details.reason;
   }
 
   const fieldChanges = log.details?.fieldChanges;

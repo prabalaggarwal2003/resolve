@@ -70,6 +70,7 @@ const assetSchema = new mongoose.Schema(
         startDate: { type: Date, required: true },
         endDate: { type: Date },
         reason: { type: String },
+        completionReason: { type: String },
         completedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         durationMinutes: { type: Number },
         notes: { type: String }

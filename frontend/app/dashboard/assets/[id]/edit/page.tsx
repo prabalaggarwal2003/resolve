@@ -10,7 +10,7 @@ import AssetTemplateFieldsForm, {
   buildAssetPatchFromTemplate,
 } from '@/components/AssetTemplateFieldsForm';
 import ChangeReasonModal from '@/components/ChangeReasonModal';
-import { detectImportantChanges, type ImportantChange } from '@/lib/assetChangeReason';
+import { detectImportantChanges, detectProcurementChanges, type ImportantChange } from '@/lib/assetChangeReason';
 import type { AssetTemplate } from '@/lib/assetTemplates';
 import { buildFallbackTemplateFromAsset } from '@/lib/assetFieldDisplay';
 import { breadcrumbForNode, flattenTree, type LocationTreeNode } from '@/lib/locations';
@@ -184,13 +184,18 @@ export default function EditAssetPage() {
     e.preventDefault();
     if (!template) return;
 
-    const important = detectImportantChanges(template, originalFieldValues, fieldValues).map((c) => ({
+    const fieldChanges = detectImportantChanges(template, originalFieldValues, fieldValues).map((c) => ({
       ...c,
       oldValue: resolveFieldDisplay(c.field, originalFieldValues[c.field]),
       newValue: resolveFieldDisplay(c.field, fieldValues[c.field]),
     }));
-    if (important.length > 0) {
-      setPendingChanges(important);
+    const procurementChanges = detectProcurementChanges(
+      originalProcurementValues as unknown as Record<string, string>,
+      procurementValues as unknown as Record<string, string>
+    );
+    const allChanges = [...fieldChanges, ...procurementChanges];
+    if (allChanges.length > 0) {
+      setPendingChanges(allChanges);
       setChangeReason('');
       setShowReasonModal(true);
       return;

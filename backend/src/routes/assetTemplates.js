@@ -6,6 +6,7 @@ import {
   ensureDefaultTemplates,
   validateTemplatePayload,
   normalizeTemplateFields,
+  repairTemplateSections,
 } from '../services/assetTemplateService.js';
 import { ensureDefaultAssetGroups } from '../services/assetGroupService.js';
 import {
@@ -42,7 +43,8 @@ router.get('/', requireTemplateRead, async (req, res) => {
     const templates = await AssetTemplate.find({ organizationId: req.user.organizationId })
       .sort({ sortOrder: 1, isDefault: -1, name: 1 })
       .lean();
-    res.json({ templates });
+    const repaired = await Promise.all(templates.map((t) => repairTemplateSections(t)));
+    res.json({ templates: repaired });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -55,7 +57,8 @@ router.get('/:id', requireTemplateRead, async (req, res) => {
       organizationId: req.user.organizationId,
     }).lean();
     if (!template) return res.status(404).json({ message: 'Template not found' });
-    res.json({ template });
+    const repaired = await repairTemplateSections(template);
+    res.json({ template: repaired });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -105,6 +108,7 @@ router.patch('/:id', requireTemplateWrite, async (req, res) => {
       name: req.body.name ?? template.name,
       description: req.body.description ?? template.description,
       fields: req.body.fields ?? template.fields,
+      qrSections: req.body.qrSections ?? template.qrSections,
       statuses: req.body.statuses ?? template.statuses,
       tagSuggestions: req.body.tagSuggestions ?? template.tagSuggestions,
     });

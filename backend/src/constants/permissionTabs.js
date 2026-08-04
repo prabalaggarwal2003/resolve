@@ -5,7 +5,7 @@ export const PERMISSION_TABS = [
   { key: 'issues', label: 'Issues', path: '/dashboard/issues', section: 'Core', mode: 'readWrite' },
   { key: 'locations', label: 'Locations', path: '/dashboard/locations', section: 'Manage', mode: 'readWrite' },
   { key: 'maintenance', label: 'Maintenance', path: '/dashboard/maintenance', section: 'Manage', mode: 'readWrite' },
-  { key: 'reports', label: 'Reports', path: '/dashboard/reports', section: 'Manage', mode: 'readWrite' },
+  { key: 'reports', label: 'Report Studio', path: '/dashboard/reports', section: 'Manage', mode: 'readWrite' },
   { key: 'kpis', label: 'KPIs & Metrics', path: '/dashboard/kpis', section: 'Analytics', mode: 'visibleOnly' },
   { key: 'depreciation', label: 'Depreciation', path: '/dashboard/depreciation', section: 'Analytics', mode: 'readWrite' },
   { key: 'budgets', label: 'Budgets & Procurement', path: '/dashboard/budgets/analytics', section: 'Analytics', mode: 'readWrite' },

@@ -1,7 +1,8 @@
 import express from 'express';
 import { protect } from '../middleware/auth.js';
 import { requireTabRead } from '../middleware/tabPermissions.js';
-import { Asset } from '../models/index.js';
+import { Asset, AssetLog } from '../models/index.js';
+import { createAssetMaintenanceLog } from '../services/assetLogService.js';
 import AssetHealthDashboard from '../models/AssetHealthDashboard.js';
 import {
   checkAssetHealth,
@@ -482,25 +483,31 @@ router.patch('/:assetId/maintenance', requireRole(['super_admin', 'admin', 'mana
       return res.status(400).json({ message: 'Status must be "start" or "complete"' });
     }
 
+    const trimmedReason = typeof reason === 'string' ? reason.trim() : '';
+    if (status === 'complete' && !trimmedReason) {
+      return res.status(400).json({ message: 'A reason is required to complete maintenance' });
+    }
+
     const currentAsset = await Asset.findById(req.params.assetId);
     if (!currentAsset) return res.status(404).json({ message: 'Asset not found' });
 
     const now = new Date();
     let updateQuery = {};
+    const startReason = trimmedReason || 'Manual maintenance request';
 
     if (status === 'start') {
       updateQuery = {
         $set: {
           condition: 'under_maintenance',
           status: 'under_maintenance',
-          maintenanceReason: reason || 'Manual maintenance request',
+          maintenanceReason: startReason,
           maintenanceStartDate: now,
           lastHealthCheck: now,
         },
         $push: {
           maintenanceHistory: {
             startDate: now,
-            reason: reason || 'Manual maintenance request',
+            reason: startReason,
           },
         },
       };
@@ -524,6 +531,7 @@ router.patch('/:assetId/maintenance', requireRole(['super_admin', 'admin', 'mana
         setFields[`maintenanceHistory.${lastIdx}.endDate`] = now;
         setFields[`maintenanceHistory.${lastIdx}.completedBy`] = req.user._id;
         setFields[`maintenanceHistory.${lastIdx}.durationMinutes`] = durationMinutes;
+        setFields[`maintenanceHistory.${lastIdx}.completionReason`] = trimmedReason;
         updateQuery = { $set: setFields };
       } else {
         updateQuery = {
@@ -533,6 +541,7 @@ router.patch('/:assetId/maintenance', requireRole(['super_admin', 'admin', 'mana
               startDate: startDate || now,
               endDate: now,
               reason: currentAsset.maintenanceReason || 'Maintenance completed',
+              completionReason: trimmedReason,
               completedBy: req.user._id,
               durationMinutes,
             },
@@ -544,7 +553,20 @@ router.patch('/:assetId/maintenance', requireRole(['super_admin', 'admin', 'mana
     const asset = await Asset.findByIdAndUpdate(req.params.assetId, updateQuery, { new: true });
 
     if (status === 'start') {
-      await sendMaintenanceNotification(asset, reason || 'Manual maintenance request');
+      await sendMaintenanceNotification(asset, startReason);
+      await createAssetMaintenanceLog(AssetLog, {
+        assetId: asset._id,
+        userId: req.user._id,
+        summary: 'Entered maintenance',
+        notes: startReason,
+      });
+    } else {
+      await createAssetMaintenanceLog(AssetLog, {
+        assetId: asset._id,
+        userId: req.user._id,
+        summary: 'Maintenance completed',
+        notes: trimmedReason,
+      });
     }
 
     await logAudit(
@@ -555,7 +577,11 @@ router.patch('/:assetId/maintenance', requireRole(['super_admin', 'admin', 'mana
       {
         resourceName: `${asset.assetId} - ${asset.name}`,
         description: `Manual ${status === 'start' ? 'started' : 'completed'} maintenance`,
-        details: { maintenanceAction: status, reason, manual: true },
+        details: {
+          maintenanceAction: status,
+          reason: status === 'start' ? startReason : trimmedReason,
+          manual: true,
+        },
         severity: 'medium',
         ...getRequestMetadata(req),
       }

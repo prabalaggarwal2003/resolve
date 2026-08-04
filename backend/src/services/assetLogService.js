@@ -169,11 +169,12 @@ export function formatChangesSummary(changes) {
 
 export function getImportantChanges(fieldChanges) {
   if (!fieldChanges?.length) return [];
-  return fieldChanges.filter((c) => IMPORTANT_CHANGE_FIELDS.has(c.field));
+  // All field changes now require a reason (kept name for call-site compatibility)
+  return fieldChanges;
 }
 
 export function requiresChangeReason(fieldChanges) {
-  return getImportantChanges(fieldChanges).length > 0;
+  return Array.isArray(fieldChanges) && fieldChanges.length > 0;
 }
 
 async function diffCustomFields(prevCustom, nextCustom, cache) {

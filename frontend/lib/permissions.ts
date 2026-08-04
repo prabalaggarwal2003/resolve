@@ -10,7 +10,7 @@ export const PERMISSION_TABS = [
   { key: 'issues', label: 'Issues', path: '/dashboard/issues', section: 'Core', mode: 'readWrite' as PermissionTabMode },
   { key: 'locations', label: 'Locations', path: '/dashboard/locations', section: 'Manage', mode: 'readWrite' as PermissionTabMode },
   { key: 'maintenance', label: 'Maintenance', path: '/dashboard/maintenance', section: 'Manage', mode: 'readWrite' as PermissionTabMode },
-  { key: 'reports', label: 'Reports', path: '/dashboard/reports', section: 'Manage', mode: 'readWrite' as PermissionTabMode },
+  { key: 'reports', label: 'Report Studio', path: '/dashboard/reports', section: 'Manage', mode: 'readWrite' as PermissionTabMode },
   { key: 'kpis', label: 'KPIs & Metrics', path: '/dashboard/kpis', section: 'Analytics', mode: 'visibleOnly' as PermissionTabMode },
   { key: 'depreciation', label: 'Depreciation', path: '/dashboard/depreciation', section: 'Analytics', mode: 'readWrite' as PermissionTabMode },
   { key: 'budgets', label: 'Budgets & Procurement', path: '/dashboard/budgets/analytics', section: 'Analytics', mode: 'readWrite' as PermissionTabMode },
