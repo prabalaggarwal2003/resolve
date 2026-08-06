@@ -50,7 +50,7 @@ function legacyCanRead(user, tab) {
   }
   if (tab === 'roles') return EDIT_ROLES.includes(user?.role);
   if (tab === 'reports') return ['super_admin', 'admin', 'manager'].includes(user?.role);
-  if (tab === 'locations' || tab === 'vendors') return EDIT_ROLES.includes(user?.role);
+  if (tab === 'locations' || tab === 'vendors' || tab === 'businessPartners') return EDIT_ROLES.includes(user?.role);
   if (tab === 'audit' || tab === 'kpis' || tab === 'depreciation') {
     return EDIT_ROLES.includes(user?.role);
   }

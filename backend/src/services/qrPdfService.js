@@ -79,14 +79,19 @@ function drawPlaceholder(doc, x, y, cardWidth, qrSize, text) {
 }
 
 /**
- * Generate PDF with QR codes for all assets, grouped by category
+ * Generate PDF with QR codes for assets, grouped by category.
+ * Optional `filter` / `sort` narrow and order the set (defaults: all org assets).
  */
-export async function generateAssetQRCodesPDF(organizationId, res) {
+export async function generateAssetQRCodesPDF(organizationId, res, options = {}) {
   try {
-    // Fetch all assets for the organization
-    const assets = await Asset.find({ organizationId })
-      .sort({ category: 1, assetId: 1 })
-      .lean();
+    const filter = options.filter && typeof options.filter === 'object'
+      ? options.filter
+      : { organizationId };
+    const sort = options.sort && typeof options.sort === 'object'
+      ? options.sort
+      : { category: 1, assetId: 1 };
+
+    const assets = await Asset.find(filter).sort(sort).lean();
 
     if (assets.length === 0) {
       throw new Error('No assets found');

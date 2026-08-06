@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { Asset, Issue, AssetLog } from '../models/index.js';
+import { Asset, Issue, AssetLog, BusinessPartner, Invoice, PartnerContract } from '../models/index.js';
 import { getKpiSummary } from './kpiSummaryService.js';
 import { getBudgetAnalyticsSummary } from './budgetSummaryService.js';
 import { countPendingProcurements } from './budgetRollupService.js';
@@ -251,6 +251,76 @@ function evaluateBudgetRule(rule, budgets, thresholds) {
   );
 }
 
+async function buildPartnerContext(organizationId) {
+  const partners = await BusinessPartner.find({ organizationId }).lean();
+  const orgOid = new mongoose.Types.ObjectId(organizationId);
+  const now = new Date();
+
+  return Promise.all(
+    partners.map(async (p) => {
+      const [invStats, assetCount, nearestContract] = await Promise.all([
+        Invoice.aggregate([
+          { $match: { organizationId: orgOid, $or: [{ partnerId: p._id }, { vendorId: p._id }] } },
+          {
+            $group: {
+              _id: null,
+              totalSpend: { $sum: '$totalAmount' },
+              totalPaid: { $sum: '$paidAmount' },
+            },
+          },
+        ]),
+        Asset.countDocuments({ organizationId, $or: [{ partnerId: p._id }, { vendorId: p._id }] }),
+        PartnerContract.findOne({
+          partnerId: p._id,
+          organizationId,
+          status: { $in: ['Active', 'Draft'] },
+          endDate: { $ne: null },
+        })
+          .sort({ endDate: 1 })
+          .select('endDate')
+          .lean(),
+      ]);
+      const totalSpend = invStats[0]?.totalSpend || 0;
+      const pending = totalSpend - (invStats[0]?.totalPaid || 0);
+      const expiringDays = nearestContract?.endDate ? daysUntil(nearestContract.endDate, now) : null;
+      return {
+        _id: p._id,
+        partnerCode: p.partnerCode,
+        name: p.name,
+        partnerStatus: p.status,
+        partnerIsInactive: p.status === 'Inactive' || p.status === 'Blacklisted',
+        partnerPendingPayment: pending,
+        partnerTotalSpend: totalSpend,
+        partnerAssetCount: assetCount,
+        partnerContractExpiringDays: expiringDays,
+      };
+    })
+  );
+}
+
+function evaluatePartnerRule(rule, partners, thresholds) {
+  const matches = partners.filter((partner) =>
+    evaluateConditionTree(rule.conditionTree, (metric) => partner[metric], thresholds)
+  );
+  const count = matches.length;
+  return resultBase(
+    rule,
+    count,
+    formatMessage(rule.messageTemplate, {
+      count,
+      name: rule.name,
+      days: thresholds.partnerContractAlertDays,
+      threshold: thresholds.partnerPendingPaymentThreshold,
+    }),
+    matches.slice(0, 10).map((p) => ({
+      id: p._id,
+      label: p.name,
+      sublabel: p.partnerCode,
+      meta: p.partnerStatus || '',
+    }))
+  );
+}
+
 function evaluateAggregateRule(rule, orgCtx, thresholds) {
   const matches = evaluateConditionTree(
     rule.conditionTree,
@@ -316,19 +386,25 @@ function ruleUsesRetiredHealthMetrics(rule) {
 }
 
 export async function evaluateInsights(organizationId) {
-  const [config, rules, assets, budgets, orgCtx] = await Promise.all([
+  const [config, rules, assets, budgets, orgCtx, partners] = await Promise.all([
     ensureInsightOrgConfig(organizationId),
     listInsightRules(organizationId),
     buildAssetContext(organizationId),
     buildBudgetContext(organizationId),
     buildOrgContext(organizationId),
+    buildPartnerContext(organizationId),
   ]);
 
-  const thresholds = { ...config.thresholds };
+  const thresholds = {
+    ...config.thresholds,
+    partnerPendingPaymentThreshold: config.thresholds?.partnerPendingPaymentThreshold ?? 50000,
+    partnerContractAlertDays: config.thresholds?.partnerContractAlertDays ?? 30,
+  };
   const enabledRules = rules.filter((r) => r.enabled && !ruleUsesRetiredHealthMetrics(r));
 
   const results = enabledRules.map((rule) => {
     if (rule.ruleType === 'budget') return evaluateBudgetRule(rule, budgets, thresholds);
+    if (rule.ruleType === 'partner') return evaluatePartnerRule(rule, partners, thresholds);
     if (rule.ruleType === 'aggregate' || rule.ruleType === 'org') {
       return evaluateAggregateRule(rule, orgCtx, thresholds);
     }

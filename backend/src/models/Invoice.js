@@ -12,6 +12,11 @@ const invoiceSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  partnerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'BusinessPartner',
+    index: true
+  },
   purchaseDate: {
     type: Date,
     required: true

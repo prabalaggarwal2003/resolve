@@ -45,19 +45,22 @@ function requireCanRead(req, res, next) {
 router.get('/', requireCanRead, async (req, res) => {
   try {
     const { page = 1, limit = 25, sort = 'createdAt', order = 'desc' } = req.query;
+    const forExport = req.query.forExport === '1' || req.query.forExport === 'true';
     const baseFilter = assetFilterForUser(req.user);
     const filter = await buildAssetListQuery(baseFilter, req.query);
     const sortOpt = resolveAssetSort(sort, order);
     const pageNum = Math.max(1, Number(page));
-    const limitNum = Math.min(100, Math.max(1, Number(limit)));
-    const skip = (pageNum - 1) * limitNum;
+    const maxLimit = forExport ? 10000 : 100;
+    const limitNum = Math.min(maxLimit, Math.max(1, Number(limit) || (forExport ? 10000 : 25)));
+    const skip = forExport ? 0 : (pageNum - 1) * limitNum;
     const [assets, total] = await Promise.all([
       Asset.find(filter)
         .populate('locationId', 'name path type')
         .populate('departmentId', 'name')
         .populate('groupId', 'name')
         .populate('assignedTo', 'name email')
-        .populate('vendorId', 'name vendorId')
+        .populate('vendorId', 'name partnerCode')
+        .populate('partnerId', 'name partnerCode')
         .populate('budgetId', 'name code')
         .populate('procurementId', 'purchaseId purchaseOrderNumber')
         .sort(sortOpt)
@@ -66,7 +69,7 @@ router.get('/', requireCanRead, async (req, res) => {
         .lean(),
       Asset.countDocuments(filter),
     ]);
-    res.json({ assets, total, page: pageNum, limit: limitNum });
+    res.json({ assets, total, page: forExport ? 1 : pageNum, limit: limitNum });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -146,7 +149,8 @@ router.get('/:id', requireCanRead, async (req, res) => {
       .populate('locationId', 'name path type code')
       .populate('departmentId', 'name')
       .populate('groupId', 'name')
-      .populate('vendorId', 'name vendorId')
+      .populate('vendorId', 'name partnerCode')
+      .populate('partnerId', 'name partnerCode')
       .populate('budgetId', 'name code currency')
       .populate('procurementId', 'purchaseId purchaseOrderNumber invoiceNumber')
       .populate('assignedTo', 'name email')
@@ -237,12 +241,14 @@ router.post('/', requireCanEdit, async (req, res) => {
     );
 
     // Convert empty strings to null for ObjectId fields to prevent casting errors
-    const objectIdFields = ['vendorId', 'locationId', 'departmentId', 'assignedTo', 'purchaseInvoiceId', 'groupId', 'budgetId', 'procurementId'];
+    const objectIdFields = ['vendorId', 'partnerId', 'locationId', 'departmentId', 'assignedTo', 'purchaseInvoiceId', 'groupId', 'budgetId', 'procurementId'];
     objectIdFields.forEach(field => {
       if (body[field] === '' || body[field] === 'null' || body[field] === 'undefined') {
         body[field] = null;
       }
     });
+    if (body.vendorId && !body.partnerId) body.partnerId = body.vendorId;
+    if (body.partnerId && !body.vendorId) body.vendorId = body.partnerId;
 
     if (!body.condition) {
       const healthConfig = await getAssetHealthOrgConfig(req.user.organizationId);
@@ -312,7 +318,7 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
 
     const changeReason = req.body.changeReason !== undefined ? String(req.body.changeReason).trim() : '';
 
-    const objectIdFields = ['vendorId', 'locationId', 'departmentId', 'assignedTo', 'purchaseInvoiceId', 'groupId', 'budgetId', 'procurementId'];
+    const objectIdFields = ['vendorId', 'partnerId', 'locationId', 'departmentId', 'assignedTo', 'purchaseInvoiceId', 'groupId', 'budgetId', 'procurementId'];
     const patchForLog = { ...req.body };
     delete patchForLog.changeReason;
     objectIdFields.forEach((field) => {
@@ -320,6 +326,8 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
         patchForLog[field] = null;
       }
     });
+    if (patchForLog.vendorId && patchForLog.partnerId === undefined) patchForLog.partnerId = patchForLog.vendorId;
+    if (patchForLog.partnerId && patchForLog.vendorId === undefined) patchForLog.vendorId = patchForLog.partnerId;
     const pendingEditLog = await buildAssetEditChanges(prev, patchForLog);
 
     if (pendingEditLog && requiresChangeReason(pendingEditLog.fieldChanges) && !changeReason) {
@@ -336,6 +344,8 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
         update[field] = null;
       }
     });
+    if (update.vendorId !== undefined && update.partnerId === undefined) update.partnerId = update.vendorId;
+    if (update.partnerId !== undefined && update.vendorId === undefined) update.vendorId = update.partnerId;
 
     // Assignment (name + employee code) — optional; may be cleared
     if (update.assignedToName !== undefined) {

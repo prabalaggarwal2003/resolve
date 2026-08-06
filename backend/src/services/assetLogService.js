@@ -148,8 +148,8 @@ async function resolveDisplayValue(field, value, cache) {
   }
   if (field === 'vendorId') {
     if (!cache.vendors[id]) {
-      const vendor = await Vendor.findById(id).select('name vendorId').lean();
-      cache.vendors[id] = vendor ? `${vendor.vendorId} — ${vendor.name}` : id;
+      const vendor = await Vendor.findById(id).select('name partnerCode').lean();
+      cache.vendors[id] = vendor ? `${vendor.partnerCode} — ${vendor.name}` : id;
     }
     return cache.vendors[id];
   }

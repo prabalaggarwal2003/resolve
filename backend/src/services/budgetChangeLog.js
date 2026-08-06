@@ -11,6 +11,7 @@ import {
 const REF_MODEL_BY_FIELD = {
   budgetOwnerId: User,
   vendorId: Vendor,
+  partnerId: Vendor,
   budgetId: Budget,
   departmentId: Department,
   groupId: AssetGroup,

@@ -3,9 +3,16 @@ import { connectDB } from './config/db.js';
 import { env } from './config/env.js';
 import { initWarrantyCronJobs } from './services/warrantyScheduler.js';
 import reportScheduler from './services/reportScheduler.js';
+import { migrateVendorsToBusinessPartners } from './services/businessPartnerMigration.js';
 
 connectDB()
-  .then(() => {
+  .then(async () => {
+    try {
+      await migrateVendorsToBusinessPartners();
+    } catch (err) {
+      console.error('Partners migration failed (non-fatal):', err.message);
+    }
+
     app.listen(env.port, () => {
       console.log(`Server running on http://localhost:${env.port}`);
 

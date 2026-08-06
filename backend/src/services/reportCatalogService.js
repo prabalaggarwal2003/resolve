@@ -1,4 +1,4 @@
-import { AssetTemplate, BudgetOrgConfig } from '../models/index.js';
+import { AssetTemplate, BudgetOrgConfig, BusinessPartnerOrgConfig } from '../models/index.js';
 import {
   BUILTIN_FIELDS,
   REPORT_DATA_SOURCES,
@@ -35,9 +35,10 @@ function mapTemplateField(field, source) {
 }
 
 export async function getReportCatalog(organizationId) {
-  const [templates, budgetConfig] = await Promise.all([
+  const [templates, budgetConfig, partnerConfig] = await Promise.all([
     AssetTemplate.find({ organizationId }).select('name fields').lean(),
     BudgetOrgConfig.findOne({ organizationId }).lean(),
+    BusinessPartnerOrgConfig.findOne({ organizationId }).lean(),
   ]);
 
   const assetCustom = [];
@@ -55,6 +56,7 @@ export async function getReportCatalog(organizationId) {
   const procurementCustom = (budgetConfig?.procurementCustomFields || []).map((f) =>
     mapTemplateField(f, 'procurement')
   );
+  const partnerCustom = (partnerConfig?.customFields || []).map((f) => mapTemplateField(f, 'partners'));
 
   const sources = REPORT_DATA_SOURCES.map((src) => {
     const builtin = (BUILTIN_FIELDS[src.key] || []).map((f) => ({
@@ -66,6 +68,7 @@ export async function getReportCatalog(organizationId) {
     if (src.key === 'assets') custom = assetCustom;
     if (src.key === 'budgets') custom = budgetCustom;
     if (src.key === 'procurement') custom = procurementCustom;
+    if (src.key === 'partners' || src.key === 'vendors') custom = partnerCustom.map((f) => ({ ...f, source: src.key }));
     return {
       ...src,
       fields: [...builtin, ...custom],

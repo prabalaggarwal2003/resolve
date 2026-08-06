@@ -77,10 +77,25 @@ export const AUDIT_ACTIONS = {
   DEPARTMENT_UPDATED: 'updated',
   DEPARTMENT_DELETED: 'deleted',
 
-  // Vendors
+  // Vendors (legacy aliases)
   VENDOR_CREATED: 'created',
   VENDOR_UPDATED: 'updated',
   VENDOR_DELETED: 'deleted',
+
+  // Business Partners
+  BUSINESS_PARTNER_CREATED: 'created',
+  BUSINESS_PARTNER_UPDATED: 'updated',
+  BUSINESS_PARTNER_DELETED: 'deleted',
+  BUSINESS_PARTNER_CONFIG_UPDATED: 'updated',
+  PARTNER_CONTRACT_CREATED: 'created',
+  PARTNER_CONTRACT_UPDATED: 'updated',
+  PARTNER_CONTRACT_DELETED: 'deleted',
+  PARTNER_DOCUMENT_CREATED: 'created',
+  PARTNER_DOCUMENT_UPDATED: 'updated',
+  PARTNER_DOCUMENT_DELETED: 'deleted',
+  PARTNER_LINK_CREATED: 'linked',
+  PARTNER_LINK_UPDATED: 'updated',
+  PARTNER_LINK_DELETED: 'deleted',
 
   // Invoices
   INVOICE_CREATED: 'created',
@@ -145,6 +160,9 @@ export const AUDIT_RESOURCES = {
   LOCATION: 'location',
   DEPARTMENT: 'department',
   VENDOR: 'vendor',
+  BUSINESS_PARTNER: 'business_partner',
+  PARTNER_CONTRACT: 'partner_contract',
+  PARTNER_DOCUMENT: 'partner_document',
   INVOICE: 'invoice',
   AUTH: 'authentication',
   PROFILE: 'profile',

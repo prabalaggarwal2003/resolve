@@ -143,7 +143,7 @@ export async function getBudgetAnalyticsSummary(organizationId, filters = {}) {
     Department.find({ organizationId }).select('name').lean(),
     Location.find({ organizationId }).select('name').lean(),
     User.find({ organizationId }).select('name').lean(),
-    Vendor.find({ organizationId }).select('name vendorId').lean(),
+    Vendor.find({ organizationId }).select('name partnerCode').lean(),
   ]);
 
   const deptMap = Object.fromEntries(departments.map((d) => [String(d._id), d.name]));

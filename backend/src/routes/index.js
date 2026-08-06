@@ -19,6 +19,7 @@ import qrPdf from './qr-pdf.js';
 import depreciation from './depreciation.js';
 import kpis from './kpis.js';
 import vendors from './vendors.js';
+import businessPartners from './businessPartners.js';
 import invoices from './invoices.js';
 import reports from './reports.js';
 import payments from './payments.js';
@@ -33,4 +34,4 @@ import budgetDashboard from './budgetDashboard.js';
 import insights from './insights.js';
 import reportStudio from './reportStudio.js';
 
-export { auth, signup, health, assets, issues, dashboard, notifications, users, locations, locationTypes, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth, testNotifications, qrPdf, depreciation, kpis, homeDashboard, vendors, invoices, reports, payments, testPayments, orgRoles, assetTemplates, assetGroups, budgets, procurement, budgetDashboard, insights, reportStudio };
+export { auth, signup, health, assets, issues, dashboard, notifications, users, locations, locationTypes, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth, testNotifications, qrPdf, depreciation, kpis, homeDashboard, vendors, businessPartners, invoices, reports, payments, testPayments, orgRoles, assetTemplates, assetGroups, budgets, procurement, budgetDashboard, insights, reportStudio };

@@ -2,6 +2,8 @@ import {
   Asset,
   Issue,
   Vendor,
+  BusinessPartner,
+  PartnerContract,
   Location,
   User,
   AuditLog,
@@ -161,12 +163,43 @@ function hydrateMaintenance(doc) {
 function hydrateVendor(doc) {
   return {
     _id: String(doc._id),
-    vendorId: doc.vendorId,
+    partnerCode: doc.partnerCode || doc.vendorId,
+    vendorId: doc.partnerCode || doc.vendorId,
     name: doc.name,
     email: doc.email,
     phone: doc.phone,
-    category: doc.category,
+    partnerTypeKey: doc.partnerTypeKey,
+    categoryKey: doc.categoryKey,
+    category: doc.categoryKey || doc.category,
     status: doc.status,
+    paymentTerms: doc.paymentTerms,
+    currency: doc.currency,
+    createdAt: doc.createdAt,
+    ...flattenCustom(doc.customFields),
+  };
+}
+
+function flattenCustom(customFields) {
+  if (!customFields || typeof customFields !== 'object') return {};
+  const out = {};
+  for (const [k, v] of Object.entries(customFields)) {
+    out[`custom_${k}`] = v;
+  }
+  return out;
+}
+
+function hydratePartnerContract(doc) {
+  return {
+    _id: String(doc._id),
+    contractNumber: doc.contractNumber,
+    title: doc.title,
+    status: doc.status,
+    startDate: doc.startDate,
+    endDate: doc.endDate,
+    renewalDate: doc.renewalDate,
+    autoRenewal: Boolean(doc.autoRenewal),
+    partnerName: doc.partnerId?.name || '',
+    partnerCode: doc.partnerId?.partnerCode || '',
     createdAt: doc.createdAt,
   };
 }
@@ -286,9 +319,17 @@ async function fetchSourceRows(organizationId, source) {
         .lean();
       return docs.map(hydrateIssue);
     }
-    case 'vendors': {
-      const docs = await Vendor.find({ organizationId }).lean();
+    case 'vendors':
+    case 'partners': {
+      const Model = BusinessPartner || Vendor;
+      const docs = await Model.find({ organizationId }).lean();
       return docs.map(hydrateVendor);
+    }
+    case 'partner_contracts': {
+      const docs = await PartnerContract.find({ organizationId })
+        .populate('partnerId', 'name partnerCode')
+        .lean();
+      return docs.map(hydratePartnerContract);
     }
     case 'locations': {
       const docs = await Location.find({ organizationId }).lean();

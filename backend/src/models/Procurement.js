@@ -21,6 +21,7 @@ const procurementSchema = new mongoose.Schema(
     purchaseOrderNumber: { type: String, trim: true, default: '' },
     invoiceNumber: { type: String, trim: true, default: '' },
     vendorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor' },
+    partnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'BusinessPartner', index: true },
     purchaseDate: { type: Date },
     budgetId: { type: mongoose.Schema.Types.ObjectId, ref: 'Budget', index: true },
     departmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
