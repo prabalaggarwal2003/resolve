@@ -109,7 +109,10 @@ export default function InsightRuleBuilder({
     () => (rule.conditionTree?.groups?.length || 0) > 1
   );
   const tree = rule.conditionTree || emptyConditionTree();
-  const assetMetrics = catalog.metrics.filter((m) => m.scope === 'asset' && !RETIRED_HEALTH_METRICS.has(m.key));
+  const scope = rule.ruleType === 'partner' ? 'partner' : rule.ruleType === 'budget' ? 'budget' : 'asset';
+  const assetMetrics = catalog.metrics.filter(
+    (m) => m.scope === scope && !RETIRED_HEALTH_METRICS.has(m.key)
+  );
 
   const deptMap = useMemo(
     () => Object.fromEntries(departments.map((d) => [d._id, d.name])),
@@ -273,6 +276,48 @@ export default function InsightRuleBuilder({
             />
           </div>
           <div className="min-w-0">
+            <label className={labelClass}>Applies to</label>
+            <select
+              className={selectClass}
+              value={rule.ruleType || 'asset'}
+              onChange={(e) =>
+                onChange({
+                  ruleType: e.target.value as InsightRule['ruleType'],
+                  link:
+                    e.target.value === 'partner'
+                      ? '/dashboard/partners/list'
+                      : e.target.value === 'budget'
+                      ? '/dashboard/budgets'
+                      : '/dashboard/assets',
+                  conditionTree: {
+                    rootLogic: 'and',
+                    groups: [
+                      {
+                        logic: 'and',
+                        conditions: [
+                          {
+                            metric:
+                              e.target.value === 'partner'
+                                ? 'partnerIsInactive'
+                                : e.target.value === 'budget'
+                                ? 'utilizationPct'
+                                : 'ageYears',
+                            operator: e.target.value === 'partner' ? 'eq' : 'gt',
+                            value: e.target.value === 'partner' ? true : e.target.value === 'budget' ? 80 : 5,
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                })
+              }
+            >
+              <option value="asset">Assets</option>
+              <option value="partner">Business Partners</option>
+              <option value="budget">Budgets</option>
+            </select>
+          </div>
+          <div className="min-w-0">
             <label className={labelClass}>How urgent?</label>
             <select
               className={selectClass}
@@ -291,7 +336,7 @@ export default function InsightRuleBuilder({
         <div>
           <h3 className="text-sm font-semibold text-gray-200">Your check</h3>
           <p className="text-xs text-gray-500 mt-1">
-            Alert when an asset matches this. Add more checks if you need them.
+            Alert when a {scope === 'partner' ? 'partner' : scope === 'budget' ? 'budget' : 'asset'} matches this. Add more checks if you need them.
           </p>
         </div>
 

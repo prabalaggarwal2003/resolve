@@ -580,6 +580,79 @@ export function getDefaultInsightRules() {
       link: '/dashboard/depreciation',
       order: 25,
     },
+    {
+      ruleKey: 'partner_inactive',
+      name: 'Inactive business partners',
+      description: 'Partners marked Inactive or Blacklisted',
+      category: 'partners',
+      ruleType: 'partner',
+      severity: 'info',
+      enabled: true,
+      isBuiltin: true,
+      messageTemplate: '{{count}} inactive or blacklisted partners',
+      conditionTree: {
+        rootLogic: 'and',
+        groups: [
+          {
+            logic: 'or',
+            conditions: [
+              { metric: 'partnerIsInactive', operator: 'eq', value: true },
+            ],
+          },
+        ],
+      },
+      link: '/dashboard/partners/list',
+      order: 26,
+    },
+    {
+      ruleKey: 'partner_high_pending',
+      name: 'Partners with high pending payments',
+      description: 'Partners with pending invoice balance above threshold',
+      category: 'partners',
+      ruleType: 'partner',
+      severity: 'warning',
+      enabled: true,
+      isBuiltin: true,
+      messageTemplate: '{{count}} partners have pending payments over threshold',
+      conditionTree: {
+        rootLogic: 'and',
+        groups: [
+          {
+            logic: 'and',
+            conditions: [
+              { metric: 'partnerPendingPayment', operator: 'gt', thresholdKey: 'partnerPendingPaymentThreshold', value: 50000 },
+            ],
+          },
+        ],
+      },
+      link: '/dashboard/partners/invoices',
+      order: 27,
+    },
+    {
+      ruleKey: 'partner_contracts_expiring',
+      name: 'Partner contracts expiring soon',
+      description: 'Partners with a contract ending within alert window',
+      category: 'partners',
+      ruleType: 'partner',
+      severity: 'warning',
+      enabled: true,
+      isBuiltin: true,
+      messageTemplate: '{{count}} partners have contracts ending soon',
+      conditionTree: {
+        rootLogic: 'and',
+        groups: [
+          {
+            logic: 'and',
+            conditions: [
+              { metric: 'partnerContractExpiringDays', operator: 'lte', thresholdKey: 'partnerContractAlertDays', value: 30 },
+              { metric: 'partnerContractExpiringDays', operator: 'gte', value: 0 },
+            ],
+          },
+        ],
+      },
+      link: '/dashboard/partners/contracts',
+      order: 28,
+    },
   ];
 }
 
@@ -604,4 +677,10 @@ export const INSIGHT_METRIC_CATALOG = [
   { key: 'assetCost', label: 'Asset Cost', type: 'currency', scope: 'asset' },
   { key: 'utilizationPct', label: 'Budget Utilization %', type: 'number', scope: 'budget' },
   { key: 'pendingProcurementCount', label: 'Pending Purchases', type: 'number', scope: 'org' },
+  { key: 'partnerStatus', label: 'Partner Status', type: 'select', scope: 'partner', options: ['Active', 'Inactive', 'Blacklisted', 'Pending'] },
+  { key: 'partnerPendingPayment', label: 'Partner Pending Payment', type: 'currency', scope: 'partner' },
+  { key: 'partnerTotalSpend', label: 'Partner Total Spend', type: 'currency', scope: 'partner' },
+  { key: 'partnerAssetCount', label: 'Partner Linked Assets', type: 'number', scope: 'partner' },
+  { key: 'partnerContractExpiringDays', label: 'Days Until Nearest Contract End', type: 'number', scope: 'partner' },
+  { key: 'partnerIsInactive', label: 'Partner Is Inactive', type: 'boolean', scope: 'partner' },
 ];

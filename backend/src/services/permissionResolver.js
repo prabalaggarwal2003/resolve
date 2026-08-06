@@ -36,6 +36,10 @@ function normalizePermissions(raw) {
   } else if (typeof raw === 'object' && raw !== null && typeof raw.toObject === 'function') {
     source = raw.toObject();
   }
+  // Roles saved before the rename still carry the legacy `vendors` grant.
+  if (source.vendors && !source.businessPartners) {
+    source = { ...source, businessPartners: source.vendors };
+  }
   for (const key of PERMISSION_TAB_KEYS) {
     const level = source[key];
     if (level === 'read' || level === 'write') out[key] = level;

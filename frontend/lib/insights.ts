@@ -36,7 +36,7 @@ export type InsightRule = {
   name: string;
   description: string;
   category: string;
-  ruleType: 'asset' | 'budget' | 'aggregate' | 'org';
+  ruleType: 'asset' | 'budget' | 'aggregate' | 'org' | 'partner';
   severity: InsightSeverity;
   enabled: boolean;
   messageTemplate: string;
@@ -228,6 +228,9 @@ export async function fetchInsightMatch(ruleKey: string): Promise<InsightMatchRe
 export function insightViewHref(insight: Pick<InsightResult, 'ruleKey' | 'ruleType' | 'link'>): string {
   if (insight.ruleType === 'asset') {
     return `/dashboard/assets?insightRuleKey=${encodeURIComponent(insight.ruleKey)}`;
+  }
+  if (insight.ruleType === 'partner') {
+    return insight.link || '/dashboard/partners/list';
   }
   return insight.link || '/dashboard/assets';
 }

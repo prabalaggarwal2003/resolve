@@ -29,6 +29,7 @@ const assetSchema = new mongoose.Schema(
     depreciationOverrideReason: { type: String, default: '' },
     purchaseDate: Date,
     vendorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor' },
+    partnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'BusinessPartner', index: true },
     purchaseInvoiceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice' },
     budgetId: { type: mongoose.Schema.Types.ObjectId, ref: 'Budget', index: true },
     procurementId: { type: mongoose.Schema.Types.ObjectId, ref: 'Procurement', index: true },

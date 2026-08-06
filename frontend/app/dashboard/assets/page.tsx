@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense, useCallback } from 'react';
+import { useEffect, useState, Suspense, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import UpgradeNudges from '@/components/UpgradeNudges';
@@ -10,9 +10,15 @@ import AssetsDataTable, { type AssetRow } from '@/components/assets/AssetsDataTa
 import { useAssetListPreferences } from '@/hooks/useAssetListPreferences';
 import { canWrite } from '@/lib/permissions';
 import type { ColumnId } from '@/lib/assetsTableConfig';
-import { hasActiveBasicFilters } from '@/lib/assetsTableConfig';
+import { DEFAULT_COLUMNS, hasActiveBasicFilters } from '@/lib/assetsTableConfig';
 import { breadcrumbForNode, flattenTree, type LocationTreeNode } from '@/lib/locations';
 import { fetchInsightMatch } from '@/lib/insights';
+import {
+  buildAssetListSearchParams,
+  buildAssetsCsv,
+  downloadTextFile,
+} from '@/lib/assetsExport';
+import { trackDownload } from '@/lib/trackDownload';
 
 function api(path: string) {
   const base = process.env.NEXT_PUBLIC_API_URL || '';
@@ -49,6 +55,9 @@ function AssetsPageContent() {
   const [subscriptionTier, setSubscriptionTier] = useState<'free' | 'pro' | 'premium'>('free');
   const [dismissedNudges, setDismissedNudges] = useState<string[]>([]);
   const [error, setError] = useState('');
+  const [downloadOpen, setDownloadOpen] = useState(false);
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const downloadMenuRef = useRef<HTMLDivElement>(null);
   const [departments, setDepartments] = useState<{ _id: string; name: string }[]>([]);
   const [locationTree, setLocationTree] = useState<LocationTreeNode[]>([]);
   const [locations, setLocations] = useState<{ _id: string; name: string }[]>([]);
@@ -72,10 +81,21 @@ function AssetsPageContent() {
 
   const canAddAsset = canWrite('assets');
   const canEdit = canWrite('assets');
-  const canDownloadQR = canWrite('assets');
+  const canDownload = canWrite('assets');
 
   const visibleColumns = prefs.columns.filter((c) => c.visible).map((c) => c.id as ColumnId);
   const totalPages = Math.ceil(total / prefs.pageSize);
+
+  useEffect(() => {
+    if (!downloadOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (downloadMenuRef.current && !downloadMenuRef.current.contains(e.target as Node)) {
+        setDownloadOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [downloadOpen]);
 
   useEffect(() => {
     const savedNudges = localStorage.getItem('dismissedNudges');
@@ -235,31 +255,18 @@ function AssetsPageContent() {
     }
     setLoading(true);
     setError('');
-    const params = new URLSearchParams();
-    if (searchDebounce.trim()) params.set('search', searchDebounce.trim());
-    if (assignedToParam) params.set('assignedTo', assignedToParam);
-    if (insightRuleKeyParam && insightFilter.assetIds !== null) {
-      params.set('assetIds', insightFilter.assetIds.join(','));
-    }
-    const bf = prefs.basicFilters;
-    if (bf?.status) params.set('status', bf.status);
-    if (bf?.category) params.set('category', bf.category);
-    if (bf?.departmentId) params.set('departmentId', bf.departmentId);
-    if (bf?.groupId) params.set('groupId', bf.groupId);
-    const locationIds = bf?.locationIds?.filter(Boolean) ?? [];
-    if (locationIds.length) {
-      params.set('locationIds', locationIds.join(','));
-      if (bf?.locationIncludeChildren === false) {
-        params.set('locationIncludeChildren', 'false');
-      }
-    }
-    if (prefs.advancedFilters.length) {
-      params.set('filters', JSON.stringify(prefs.advancedFilters));
-    }
-    params.set('sort', prefs.sort);
-    params.set('order', prefs.order);
-    params.set('page', String(page));
-    params.set('limit', String(prefs.pageSize));
+    const params = buildAssetListSearchParams(
+      {
+        search: searchDebounce,
+        assignedTo: assignedToParam || undefined,
+        assetIds: insightRuleKeyParam && insightFilter.assetIds !== null ? insightFilter.assetIds : undefined,
+        basicFilters: prefs.basicFilters,
+        advancedFilters: prefs.advancedFilters,
+        sort: prefs.sort,
+        order: prefs.order,
+      },
+      { page, limit: prefs.pageSize }
+    );
 
     fetch(api(`/api/assets?${params.toString()}`), {
       headers: { Authorization: `Bearer ${token}` },
@@ -281,26 +288,96 @@ function AssetsPageContent() {
     router.replace('/dashboard/assets');
   };
 
-  const downloadQRPDF = async () => {
+  const currentViewQueryInput = () => ({
+    search: searchDebounce,
+    assignedTo: assignedToParam || undefined,
+    assetIds: insightRuleKeyParam && insightFilter.assetIds !== null ? insightFilter.assetIds : undefined,
+    basicFilters: prefs.basicFilters,
+    advancedFilters: prefs.advancedFilters,
+    sort: prefs.sort,
+    order: prefs.order,
+  });
+
+  const downloadAssetList = async (scope: 'all' | 'filtered') => {
     const token = localStorage.getItem('token');
     if (!token) return;
+    setDownloading(`list-${scope}`);
+    setDownloadOpen(false);
     try {
-      const res = await fetch(api('/api/qr-pdf/download'), { headers: { Authorization: `Bearer ${token}` } });
+      const params =
+        scope === 'filtered'
+          ? buildAssetListSearchParams(currentViewQueryInput(), { forExport: true })
+          : buildAssetListSearchParams(
+              { sort: 'assetId', order: 'asc' },
+              { forExport: true }
+            );
+
+      const res = await fetch(api(`/api/assets?${params.toString()}`), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to fetch assets');
+
+      const rows = (data.assets || []) as AssetRow[];
+      if (!rows.length) {
+        alert(scope === 'filtered' ? 'No assets match the current filters.' : 'No assets found.');
+        return;
+      }
+
+      const columns: ColumnId[] =
+        scope === 'filtered' && visibleColumns.length
+          ? visibleColumns
+          : DEFAULT_COLUMNS.map((c) => c.id);
+
+      const date = new Date().toISOString().split('T')[0];
+      const fileName =
+        scope === 'filtered' ? `assets-filtered-${date}.csv` : `assets-all-${date}.csv`;
+      downloadTextFile(buildAssetsCsv(rows, columns), fileName);
+      trackDownload(fileName, 'asset', scope === 'filtered' ? 'Filtered assets CSV' : 'All assets CSV');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to download asset list');
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const downloadQRPDF = async (scope: 'all' | 'filtered') => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    setDownloading(`qr-${scope}`);
+    setDownloadOpen(false);
+    try {
+      const params = new URLSearchParams();
+      if (scope === 'filtered') {
+        const listParams = buildAssetListSearchParams(currentViewQueryInput());
+        listParams.forEach((value, key) => params.set(key, value));
+        params.set('filtered', '1');
+      }
+
+      const qs = params.toString();
+      const res = await fetch(api(`/api/qr-pdf/download${qs ? `?${qs}` : ''}`), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.ok) {
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `asset-qr-codes-${new Date().toISOString().split('T')[0]}.pdf`;
+        const date = new Date().toISOString().split('T')[0];
+        a.download =
+          scope === 'filtered' ? `asset-qr-codes-filtered-${date}.pdf` : `asset-qr-codes-${date}.pdf`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
       } else {
-        alert((await res.json()).message || 'Failed to download PDF');
+        const data = await res.json().catch(() => ({}));
+        alert(data.message || 'Failed to download PDF');
       }
     } catch {
       alert('Failed to download PDF');
+    } finally {
+      setDownloading(null);
     }
   };
 
@@ -308,7 +385,8 @@ function AssetsPageContent() {
     Boolean(searchDebounce.trim()) ||
     prefs.advancedFilters.length > 0 ||
     hasActiveBasicFilters(prefs.basicFilters) ||
-    Boolean(insightRuleKeyParam);
+    Boolean(insightRuleKeyParam) ||
+    Boolean(assignedToParam);
 
   if (!prefsLoaded) return <LoadingSpinner message="Loading preferences..." />;
 
@@ -323,10 +401,65 @@ function AssetsPageContent() {
           <Link href="/dashboard/assets/templates" className={`${buttonClass} border-violet-500/40 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 no-underline`}>
             Asset templates
           </Link>
-          {canDownloadQR && (
-            <button onClick={downloadQRPDF} className={`${buttonClass} border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20`}>
-              Download QR PDF
-            </button>
+          {canDownload && (
+            <div className="relative" ref={downloadMenuRef}>
+              <button
+                type="button"
+                onClick={() => setDownloadOpen((o) => !o)}
+                disabled={Boolean(downloading)}
+                className={`${buttonClass} border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50`}
+              >
+                {downloading ? 'Downloading…' : 'Download'}
+                <span className="ml-1 opacity-70">▾</span>
+              </button>
+              {downloadOpen && (
+                <div className="absolute right-0 z-30 mt-1 w-64 rounded-lg border border-gray-700/80 bg-gray-900 shadow-xl py-1">
+                  <p className="px-3 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                    Asset list (CSV)
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => downloadAssetList('all')}
+                    className="w-full px-3 py-1.5 text-left text-xs text-gray-200 hover:bg-gray-800"
+                  >
+                    All assets
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => downloadAssetList('filtered')}
+                    className="w-full px-3 py-1.5 text-left text-xs text-gray-200 hover:bg-gray-800"
+                    title="Uses current filters, sort, and visible columns"
+                  >
+                    Current view
+                    {hasActiveFilters ? (
+                      <span className="ml-1 text-emerald-400/80">({total})</span>
+                    ) : null}
+                  </button>
+                  <div className="my-1 border-t border-gray-700/60" />
+                  <p className="px-3 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                    QR codes (PDF)
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => downloadQRPDF('all')}
+                    className="w-full px-3 py-1.5 text-left text-xs text-gray-200 hover:bg-gray-800"
+                  >
+                    All assets
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => downloadQRPDF('filtered')}
+                    className="w-full px-3 py-1.5 text-left text-xs text-gray-200 hover:bg-gray-800"
+                    title="Uses current filters and sort"
+                  >
+                    Current view
+                    {hasActiveFilters ? (
+                      <span className="ml-1 text-emerald-400/80">({total})</span>
+                    ) : null}
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           {canAddAsset && (
             <Link href="/dashboard/assets/new" className={`${buttonClass} border-blue-500/40 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 no-underline`}>

@@ -11,7 +11,7 @@ export const PERMISSION_TABS = [
   { key: 'budgets', label: 'Budgets & Procurement', path: '/dashboard/budgets/analytics', section: 'Analytics', mode: 'readWrite' },
   { key: 'insights', label: 'Insights', path: '/dashboard/insights', section: 'Analytics', mode: 'readWrite' },
   { key: 'roles', label: 'Users & Roles', path: '/dashboard/roles', section: 'Admin', mode: 'readWrite' },
-  { key: 'vendors', label: 'Vendors', path: '/dashboard/vendors', section: 'Admin', mode: 'readWrite' },
+  { key: 'businessPartners', label: 'Business Partners', path: '/dashboard/partners', section: 'Admin', mode: 'readWrite' },
   { key: 'audit', label: 'Audit Logs', path: '/dashboard/audit', section: 'Admin', mode: 'visibleOnly' },
   { key: 'organization', label: 'Organization', path: '/dashboard/organization', section: 'Admin', mode: 'readWrite' },
   { key: 'subscriptions', label: 'Subscriptions', path: '/dashboard/subscriptions', section: 'Settings', mode: 'readOnly' },
@@ -48,7 +48,7 @@ export const LEGACY_ROLE_PERMISSIONS = {
     budgets: 'read',
     insights: 'read',
     roles: 'read',
-    vendors: 'read',
+    businessPartners: 'read',
     audit: 'read',
     organization: null,
     subscriptions: 'read',
@@ -64,7 +64,7 @@ export const LEGACY_ROLE_PERMISSIONS = {
     depreciation: null,
     budgets: null,
     roles: null,
-    vendors: null,
+    businessPartners: null,
     audit: null,
     organization: null,
     subscriptions: null,
@@ -74,8 +74,13 @@ export const LEGACY_ROLE_PERMISSIONS = {
 export function sanitizePermissions(input) {
   const out = emptyPermissions();
   if (!input || typeof input !== 'object') return out;
+  const bridged = { ...input };
+  // Legacy vendors → businessPartners
+  if (bridged.vendors && !bridged.businessPartners) {
+    bridged.businessPartners = bridged.vendors;
+  }
   for (const key of PERMISSION_TAB_KEYS) {
-    let level = input[key];
+    let level = bridged[key];
     if (level !== 'read' && level !== 'write') continue;
     const mode = TAB_MODES[key];
     if (mode === 'visibleOnly' || mode === 'empty') {
@@ -106,6 +111,7 @@ export function validatePermissionsPayload(input) {
     return { ok: false, message: 'Permissions object is required' };
   }
   for (const [key, level] of Object.entries(input)) {
+    if (key === 'vendors') continue; // legacy alias, bridged in sanitizePermissions
     if (!PERMISSION_TAB_KEYS.includes(key)) {
       return { ok: false, message: `Unknown permission tab: ${key}` };
     }

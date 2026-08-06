@@ -16,7 +16,7 @@ export const PERMISSION_TABS = [
   { key: 'budgets', label: 'Budgets & Procurement', path: '/dashboard/budgets/analytics', section: 'Analytics', mode: 'readWrite' as PermissionTabMode },
   { key: 'insights', label: 'Insights', path: '/dashboard/insights', section: 'Analytics', mode: 'readWrite' as PermissionTabMode },
   { key: 'roles', label: 'Users & Roles', path: '/dashboard/roles', section: 'Admin', mode: 'readWrite' as PermissionTabMode },
-  { key: 'vendors', label: 'Vendors', path: '/dashboard/vendors', section: 'Admin', mode: 'readWrite' as PermissionTabMode },
+  { key: 'businessPartners', label: 'Business Partners', path: '/dashboard/partners', section: 'Admin', mode: 'readWrite' as PermissionTabMode },
   { key: 'audit', label: 'Audit Logs', path: '/dashboard/audit', section: 'Admin', mode: 'visibleOnly' as PermissionTabMode },
   { key: 'organization', label: 'Organization', path: '/dashboard/organization', section: 'Admin', mode: 'readWrite' as PermissionTabMode },
   { key: 'subscriptions', label: 'Subscriptions', path: '/dashboard/subscriptions', section: 'Settings', mode: 'readOnly' as PermissionTabMode },
@@ -43,7 +43,7 @@ export const LEGACY_ROLE_PERMISSIONS: Record<string, PermissionsMap> = {
     budgets: 'read',
     insights: 'read',
     roles: 'read',
-    vendors: 'read',
+    businessPartners: 'read',
     audit: 'read',
     organization: null,
     subscriptions: 'read',
@@ -59,7 +59,7 @@ export const LEGACY_ROLE_PERMISSIONS: Record<string, PermissionsMap> = {
     depreciation: null,
     budgets: null,
     roles: null,
-    vendors: null,
+    businessPartners: null,
     audit: null,
     organization: null,
     subscriptions: null,
@@ -85,6 +85,9 @@ export function resolvePermissions(user: {
   }
   if (user.permissions) {
     const merged = { ...emptyPermissions(), ...user.permissions };
+    if (merged.vendors && !merged.businessPartners) {
+      merged.businessPartners = merged.vendors;
+    }
     if (hasGrantedPermissions(merged)) return merged;
   }
   if (user.role && LEGACY_ROLE_PERMISSIONS[user.role]) {

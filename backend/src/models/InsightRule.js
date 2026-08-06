@@ -41,7 +41,7 @@ const insightRuleSchema = new mongoose.Schema(
     category: { type: String, default: 'custom' },
     ruleType: {
       type: String,
-      enum: ['asset', 'budget', 'aggregate', 'org'],
+      enum: ['asset', 'budget', 'aggregate', 'org', 'partner'],
       default: 'asset',
     },
     severity: {

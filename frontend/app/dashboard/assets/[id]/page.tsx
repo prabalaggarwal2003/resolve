@@ -7,6 +7,8 @@ import Link from 'next/link';
 import { canWrite } from '@/lib/permissions';
 import AssetFieldsDisplay from '@/components/AssetFieldsDisplay';
 import { breadcrumbForNode } from '@/lib/locations';
+import { downloadDataUrlAsJpeg } from '@/lib/assetsExport';
+import { trackDownload } from '@/lib/trackDownload';
 
 type TimelineEntry = {
   _id: string;
@@ -210,6 +212,7 @@ export default function AssetDetailPage() {
   const [noteText, setNoteText] = useState('');
   const [noteSaving, setNoteSaving] = useState(false);
   const [noteError, setNoteError] = useState('');
+  const [qrDownloading, setQrDownloading] = useState(false);
 
   const PER_PAGE = 5;
   const [maintPage, setMaintPage] = useState(1);
@@ -274,6 +277,20 @@ export default function AssetDetailPage() {
       setNoteError(err instanceof Error ? err.message : 'Failed to add note');
     } finally {
       setNoteSaving(false);
+    }
+  };
+
+  const handleDownloadQr = async () => {
+    if (!asset?.qrCodeUrl || qrDownloading) return;
+    setQrDownloading(true);
+    try {
+      const fileName = `${asset.assetId || 'asset'}-qr.jpg`;
+      await downloadDataUrlAsJpeg(asset.qrCodeUrl, fileName);
+      trackDownload(fileName, 'asset', `QR code ${asset.assetId || ''}`);
+    } catch {
+      alert('Failed to download QR code');
+    } finally {
+      setQrDownloading(false);
     }
   };
 
@@ -360,14 +377,22 @@ export default function AssetDetailPage() {
 
         <div className="flex flex-wrap items-start gap-3 shrink-0">
           {asset.qrCodeUrl && (
-            <div className="px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl border border-gray-700/60 bg-gray-900/40 text-center shrink-0">
+            <button
+              type="button"
+              onClick={handleDownloadQr}
+              disabled={qrDownloading}
+              title="Download QR as JPEG"
+              className="px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl border border-gray-700/60 bg-gray-900/40 text-center shrink-0 hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-colors disabled:opacity-50 cursor-pointer"
+            >
               <img
                 src={asset.qrCodeUrl}
-                alt="QR code"
-                className="mx-auto w-14 h-14 sm:w-[88px] sm:h-[88px]"
+                alt="QR code — click to download"
+                className="mx-auto w-14 h-14 sm:w-[88px] sm:h-[88px] pointer-events-none"
               />
-              <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-wide">Scan for details</p>
-            </div>
+              <p className="text-[10px] text-emerald-400/90 mt-1 uppercase tracking-wide">
+                {qrDownloading ? 'Downloading…' : 'Click to download'}
+              </p>
+            </button>
           )}
           <div className="flex flex-wrap gap-2">
             {canAdmin && (

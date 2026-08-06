@@ -9,14 +9,14 @@ const router = express.Router();
 router.use(protect);
 
 function requireVendorRead(req, res, next) {
-  if (!canRead(req.user, 'vendors', req)) {
+  if (!canRead(req.user, 'vendors', req) && !canRead(req.user, 'businessPartners', req)) {
     return res.status(403).json({ message: 'Access denied' });
   }
   next();
 }
 
 function requireVendorWrite(req, res, next) {
-  if (!canWrite(req.user, 'vendors', req)) {
+  if (!canWrite(req.user, 'vendors', req) && !canWrite(req.user, 'businessPartners', req)) {
     return res.status(403).json({ message: 'Access denied' });
   }
   next();
@@ -90,6 +90,7 @@ router.post('/', requireVendorWrite, async (req, res) => {
 
     const invoiceData = {
       ...req.body,
+      partnerId: req.body.partnerId || vendor._id,
       organizationId: req.user.organizationId,
       createdBy: req.user._id
     };

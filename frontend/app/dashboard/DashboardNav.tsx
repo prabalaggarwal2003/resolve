@@ -43,7 +43,7 @@ const TAB_NAV: Record<PermissionTabKey, { href: string; icon: string; label: str
   budgets: { href: '/dashboard/budgets/analytics', icon: '📑', label: 'Budgets & Procurement', section: 'Analytics' },
   insights: { href: '/dashboard/insights', icon: '💡', label: 'Insights', section: 'Analytics' },
   roles: { href: '/dashboard/roles', icon: '👥', label: 'Users & Roles', section: 'Admin' },
-  vendors: { href: '/dashboard/vendors', icon: '🏢', label: 'Vendors', section: 'Admin' },
+  businessPartners: { href: '/dashboard/partners', icon: '🏢', label: 'Business Partners', section: 'Admin' },
   audit: { href: '/dashboard/audit', icon: '📋', label: 'Audit Logs', section: 'Admin' },
   organization: { href: '/dashboard/organization', icon: '⚙️', label: 'Organization', section: 'Admin' },
   subscriptions: { href: '/dashboard/subscriptions', icon: '💳', label: 'Subscriptions', section: 'Settings' },

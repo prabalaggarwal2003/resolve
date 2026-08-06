@@ -188,7 +188,8 @@ export function formatProcurement(doc) {
 export async function listProcurements(organizationId, filters = {}) {
   const query = buildProcurementQuery(organizationId, filters);
   const items = await Procurement.find(query)
-    .populate('vendorId', 'name vendorId')
+    .populate('vendorId', 'name partnerCode')
+    .populate('partnerId', 'name partnerCode')
     .populate('budgetId', 'name code currency')
     .populate('departmentId', 'name')
     .populate('createdBy', 'name')
@@ -200,7 +201,8 @@ export async function listProcurements(organizationId, filters = {}) {
 
 export async function getProcurementById(organizationId, id) {
   const item = await Procurement.findOne({ _id: id, organizationId })
-    .populate('vendorId', 'name vendorId email phone')
+    .populate('vendorId', 'name partnerCode email phone')
+    .populate('partnerId', 'name partnerCode email phone')
     .populate('budgetId', 'name code currency allocatedAmount')
     .populate('departmentId', 'name')
     .populate('assetIds', 'assetId name cost status')
@@ -231,7 +233,8 @@ export async function createProcurement(organizationId, user, body) {
     purchaseId,
     purchaseOrderNumber: body.purchaseOrderNumber?.trim() || '',
     invoiceNumber: body.invoiceNumber?.trim() || '',
-    vendorId: body.vendorId || null,
+    vendorId: body.vendorId || body.partnerId || null,
+    partnerId: body.partnerId || body.vendorId || null,
     purchaseDate: body.purchaseDate ? new Date(body.purchaseDate) : undefined,
     budgetId: body.budgetId || null,
     departmentId: body.departmentId || null,
@@ -344,11 +347,17 @@ export async function updateProcurement(organizationId, user, id, body) {
   }
 
   const scalarFields = [
-    'purchaseOrderNumber', 'invoiceNumber', 'vendorId', 'budgetId', 'departmentId',
+    'purchaseOrderNumber', 'invoiceNumber', 'vendorId', 'partnerId', 'budgetId', 'departmentId',
     'lifecycleStage', 'paymentStatus', 'fundingSourceId', 'costCenter', 'project', 'notes',
   ];
   for (const key of scalarFields) {
     if (body[key] !== undefined) procurement[key] = body[key] || (key.endsWith('Id') ? null : '');
+  }
+  if (body.vendorId !== undefined && body.partnerId === undefined) {
+    procurement.partnerId = body.vendorId || null;
+  }
+  if (body.partnerId !== undefined && body.vendorId === undefined) {
+    procurement.vendorId = body.partnerId || null;
   }
 
   if (body.purchaseDate !== undefined) {
@@ -488,7 +497,10 @@ export async function linkAssetToProcurement(organizationId, user, procurementId
 
   const updates = { procurementId: procurement._id, updatedBy: user._id };
   if (procurement.budgetId) updates.budgetId = procurement.budgetId;
-  if (procurement.vendorId) updates.vendorId = procurement.vendorId;
+  if (procurement.vendorId) {
+    updates.vendorId = procurement.vendorId;
+    updates.partnerId = procurement.partnerId || procurement.vendorId;
+  }
   if (procurement.purchaseOrderNumber) updates.purchaseOrderNumber = procurement.purchaseOrderNumber;
   if (procurement.invoiceNumber) updates.invoiceNumber = procurement.invoiceNumber;
   if (procurement.fundingSourceId) updates.fundingSourceId = procurement.fundingSourceId;
