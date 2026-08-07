@@ -28,7 +28,7 @@ export default function PartnerActivityPage() {
           Field-level changes across partners, including who made each update
         </p>
       </div>
-      <div className="rounded-xl border border-gray-700/60 bg-gray-900/30 p-4">
+      <div className="rounded-xl border border-gray-700/60 bg-gray-900/30 p-4 max-h-[70vh] overflow-y-auto">
         <PartnerActivityList activities={activities} showPartner />
       </div>
     </div>

@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import BudgetModuleFiltersBar from '@/components/budgets/BudgetModuleFiltersBar';
 import { useBudgetModuleFilters } from '@/hooks/useBudgetModuleFilters';
 import { budgetModuleFiltersToQuery } from '@/lib/budgetModuleFilters';
@@ -80,6 +81,15 @@ function stageBadge(stageId: string, stages: BudgetOrgConfig['procurementLifecyc
 }
 
 export default function ProcurementPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner message="Loading procurement..." />}>
+      <ProcurementPageContent />
+    </Suspense>
+  );
+}
+
+function ProcurementPageContent() {
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastChanges, setLastChanges] = useState<BudgetHistoryChange[] | null>(null);
@@ -164,6 +174,14 @@ export default function ProcurementPage() {
     }
     load();
   }, [subscriptionChecked, hasAccess, load]);
+
+  useEffect(() => {
+    const id = searchParams.get('id') || searchParams.get('procurementId');
+    if (!id || !records.length) return;
+    if (records.some((r) => r._id === id)) {
+      setDetailId(id);
+    }
+  }, [searchParams, records]);
 
   const openCreate = () => {
     const defaultStage = config?.procurementLifecycleStages?.find((s) => s.isDefault)?.id || 'planned';

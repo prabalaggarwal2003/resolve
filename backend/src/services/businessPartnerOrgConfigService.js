@@ -129,6 +129,15 @@ export async function ensureBusinessPartnerOrgConfig(organizationId) {
       dirty = true;
     }
   }
+  // Merge newly introduced catalog widgets into existing org configs
+  if (Array.isArray(config.dashboardWidgetCatalog) && Array.isArray(defaults.dashboardWidgetCatalog)) {
+    const existing = new Set(config.dashboardWidgetCatalog.map((w) => w.key));
+    const missing = defaults.dashboardWidgetCatalog.filter((w) => w.key && !existing.has(w.key));
+    if (missing.length) {
+      config.dashboardWidgetCatalog = [...config.dashboardWidgetCatalog, ...missing];
+      dirty = true;
+    }
+  }
   if (!config.settings?.partnerCodePrefix) {
     config.settings = { ...defaults.settings, ...(config.settings?.toObject?.() || config.settings) };
     dirty = true;

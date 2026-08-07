@@ -48,6 +48,7 @@ const businessPartnerSchema = new mongoose.Schema(
     businessDetails: { type: mongoose.Schema.Types.Mixed, default: {} },
     bankDetails: { type: mongoose.Schema.Types.Mixed, default: {} },
     taxDetails: { type: mongoose.Schema.Types.Mixed, default: {} },
+    paymentDetails: { type: mongoose.Schema.Types.Mixed, default: {} },
     primaryContact: {
       name: String,
       role: String,

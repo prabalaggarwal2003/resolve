@@ -10,7 +10,7 @@ import AssetTemplateFieldsForm, {
   buildAssetPatchFromTemplate,
 } from '@/components/AssetTemplateFieldsForm';
 import ChangeReasonModal from '@/components/ChangeReasonModal';
-import { detectImportantChanges, detectProcurementChanges, type ImportantChange } from '@/lib/assetChangeReason';
+import { detectImportantChanges, detectProcurementChanges, detectPartnerRelationshipChanges, type ImportantChange } from '@/lib/assetChangeReason';
 import type { AssetTemplate } from '@/lib/assetTemplates';
 import { buildFallbackTemplateFromAsset } from '@/lib/assetFieldDisplay';
 import { breadcrumbForNode, flattenTree, type LocationTreeNode } from '@/lib/locations';
@@ -20,6 +20,12 @@ import AssetProcurementFields, {
   EMPTY_ASSET_PROCUREMENT,
   type AssetProcurementValues,
 } from '@/components/AssetProcurementFields';
+import AssetPartnerRelationshipsEditor, {
+  emptyPartnerRelationshipRow,
+  partnerRelationshipsFromAsset,
+  serializePartnerRelationships,
+  type PartnerRelationshipRow,
+} from '@/components/AssetPartnerRelationshipsEditor';
 
 function api(path: string) {
   const base = process.env.NEXT_PUBLIC_API_URL || '';
@@ -64,6 +70,9 @@ export default function EditAssetPage() {
   const [locationTree, setLocationTree] = useState<LocationTreeNode[]>([]);
   const [departments, setDepartments] = useState<{ _id: string; name: string }[]>([]);
   const [vendors, setVendors] = useState<{ _id: string; vendorId: string; name: string }[]>([]);
+  const [relationshipTypes, setRelationshipTypes] = useState<{ key: string; label: string }[]>([]);
+  const [partnerRelationships, setPartnerRelationships] = useState<PartnerRelationshipRow[]>([]);
+  const [originalPartnerRelationships, setOriginalPartnerRelationships] = useState<PartnerRelationshipRow[]>([]);
   const [photos, setPhotos] = useState<{ url: string; caption?: string }[]>([]);
   const [documents, setDocuments] = useState<{ url: string; name: string; type?: string }[]>([]);
   const [procurementValues, setProcurementValues] = useState<AssetProcurementValues>(EMPTY_ASSET_PROCUREMENT);
@@ -82,8 +91,9 @@ export default function EditAssetPage() {
       fetch(api('/api/locations/tree'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       fetch(api('/api/departments'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       fetch(api('/api/vendors?status=Active'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      fetch(api('/api/business-partners/config'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()).catch(() => null),
     ])
-      .then(([asset, tplRes, locRes, deptRes, vendorsRes]) => {
+      .then(([asset, tplRes, locRes, deptRes, vendorsRes, partnerCfg]) => {
         if (!asset._id) {
           setLoadErr(asset.message || 'Not found');
           return;
@@ -104,6 +114,9 @@ export default function EditAssetPage() {
         });
         setFieldValues(assetToFieldValues(record, matched));
         setOriginalFieldValues(assetToFieldValues(record, matched));
+        const initialRels = partnerRelationshipsFromAsset(record);
+        setPartnerRelationships(initialRels);
+        setOriginalPartnerRelationships(initialRels.map((r) => ({ ...r })));
         const procVals = assetProcurementFromRecord(record);
         setProcurementValues(procVals);
         setOriginalProcurementValues(procVals);
@@ -121,7 +134,18 @@ export default function EditAssetPage() {
         if (locRes.tree) setLocationTree(locRes.tree);
         if (deptRes.departments) setDepartments(deptRes.departments);
         if (Array.isArray(vendorsRes)) {
-          setVendors(vendorsRes.filter((v: { status: string }) => v.status === 'Active'));
+          setVendors(
+            vendorsRes
+              .filter((v: { status: string }) => v.status === 'Active')
+              .map((v: { _id: string; vendorId?: string; partnerCode?: string; name: string }) => ({
+                _id: v._id,
+                vendorId: v.vendorId || v.partnerCode || '',
+                name: v.name,
+              }))
+          );
+        }
+        if (partnerCfg?.config?.assetRelationshipTypes) {
+          setRelationshipTypes(partnerCfg.config.assetRelationshipTypes);
         }
       })
       .catch(() => setLoadErr('Failed to load'))
@@ -138,13 +162,18 @@ export default function EditAssetPage() {
       return;
     }
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         ...buildAssetPatchFromTemplate(template, fieldValues),
         ...assetProcurementPayload(procurementValues),
+        partnerRelationships: serializePartnerRelationships(partnerRelationships),
         photos,
         documents,
         ...(reason ? { changeReason: reason } : {}),
       };
+      // Multi editor owns partner fields — avoid legacy single-field overwrite
+      delete payload.vendorId;
+      delete payload.partnerId;
+      delete payload.relationshipTypeKey;
       const res = await fetch(api(`/api/assets/${params.id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -184,16 +213,24 @@ export default function EditAssetPage() {
     e.preventDefault();
     if (!template) return;
 
-    const fieldChanges = detectImportantChanges(template, originalFieldValues, fieldValues).map((c) => ({
-      ...c,
-      oldValue: resolveFieldDisplay(c.field, originalFieldValues[c.field]),
-      newValue: resolveFieldDisplay(c.field, fieldValues[c.field]),
-    }));
+    const fieldChanges = detectImportantChanges(template, originalFieldValues, fieldValues)
+      .filter((c) => c.field !== 'vendorId' && c.field !== 'relationshipTypeKey')
+      .map((c) => ({
+        ...c,
+        oldValue: resolveFieldDisplay(c.field, originalFieldValues[c.field]),
+        newValue: resolveFieldDisplay(c.field, fieldValues[c.field]),
+      }));
     const procurementChanges = detectProcurementChanges(
       originalProcurementValues as unknown as Record<string, string>,
       procurementValues as unknown as Record<string, string>
     );
-    const allChanges = [...fieldChanges, ...procurementChanges];
+    const partnerChanges = detectPartnerRelationshipChanges(
+      originalPartnerRelationships,
+      partnerRelationships,
+      vendors,
+      relationshipTypes
+    );
+    const allChanges = [...fieldChanges, ...procurementChanges, ...partnerChanges];
     if (allChanges.length > 0) {
       setPendingChanges(allChanges);
       setChangeReason('');
@@ -281,22 +318,44 @@ export default function EditAssetPage() {
             locationTree={locationTree}
             departments={departments}
             vendors={vendors}
+            relationshipTypes={relationshipTypes}
+            hideFieldKeys={['vendorId', 'relationshipTypeKey']}
           />
         )}
+
+        <AssetPartnerRelationshipsEditor
+          rows={partnerRelationships}
+          onChange={setPartnerRelationships}
+          partners={vendors}
+          relationshipTypes={relationshipTypes}
+        />
 
         <AssetProcurementFields
           values={procurementValues}
           onChange={setProcurementValues}
           onProcurementSelect={(proc) => {
             if (!proc) return;
-            setFieldValues((prev) => ({
-              ...prev,
-              ...(proc.vendorId && typeof proc.vendorId === 'object'
-                ? { vendorId: proc.vendorId._id }
+            const partnerId =
+              proc.vendorId && typeof proc.vendorId === 'object'
+                ? String(proc.vendorId._id)
                 : typeof proc.vendorId === 'string'
-                ? { vendorId: proc.vendorId }
-                : {}),
-            }));
+                ? proc.vendorId
+                : '';
+            if (!partnerId) return;
+            setPartnerRelationships((prev) => {
+              if (prev.some((r) => r.partnerId === partnerId && r.relationshipTypeKey === 'purchased_from')) {
+                return prev;
+              }
+              const next = [...prev];
+              if (!next.length) {
+                next.push({ ...emptyPartnerRelationshipRow(), partnerId, relationshipTypeKey: 'purchased_from' });
+              } else if (!next[0].partnerId) {
+                next[0] = { ...next[0], partnerId, relationshipTypeKey: next[0].relationshipTypeKey || 'purchased_from' };
+              } else if (!next.some((r) => r.partnerId === partnerId)) {
+                next.push({ ...emptyPartnerRelationshipRow(), partnerId, relationshipTypeKey: 'purchased_from' });
+              }
+              return next;
+            });
           }}
         />
 

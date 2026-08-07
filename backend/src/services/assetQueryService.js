@@ -117,6 +117,31 @@ function buildAdvancedFilterClause({ field, operator, value }) {
 
   const emptyOps = ['empty', 'not_empty'];
   if (emptyOps.includes(operator)) {
+    // Partner filter matches either partnerId or legacy vendorId
+    if (key === 'partnerId' || key === 'vendorId') {
+      if (operator === 'empty') {
+        return {
+          $and: [
+            { $or: [{ partnerId: null }, { partnerId: { $exists: false } }] },
+            { $or: [{ vendorId: null }, { vendorId: { $exists: false } }] },
+            {
+              $or: [
+                { partnerRelationships: { $exists: false } },
+                { partnerRelationships: { $size: 0 } },
+                { partnerRelationships: null },
+              ],
+            },
+          ],
+        };
+      }
+      return {
+        $or: [
+          { partnerId: { $exists: true, $nin: [null, ''] } },
+          { vendorId: { $exists: true, $nin: [null, ''] } },
+          { 'partnerRelationships.0': { $exists: true } },
+        ],
+      };
+    }
     if (operator === 'empty') {
       return { $or: [{ [path]: null }, { [path]: '' }, { [path]: { $exists: false } }] };
     }
@@ -165,11 +190,60 @@ function buildAdvancedFilterClause({ field, operator, value }) {
     return null;
   }
 
-  if (['locationId', 'departmentId', 'vendorId', 'assignedTo', 'groupId'].includes(key)) {
+  if (key === 'partnerId' || key === 'vendorId') {
+    if (!mongoose.Types.ObjectId.isValid(strVal)) return null;
+    const oid = new mongoose.Types.ObjectId(strVal);
+    if (operator === 'eq') {
+      return {
+        $or: [{ partnerId: oid }, { vendorId: oid }, { 'partnerRelationships.partnerId': oid }],
+      };
+    }
+    if (operator === 'ne') {
+      return {
+        $and: [
+          { $or: [{ partnerId: { $ne: oid } }, { partnerId: null }, { partnerId: { $exists: false } }] },
+          { $or: [{ vendorId: { $ne: oid } }, { vendorId: null }, { vendorId: { $exists: false } }] },
+          { partnerRelationships: { $not: { $elemMatch: { partnerId: oid } } } },
+        ],
+      };
+    }
+    return null;
+  }
+
+  if (['locationId', 'departmentId', 'assignedTo', 'groupId'].includes(key)) {
     if (!mongoose.Types.ObjectId.isValid(strVal)) return null;
     const oid = new mongoose.Types.ObjectId(strVal);
     if (operator === 'eq') return { [path]: oid };
     if (operator === 'ne') return { [path]: { $ne: oid } };
+    return null;
+  }
+
+  if (key === 'relationshipTypeKey') {
+    if (operator === 'eq') {
+      return {
+        $or: [
+          { relationshipTypeKey: strVal },
+          { 'partnerRelationships.relationshipTypeKey': strVal },
+        ],
+      };
+    }
+    if (operator === 'ne') {
+      return {
+        $and: [
+          { relationshipTypeKey: { $ne: strVal } },
+          { partnerRelationships: { $not: { $elemMatch: { relationshipTypeKey: strVal } } } },
+        ],
+      };
+    }
+    if (operator === 'contains') {
+      const re = new RegExp(escapeRegex(strVal), 'i');
+      return {
+        $or: [
+          { relationshipTypeKey: re },
+          { 'partnerRelationships.relationshipTypeKey': re },
+        ],
+      };
+    }
     return null;
   }
 

@@ -33,8 +33,9 @@ const COMMON_ASSIGNMENT = [
 const COMMON_PURCHASE = [
   f('purchaseDate', 'Purchase date', 'date', { order: 30, section: SECTION.PURCHASE }),
   f('warrantyExpiry', 'Warranty expiry', 'date', { order: 31, section: SECTION.PURCHASE }),
-  f('vendorId', 'Vendor', 'select', { order: 32, section: SECTION.PURCHASE }),
-  f('cost', 'Cost (INR)', 'number', { order: 33, section: SECTION.PURCHASE }),
+  f('vendorId', 'Partner', 'select', { order: 32, section: SECTION.PURCHASE }),
+  f('relationshipTypeKey', 'Partner relationship', 'select', { order: 33, section: SECTION.PURCHASE }),
+  f('cost', 'Cost (INR)', 'number', { order: 34, section: SECTION.PURCHASE }),
 ];
 
 function baseFields(extraBasic = []) {
@@ -158,6 +159,7 @@ export const BUILTIN_FIELD_KEYS = new Set([
   'purchaseDate',
   'warrantyExpiry',
   'vendorId',
+  'relationshipTypeKey',
   'cost',
   'amcExpiry',
   'nextMaintenanceDate',

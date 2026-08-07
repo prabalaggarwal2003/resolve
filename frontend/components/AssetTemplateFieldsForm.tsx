@@ -137,6 +137,7 @@ function renderField(
     locationTree: LocationTreeNode[];
     departments: { _id: string; name: string }[];
     vendors: { _id: string; vendorId: string; name: string }[];
+    relationshipTypes: { key: string; label: string }[];
     statuses: string[];
     tagSuggestions: string[];
   }
@@ -261,15 +262,40 @@ function renderField(
 
   if (field.key === 'vendorId') {
     return (
-      <FieldWrap label={field.label} required={field.required}>
+      <FieldWrap label={field.label === 'Vendor' ? 'Partner' : field.label} required={field.required}>
+        <select
+          value={String(val || '')}
+          onChange={(e) => {
+            const next = e.target.value;
+            setValues((prev) => ({
+              ...prev,
+              vendorId: next,
+              ...(next ? {} : { relationshipTypeKey: '' }),
+            }));
+          }}
+          className={inputClass}
+        >
+          <option value="">No partner</option>
+          {extras.vendors.map((v) => (
+            <option key={v._id} value={v._id}>{v.vendorId} — {v.name}</option>
+          ))}
+        </select>
+      </FieldWrap>
+    );
+  }
+
+  if (field.key === 'relationshipTypeKey') {
+    return (
+      <FieldWrap label={field.label || 'Partner relationship'} required={field.required}>
         <select
           value={String(val || '')}
           onChange={(e) => set(e.target.value)}
           className={inputClass}
+          disabled={!values.vendorId}
         >
-          <option value="">No vendor</option>
-          {extras.vendors.map((v) => (
-            <option key={v._id} value={v._id}>{v.vendorId} — {v.name}</option>
+          <option value="">{values.vendorId ? 'Select relationship…' : 'Select a partner first'}</option>
+          {(extras.relationshipTypes || []).map((r) => (
+            <option key={r.key} value={r.key}>{r.label}</option>
           ))}
         </select>
       </FieldWrap>
@@ -349,6 +375,29 @@ function renderField(
   );
 }
 
+/** Ensure purchase section has Partner + relationship fields even on older templates. */
+export function ensurePartnerTemplateFields(fields: TemplateField[]): TemplateField[] {
+  const next = fields.map((f) =>
+    f.key === 'vendorId' ? { ...f, label: f.label === 'Vendor' ? 'Partner' : f.label } : f
+  );
+  if (next.some((f) => f.key === 'relationshipTypeKey')) return next;
+
+  const vendorIdx = next.findIndex((f) => f.key === 'vendorId');
+  const insertAt = vendorIdx >= 0 ? vendorIdx + 1 : next.length;
+  const order = vendorIdx >= 0 ? (next[vendorIdx].order ?? 32) + 0.5 : 33;
+  next.splice(insertAt, 0, {
+    key: 'relationshipTypeKey',
+    label: 'Partner relationship',
+    type: 'select',
+    required: false,
+    order,
+    section: 'purchase',
+    builtIn: true,
+    options: [],
+  });
+  return next;
+}
+
 export default function AssetTemplateFieldsForm({
   template,
   values,
@@ -356,6 +405,8 @@ export default function AssetTemplateFieldsForm({
   locationTree,
   departments,
   vendors,
+  relationshipTypes = [],
+  hideFieldKeys = [],
 }: {
   template: AssetTemplate;
   values: FormValues;
@@ -363,12 +414,18 @@ export default function AssetTemplateFieldsForm({
   locationTree: LocationTreeNode[];
   departments: { _id: string; name: string }[];
   vendors: { _id: string; vendorId: string; name: string }[];
+  relationshipTypes?: { key: string; label: string }[];
+  /** Hide built-in fields (e.g. partner fields on edit when using multi editor) */
+  hideFieldKeys?: string[];
 }) {
-  const groups = groupFieldsBySection(template.fields);
+  const hidden = new Set(hideFieldKeys);
+  const fields = ensurePartnerTemplateFields(template.fields).filter((f) => !hidden.has(f.key));
+  const groups = groupFieldsBySection(fields);
   const extras = {
     locationTree,
     departments,
     vendors,
+    relationshipTypes,
     statuses: template.statuses,
     tagSuggestions: template.tagSuggestions,
   };
@@ -427,7 +484,8 @@ export function buildAssetPayloadFromTemplate(
   const tags = values.tags;
   if (Array.isArray(tags) && tags.length) body.tags = tags;
 
-  for (const field of template.fields) {
+  const fields = ensurePartnerTemplateFields(template.fields);
+  for (const field of fields) {
     const raw = values[field.key];
     if (raw === undefined || raw === '' || (Array.isArray(raw) && raw.length === 0)) continue;
     if (field.builtIn) {
@@ -466,8 +524,9 @@ export function assetToFieldValues(
 ): FormValues {
   const values: FormValues = {};
   const customFields = (asset.customFields as Record<string, unknown>) || {};
+  const fields = ensurePartnerTemplateFields(template.fields);
 
-  for (const field of template.fields) {
+  for (const field of fields) {
     if (field.key === 'tags') {
       values.tags = Array.isArray(asset.tags) ? [...(asset.tags as string[])] : [];
       continue;
@@ -475,8 +534,11 @@ export function assetToFieldValues(
     if (field.builtIn) {
       if (field.key === 'locationId') values.locationId = refId(asset.locationId);
       else if (field.key === 'departmentId') values.departmentId = refId(asset.departmentId);
-      else if (field.key === 'vendorId') values.vendorId = refId(asset.vendorId);
-      else if (field.key === 'assignedToName') {
+      else if (field.key === 'vendorId') {
+        values.vendorId = refId(asset.vendorId) || refId(asset.partnerId);
+      } else if (field.key === 'relationshipTypeKey') {
+        values.relationshipTypeKey = String(asset.relationshipTypeKey || '');
+      } else if (field.key === 'assignedToName') {
         values.assignedToName = String(
           asset.assignedToName || (asset.assignedTo as { name?: string } | undefined)?.name || ''
         );
@@ -520,7 +582,8 @@ export function buildAssetPatchFromTemplate(template: AssetTemplate, values: For
   }
   if (template.groupId) body.groupId = template.groupId;
 
-  for (const field of template.fields) {
+  const fields = ensurePartnerTemplateFields(template.fields);
+  for (const field of fields) {
     if (field.key === 'tags') continue;
     const raw = values[field.key];
 
@@ -529,6 +592,8 @@ export function buildAssetPatchFromTemplate(template: AssetTemplate, values: For
         body.cost = raw === '' || raw === undefined ? null : Number(raw);
       } else if (field.key === 'locationId' || field.key === 'departmentId' || field.key === 'vendorId') {
         body[field.key] = raw || null;
+      } else if (field.key === 'relationshipTypeKey') {
+        body.relationshipTypeKey = typeof raw === 'string' ? raw.trim() : '';
       } else if (field.type === 'date') {
         body[field.key] = raw || null;
       } else if (field.key === 'assignedToName' || field.key === 'assignedToEmployeeCode') {

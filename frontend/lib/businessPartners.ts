@@ -79,6 +79,7 @@ export type BusinessPartner = {
   businessDetails?: Record<string, unknown>;
   bankDetails?: Record<string, unknown>;
   taxDetails?: Record<string, unknown>;
+  paymentDetails?: Record<string, unknown>;
   assetCount?: number;
   invoiceCount?: number;
   totalPurchased?: number;
@@ -152,8 +153,13 @@ export async function deletePartner(id: string) {
   return data;
 }
 
-export async function fetchPartnerSummary() {
-  const res = await fetch(bp('/summary'), { headers: authHeaders() });
+export async function fetchPartnerSummary(filters: Record<string, string> = {}) {
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) qs.set(key, value);
+  }
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  const res = await fetch(bp(`/summary${suffix}`), { headers: authHeaders() });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Failed to load summary');
   return data;
@@ -166,6 +172,8 @@ export async function fetchPartnerActivity(limit = 100) {
   return data.activities || [];
 }
 
+const ACTIVE_PARTNER_DASHBOARD_KEY = 'resolve.activePartnerDashboardId';
+
 export async function fetchPartnerDashboards() {
   const res = await fetch(bp('/dashboards'), { headers: authHeaders() });
   const data = await res.json();
@@ -173,15 +181,67 @@ export async function fetchPartnerDashboards() {
   return data.dashboards || [];
 }
 
-export async function savePartnerDashboard(id: string | null, body: Record<string, unknown>) {
-  const res = await fetch(bp(id ? `/dashboards/${id}` : '/dashboards'), {
-    method: id ? 'PUT' : 'POST',
+export async function fetchPartnerDashboard(id: string) {
+  const res = await fetch(bp(`/dashboards/${id}`), { headers: authHeaders() });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to load dashboard');
+  return data.dashboard;
+}
+
+export async function createPartnerDashboard(body: Record<string, unknown>) {
+  const res = await fetch(bp('/dashboards'), {
+    method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(body),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.message || 'Failed to save dashboard');
+  if (!res.ok) throw new Error(data.message || 'Failed to create dashboard');
   return data.dashboard;
+}
+
+export async function updatePartnerDashboard(id: string, body: Record<string, unknown>) {
+  const res = await fetch(bp(`/dashboards/${id}`), {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to update dashboard');
+  return data.dashboard;
+}
+
+export async function deletePartnerDashboard(id: string) {
+  const res = await fetch(bp(`/dashboards/${id}`), { method: 'DELETE', headers: authHeaders() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || 'Failed to delete dashboard');
+  return data;
+}
+
+export async function duplicatePartnerDashboard(id: string, name?: string) {
+  const res = await fetch(bp(`/dashboards/${id}/duplicate`), {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(name ? { name } : {}),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to duplicate dashboard');
+  return data.dashboard;
+}
+
+/** @deprecated Prefer createPartnerDashboard / updatePartnerDashboard */
+export async function savePartnerDashboard(id: string | null, body: Record<string, unknown>) {
+  if (id) return updatePartnerDashboard(id, body);
+  return createPartnerDashboard(body);
+}
+
+export async function fetchActivePartnerDashboardId(): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(ACTIVE_PARTNER_DASHBOARD_KEY);
+}
+
+export async function saveActivePartnerDashboardId(id: string) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(ACTIVE_PARTNER_DASHBOARD_KEY, id);
 }
 
 export async function partnerAction(path: string, method: string, body?: Record<string, unknown>) {
@@ -193,6 +253,28 @@ export async function partnerAction(path: string, method: string, body?: Record<
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.message || 'Request failed');
   return data;
+}
+
+export async function createPartnerInvoice(body: Record<string, unknown>) {
+  const res = await fetch(apiUrl('/invoices'), {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || 'Failed to create invoice');
+  return data.invoice || data;
+}
+
+export async function updatePartnerInvoice(id: string, body: Record<string, unknown>) {
+  const res = await fetch(apiUrl(`/invoices/${id}`), {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || 'Failed to update invoice');
+  return data.invoice || data;
 }
 
 export function formatMoney(amount: number, currency = 'INR') {

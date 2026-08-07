@@ -30,6 +30,16 @@ const assetSchema = new mongoose.Schema(
     purchaseDate: Date,
     vendorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor' },
     partnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'BusinessPartner', index: true },
+    /** Primary relationship key — kept in sync with partnerRelationships[0] for filters/legacy */
+    relationshipTypeKey: { type: String, trim: true, default: '' },
+    /** All partner roles for this asset (create seeds one; edit can add many) */
+    partnerRelationships: [
+      {
+        partnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'BusinessPartner', required: true },
+        relationshipTypeKey: { type: String, required: true, trim: true },
+        notes: { type: String, default: '', trim: true },
+      },
+    ],
     purchaseInvoiceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice' },
     budgetId: { type: mongoose.Schema.Types.ObjectId, ref: 'Budget', index: true },
     procurementId: { type: mongoose.Schema.Types.ObjectId, ref: 'Procurement', index: true },

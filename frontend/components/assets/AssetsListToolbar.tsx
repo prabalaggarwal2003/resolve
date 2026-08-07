@@ -32,6 +32,7 @@ export default function AssetsListToolbar({
   locationTree,
   assetGroups,
   vendors,
+  relationshipTypes = [],
   users,
   categories = [],
   customFilterFields = [],
@@ -43,6 +44,7 @@ export default function AssetsListToolbar({
   locationTree: LocationTreeNode[];
   assetGroups: { _id: string; name: string }[];
   vendors: { _id: string; vendorId: string; name: string }[];
+  relationshipTypes?: { key: string; label: string }[];
   users: { _id: string; name: string }[];
   categories?: string[];
   customFilterFields?: { field: string; label: string; type: 'text' | 'number' | 'date' | 'select' }[];
@@ -112,9 +114,18 @@ export default function AssetsListToolbar({
     if (field === 'locationId') return locations.map((l) => ({ value: l._id, label: l.name }));
     if (field === 'groupId') return assetGroups.map((g) => ({ value: g._id, label: g.name }));
     if (field === 'departmentId') return departments.map((d) => ({ value: d._id, label: d.name }));
-    if (field === 'vendorId') return vendors.map((v) => ({ value: v._id, label: `${v.vendorId} — ${v.name}` }));
+    if (field === 'partnerId' || field === 'vendorId') {
+      return vendors.map((v) => ({ value: v._id, label: `${v.vendorId} — ${v.name}` }));
+    }
     if (field === 'assignedTo') return users.map((u) => ({ value: u._id, label: u.name }));
     return [];
+  };
+
+  const selectOptionsForField = (field: string, def?: FilterFieldDef) => {
+    if (field === 'relationshipTypeKey') {
+      return relationshipTypes.map((r) => ({ value: r.key, label: r.label }));
+    }
+    return (def?.options || []).map((o) => ({ value: o.value, label: o.label }));
   };
 
   const activeView = prefs.savedViews.find((v) => v.id === prefs.activeViewId);
@@ -349,14 +360,14 @@ export default function AssetsListToolbar({
                 {needsValue && (
                   <div className="flex-1 min-w-[140px]">
                     <label className="text-[10px] text-gray-500 uppercase">Value</label>
-                    {def.type === 'select' && def.options ? (
+                    {def.type === 'select' ? (
                       <select
                         value={f.value}
                         onChange={(e) => updateFilter(f.id, { value: e.target.value })}
                         className={`${inputClass} w-full`}
                       >
                         <option value="">Select…</option>
-                        {def.options.map((o) => (
+                        {selectOptionsForField(f.field, def).map((o) => (
                           <option key={o.value} value={o.value}>{o.label}</option>
                         ))}
                       </select>

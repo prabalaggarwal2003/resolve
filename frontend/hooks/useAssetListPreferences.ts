@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type AssetListPreferences,
   defaultPreferences,
+  mergeColumns,
+  normalizeAdvancedFilters,
   normalizeBasicFilters,
 } from '@/lib/assetsTableConfig';
 
@@ -18,9 +20,14 @@ function mergePreferences(incoming: Partial<AssetListPreferences> | null): Asset
   return {
     ...base,
     ...incoming,
-    columns: incoming.columns?.length ? incoming.columns : base.columns,
-    savedViews: incoming.savedViews ?? base.savedViews,
-    advancedFilters: incoming.advancedFilters ?? base.advancedFilters,
+    columns: mergeColumns(incoming.columns),
+    savedViews: (incoming.savedViews ?? base.savedViews).map((view) => ({
+      ...view,
+      columns: mergeColumns(view.columns),
+      advancedFilters: normalizeAdvancedFilters(view.advancedFilters),
+      basicFilters: normalizeBasicFilters(view.basicFilters),
+    })),
+    advancedFilters: normalizeAdvancedFilters(incoming.advancedFilters),
     basicFilters: normalizeBasicFilters(incoming.basicFilters),
   };
 }

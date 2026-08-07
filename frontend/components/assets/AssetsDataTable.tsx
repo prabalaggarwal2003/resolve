@@ -26,11 +26,18 @@ export type AssetRow = {
   tags?: string[];
   assignedToName?: string;
   assignedToEmployeeCode?: string;
+  relationshipTypeKey?: string;
+  partnerRelationships?: {
+    partnerId?: { name?: string; partnerCode?: string; vendorId?: string } | string;
+    relationshipTypeKey?: string;
+    notes?: string;
+  }[];
   locationId?: { name: string; path?: string };
   groupId?: { name: string };
   departmentId?: { name: string };
   assignedTo?: { name: string };
-  vendorId?: { name: string; vendorId: string };
+  vendorId?: { name: string; vendorId?: string; partnerCode?: string };
+  partnerId?: { name: string; vendorId?: string; partnerCode?: string };
 };
 
 const buttonClass = 'px-2 py-0.5 text-[11px] font-medium rounded border transition-colors';
@@ -45,7 +52,50 @@ function formatCurrency(n?: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
 }
 
-function cellValue(asset: AssetRow, col: ColumnId): ReactNode {
+function partnerLabel(asset: AssetRow) {
+  const rels = Array.isArray(asset.partnerRelationships) ? asset.partnerRelationships : [];
+  if (rels.length) {
+    const names = rels
+      .map((r) => {
+        const p = r.partnerId;
+        if (!p || typeof p === 'string') return '';
+        const code = p.partnerCode || p.vendorId;
+        return p.name ? (code ? `${code} — ${p.name}` : p.name) : '';
+      })
+      .filter(Boolean);
+    const unique = Array.from(new Set(names));
+    if (!unique.length) return '—';
+    if (unique.length === 1) return unique[0];
+    return `${unique[0]} (+${unique.length - 1})`;
+  }
+  const p = asset.partnerId || asset.vendorId;
+  if (!p?.name) return '—';
+  const code = p.partnerCode || p.vendorId;
+  return code ? `${code} — ${p.name}` : p.name;
+}
+
+function relationshipLabel(asset: AssetRow, relationshipTypeLabels?: Record<string, string>) {
+  const rels = Array.isArray(asset.partnerRelationships) ? asset.partnerRelationships : [];
+  const keys = (
+    rels.length
+      ? rels.map((r) => r.relationshipTypeKey).filter(Boolean)
+      : asset.relationshipTypeKey
+      ? [asset.relationshipTypeKey]
+      : []
+  ) as string[];
+  if (!keys.length) return '—';
+  const labels = Array.from(new Set(keys)).map(
+    (key) => relationshipTypeLabels?.[key] || key.replace(/_/g, ' ')
+  );
+  if (labels.length <= 2) return labels.join('; ');
+  return `${labels.slice(0, 2).join('; ')} (+${labels.length - 2})`;
+}
+
+function cellValue(
+  asset: AssetRow,
+  col: ColumnId,
+  relationshipTypeLabels?: Record<string, string>
+): ReactNode {
   switch (col) {
     case 'assetId':
       return (
@@ -69,6 +119,10 @@ function cellValue(asset: AssetRow, col: ColumnId): ReactNode {
       return breadcrumbForNode(asset.locationId);
     case 'assignedTo':
       return asset.assignedToName || asset.assignedTo?.name || '—';
+    case 'partner':
+      return partnerLabel(asset);
+    case 'relationshipType':
+      return relationshipLabel(asset, relationshipTypeLabels);
     case 'model':
       return asset.model || '—';
     case 'serialNumber':
@@ -102,10 +156,12 @@ export default function AssetsDataTable({
   assets,
   visibleColumns,
   canEdit,
+  relationshipTypeLabels,
 }: {
   assets: AssetRow[];
   visibleColumns: ColumnId[];
   canEdit: boolean;
+  relationshipTypeLabels?: Record<string, string>;
 }) {
   const thClass = 'px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap';
   const tdClass = 'px-3 py-2 text-xs text-gray-300 border-t border-gray-700/40';
@@ -126,11 +182,18 @@ export default function AssetsDataTable({
         <tbody>
           {assets.map((asset) => (
             <tr key={asset._id} className="hover:bg-gray-900/30 transition-colors">
-              {visibleColumns.map((col) => (
-                <td key={col} className={`${tdClass} max-w-[220px] truncate`} title={typeof cellValue(asset, col) === 'string' ? String(cellValue(asset, col)) : undefined}>
-                  {cellValue(asset, col)}
-                </td>
-              ))}
+              {visibleColumns.map((col) => {
+                const value = cellValue(asset, col, relationshipTypeLabels);
+                return (
+                  <td
+                    key={col}
+                    className={`${tdClass} max-w-[220px] truncate`}
+                    title={typeof value === 'string' ? value : undefined}
+                  >
+                    {value}
+                  </td>
+                );
+              })}
               <td className={`${tdClass} text-right whitespace-nowrap`}>
                 <div className="inline-flex gap-1">
                   <Link

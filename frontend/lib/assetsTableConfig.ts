@@ -6,6 +6,8 @@ export type ColumnId =
   | 'status'
   | 'location'
   | 'assignedTo'
+  | 'partner'
+  | 'relationshipType'
   | 'model'
   | 'serialNumber'
   | 'department'
@@ -138,6 +140,8 @@ export const COLUMN_DEFS: Record<
   status: { label: 'Status', sortable: true, sortKey: 'status' },
   location: { label: 'Location', sortable: false },
   assignedTo: { label: 'Assigned To', sortable: false },
+  partner: { label: 'Partner', sortable: false },
+  relationshipType: { label: 'Relationship', sortable: false },
   model: { label: 'Model', sortable: true, sortKey: 'model' },
   serialNumber: { label: 'Serial Number', sortable: true, sortKey: 'serialNumber' },
   department: { label: 'Department', sortable: false },
@@ -158,6 +162,8 @@ export const DEFAULT_COLUMNS: ColumnConfig[] = [
   { id: 'status', visible: true },
   { id: 'location', visible: true },
   { id: 'assignedTo', visible: true },
+  { id: 'partner', visible: false },
+  { id: 'relationshipType', visible: false },
   { id: 'model', visible: false },
   { id: 'serialNumber', visible: false },
   { id: 'department', visible: false },
@@ -205,7 +211,8 @@ export const FILTER_FIELD_DEFS: FilterFieldDef[] = [
   { field: 'assignedToEmployeeCode', label: 'Employee Code', type: 'text' },
   { field: 'locationId', label: 'Location', type: 'reference' },
   { field: 'departmentId', label: 'Department', type: 'reference' },
-  { field: 'vendorId', label: 'Vendor', type: 'reference' },
+  { field: 'partnerId', label: 'Partner', type: 'reference' },
+  { field: 'relationshipTypeKey', label: 'Relationship type', type: 'select' },
   { field: 'cost', label: 'Cost', type: 'number' },
   { field: 'purchaseDate', label: 'Purchase Date', type: 'date' },
   { field: 'warrantyExpiry', label: 'Warranty Expiry', type: 'date' },
@@ -256,6 +263,37 @@ export const OPERATORS_BY_TYPE: Record<FilterFieldType, { value: FilterOperator;
     { value: 'not_empty', label: 'Is not empty' },
   ],
 };
+
+export function mergeColumns(incoming?: ColumnConfig[] | null): ColumnConfig[] {
+  const base = DEFAULT_COLUMNS.map((c) => ({ ...c }));
+  if (!incoming?.length) return base;
+
+  const known = new Set(Object.keys(COLUMN_DEFS) as ColumnId[]);
+  const seen = new Set<ColumnId>();
+  const result: ColumnConfig[] = [];
+
+  for (const col of incoming) {
+    const id = col.id as ColumnId;
+    if (!known.has(id) || seen.has(id)) continue;
+    result.push({ id, visible: Boolean(col.visible) });
+    seen.add(id);
+  }
+
+  for (const col of base) {
+    if (!seen.has(col.id)) result.push({ ...col, visible: false });
+  }
+
+  return result;
+}
+
+export function normalizeAdvancedFilters(filters?: AdvancedFilter[] | null): AdvancedFilter[] {
+  if (!Array.isArray(filters)) return [];
+  return filters.map((f) => ({
+    ...f,
+    // Migrate legacy vendor filter → partner
+    field: f.field === 'vendorId' ? 'partnerId' : f.field,
+  }));
+}
 
 export function defaultPreferences(): AssetListPreferences {
   return {

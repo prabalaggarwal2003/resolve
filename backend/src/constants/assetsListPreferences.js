@@ -6,6 +6,8 @@ export const DEFAULT_ASSET_TABLE_COLUMNS = [
   { id: 'status', visible: true },
   { id: 'location', visible: true },
   { id: 'assignedTo', visible: true },
+  { id: 'partner', visible: false },
+  { id: 'relationshipType', visible: false },
   { id: 'model', visible: false },
   { id: 'serialNumber', visible: false },
   { id: 'department', visible: false },
