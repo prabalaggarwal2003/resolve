@@ -80,3 +80,112 @@ export function detectProcurementChanges(
   }
   return changes;
 }
+
+export type PartnerRelationshipChangeInput = {
+  rowKey?: string;
+  _id?: string;
+  partnerId: string;
+  relationshipTypeKey: string;
+  notes?: string;
+};
+
+function formatPartnerRelRow(
+  row: PartnerRelationshipChangeInput,
+  partners: { _id: string; vendorId?: string; name: string }[],
+  relationshipTypes: { key: string; label: string }[]
+): string {
+  const partner = partners.find((p) => p._id === row.partnerId);
+  const partnerLabel = partner
+    ? `${partner.vendorId ? `${partner.vendorId} — ` : ''}${partner.name}`
+    : row.partnerId;
+  const rel =
+    relationshipTypes.find((t) => t.key === row.relationshipTypeKey)?.label ||
+    row.relationshipTypeKey.replace(/_/g, ' ');
+  const note = row.notes?.trim() ? ` · ${row.notes.trim()}` : '';
+  return `${partnerLabel} (${rel})${note}`;
+}
+
+function rowIdentity(row: PartnerRelationshipChangeInput) {
+  if (row._id) return `id:${row._id}`;
+  if (row.rowKey) return `row:${row.rowKey}`;
+  return `key:${row.partnerId}::${row.relationshipTypeKey}`;
+}
+
+function normalizeChangeRow(row: PartnerRelationshipChangeInput): PartnerRelationshipChangeInput | null {
+  if (!row.partnerId || !row.relationshipTypeKey) return null;
+  return {
+    rowKey: row.rowKey,
+    _id: row._id,
+    partnerId: row.partnerId,
+    relationshipTypeKey: row.relationshipTypeKey,
+    notes: String(row.notes || '').trim(),
+  };
+}
+
+function contentEqual(a: PartnerRelationshipChangeInput, b: PartnerRelationshipChangeInput) {
+  return (
+    a.partnerId === b.partnerId &&
+    a.relationshipTypeKey === b.relationshipTypeKey &&
+    String(a.notes || '') === String(b.notes || '')
+  );
+}
+
+/** Detect partner relationship list changes (add / edit / remove) — one entry per affected row. */
+export function detectPartnerRelationshipChanges(
+  original: PartnerRelationshipChangeInput[],
+  current: PartnerRelationshipChangeInput[],
+  partners: { _id: string; vendorId?: string; name: string }[],
+  relationshipTypes: { key: string; label: string }[]
+): ImportantChange[] {
+  const before = new Map<string, PartnerRelationshipChangeInput>();
+  const after = new Map<string, PartnerRelationshipChangeInput>();
+
+  for (const row of original) {
+    const normalized = normalizeChangeRow(row);
+    if (!normalized) continue;
+    before.set(rowIdentity(normalized), normalized);
+  }
+  for (const row of current) {
+    const normalized = normalizeChangeRow(row);
+    if (!normalized) continue;
+    after.set(rowIdentity(normalized), normalized);
+  }
+
+  const changes: ImportantChange[] = [];
+  const matchedAfter = new Set<string>();
+
+  Array.from(before.entries()).forEach(([key, oldRow]) => {
+    const newRow = after.get(key);
+    if (newRow) {
+      matchedAfter.add(key);
+      if (!contentEqual(oldRow, newRow)) {
+        changes.push({
+          field: 'partnerRelationships',
+          label: 'Partner relationship updated',
+          oldValue: formatPartnerRelRow(oldRow, partners, relationshipTypes),
+          newValue: formatPartnerRelRow(newRow, partners, relationshipTypes),
+        });
+      }
+      return;
+    }
+
+    changes.push({
+      field: 'partnerRelationships',
+      label: 'Partner relationship removed',
+      oldValue: formatPartnerRelRow(oldRow, partners, relationshipTypes),
+      newValue: '—',
+    });
+  });
+
+  Array.from(after.entries()).forEach(([key, newRow]) => {
+    if (matchedAfter.has(key)) return;
+    changes.push({
+      field: 'partnerRelationships',
+      label: 'Partner relationship added',
+      oldValue: '—',
+      newValue: formatPartnerRelRow(newRow, partners, relationshipTypes),
+    });
+  });
+
+  return changes;
+}

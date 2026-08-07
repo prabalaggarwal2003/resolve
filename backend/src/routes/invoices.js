@@ -28,14 +28,25 @@ function requireVendorWrite(req, res, next) {
  */
 router.get('/', requireVendorRead, async (req, res) => {
   try {
-    const { vendorId, status } = req.query;
+    const { vendorId, partnerId, status, search } = req.query;
     const query = { organizationId: req.user.organizationId };
 
     if (vendorId) query.vendorId = vendorId;
+    if (partnerId) query.partnerId = partnerId;
     if (status) query.status = status;
+    if (search) {
+      const q = String(search).trim();
+      if (q) {
+        query.$or = [
+          { invoiceNumber: { $regex: q, $options: 'i' } },
+          { notes: { $regex: q, $options: 'i' } },
+        ];
+      }
+    }
 
     const invoices = await Invoice.find(query)
-      .populate('vendorId', 'vendorId name contactPerson')
+      .populate('vendorId', 'partnerCode vendorId name')
+      .populate('partnerId', 'partnerCode name')
       .populate('createdBy', 'name email')
       .sort({ purchaseDate: -1 })
       .lean();

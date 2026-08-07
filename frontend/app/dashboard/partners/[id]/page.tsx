@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import {
   fetchPartner,
@@ -10,6 +10,8 @@ import {
   updatePartner,
   deletePartner,
   partnerAction,
+  createPartnerInvoice,
+  updatePartnerInvoice,
   formatMoney,
   BusinessPartner,
   PartnerConfig,
@@ -48,6 +50,46 @@ function initMapDraft(details: Record<string, unknown> | undefined, guaranteedKe
   }
   return draft;
 }
+
+const TAX_DETAIL_KEYS = ['gstin', 'pan', 'tan', 'vat', 'tin', 'taxExemptionNumber', 'placeOfSupply'];
+const REGISTRATION_KEYS = [
+  'legalName',
+  'registrationNumber',
+  'registrationType',
+  'incorporationDate',
+  'cin',
+  'pan',
+  'country',
+  'stateOfRegistration',
+];
+const BUSINESS_KEYS = [
+  'industry',
+  'legalStructure',
+  'yearEstablished',
+  'employeeCount',
+  'website',
+  'serviceCategories',
+  'slaNotes',
+];
+const BANK_KEYS = [
+  'bankName',
+  'accountName',
+  'accountNumber',
+  'accountType',
+  'ifsc',
+  'swift',
+  'branch',
+  'iban',
+];
+const PAYMENT_DETAIL_KEYS = [
+  'preferredPaymentMethod',
+  'billingCycle',
+  'earlyPaymentDiscount',
+  'lateFeePolicy',
+  'invoiceEmail',
+  'poRequired',
+];
+const ASSETS_PAGE_SIZE = 8;
 
 function SectionTitle({
   children,
@@ -115,15 +157,22 @@ function EmptyRow({ cols, message }: { cols: number; message: string }) {
   );
 }
 
-function KeyValueDisplay({ data }: { data: Record<string, unknown> | undefined }) {
-  const entries = Object.entries(data || {});
-  if (entries.length === 0) return <p className="text-xs text-gray-500">No details</p>;
+function KeyValueDisplay({
+  data,
+  guaranteedKeys = [],
+}: {
+  data: Record<string, unknown> | undefined;
+  guaranteedKeys?: string[];
+}) {
+  const merged = initMapDraft(data, guaranteedKeys);
+  const keys = [...guaranteedKeys, ...Object.keys(merged).filter((k) => !guaranteedKeys.includes(k))];
+  if (!keys.length) return <p className="text-xs text-gray-500">No details</p>;
   return (
     <div className="grid md:grid-cols-3 gap-3 text-xs">
-      {entries.map(([k, v]) => (
+      {keys.map((k) => (
         <div key={k}>
-          <p className="text-gray-500 capitalize">{k}</p>
-          <p className="text-gray-200">{v != null && String(v) !== '' ? String(v) : '—'}</p>
+          <p className="text-gray-500">{labelize(k)}</p>
+          <p className="text-gray-200">{merged[k] ? merged[k] : '—'}</p>
         </div>
       ))}
     </div>
@@ -155,6 +204,7 @@ function KeyValueEditGrid({
 export default function PartnerDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const id = String(params?.id || '');
   const canEdit = canWrite('businessPartners');
 
@@ -166,13 +216,22 @@ export default function PartnerDetailPage() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [procurements, setProcurements] = useState<any[]>([]);
   const [contracts, setContracts] = useState<any[]>([]);
-  const [links, setLinks] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
-  const [performance, setPerformance] = useState<any[]>([]);
 
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [savingSection, setSavingSection] = useState<string | null>(null);
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [assetsPage, setAssetsPage] = useState(1);
+  const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
+  const [showInvoiceForm, setShowInvoiceForm] = useState(false);
+  const [savingInvoice, setSavingInvoice] = useState(false);
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
+  const [editingContractId, setEditingContractId] = useState<string | null>(null);
+  const [highlightedContractId, setHighlightedContractId] = useState<string | null>(null);
+  const [highlightedInvoiceId, setHighlightedInvoiceId] = useState<string | null>(null);
+  const deepLinkHandled = useRef(false);
 
   const [generalDraft, setGeneralDraft] = useState({
     name: '',
@@ -188,15 +247,28 @@ export default function PartnerDetailPage() {
   const [registrationDraft, setRegistrationDraft] = useState<Record<string, string>>({});
   const [businessDraft, setBusinessDraft] = useState<Record<string, string>>({});
   const [bankDraft, setBankDraft] = useState<Record<string, string>>({});
-  const [paymentDraft, setPaymentDraft] = useState({ paymentTerms: '', creditLimit: '', currency: 'INR' });
+  const [paymentDraft, setPaymentDraft] = useState({
+    paymentTerms: '',
+    creditLimit: '',
+    currency: 'INR',
+    preferredPaymentMethod: '',
+    billingCycle: '',
+    earlyPaymentDiscount: '',
+    lateFeePolicy: '',
+    invoiceEmail: '',
+    poRequired: '',
+  });
   const [customDraft, setCustomDraft] = useState<Record<string, string>>({});
 
   const [contactForm, setContactForm] = useState({
     name: '',
     role: '',
+    department: '',
     email: '',
     phone: '',
     mobile: '',
+    whatsapp: '',
+    notes: '',
     isPrimary: false,
   });
   const [addressForm, setAddressForm] = useState({
@@ -216,13 +288,21 @@ export default function PartnerDetailPage() {
     title: '',
     startDate: '',
     endDate: '',
+    renewalDate: '',
+    autoRenewal: false,
+    reminderDays: '30',
     status: 'Draft',
     notes: '',
   });
-  const [linkForm, setLinkForm] = useState({
-    relationshipTypeKey: '',
-    resourceType: 'asset',
-    resourceId: '',
+  const [invoiceForm, setInvoiceForm] = useState({
+    invoiceNumber: '',
+    purchaseDate: '',
+    dueDate: '',
+    totalAmount: '',
+    paidAmount: '',
+    currency: 'INR',
+    status: 'Pending',
+    paymentMethod: 'Bank Transfer',
     notes: '',
   });
 
@@ -236,28 +316,24 @@ export default function PartnerDetailPage() {
     setLoading(true);
     setError('');
     try {
-      const [cfg, data, perf] = await Promise.all([
-        fetchPartnerConfig(),
-        fetchPartner(id),
-        partnerAction(`/${id}/performance`, 'GET').catch(() => ({ kpis: [] })),
-      ]);
+      const [cfg, data] = await Promise.all([fetchPartnerConfig(), fetchPartner(id)]);
       setConfig(cfg);
-      setPartner(data.partner || data.vendor || null);
+      const p = data.partner || data.vendor || null;
+      setPartner(p);
       setAssets(data.assets || []);
       setInvoices(data.invoices || []);
       setProcurements(data.procurements || []);
       setContracts(data.contracts || []);
-      setLinks(data.links || []);
       setActivities(data.activities || []);
       setStats(data.stats || null);
-      setPerformance(perf.kpis || []);
+      setAssetsPage(1);
       setAddressForm((prev) => ({
         ...prev,
         typeKey: cfg.addressTypes?.[0]?.id || '',
       }));
-      setLinkForm((prev) => ({
+      setInvoiceForm((prev) => ({
         ...prev,
-        relationshipTypeKey: cfg.assetRelationshipTypes?.[0]?.key || '',
+        currency: p?.currency || cfg.settings?.defaultCurrency || 'INR',
       }));
     } catch (e: any) {
       setError(e.message || 'Failed to load partner');
@@ -269,6 +345,45 @@ export default function PartnerDetailPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    deepLinkHandled.current = false;
+  }, [id, searchParams.get('invoiceId'), searchParams.get('contractId')]);
+
+  useEffect(() => {
+    if (loading || deepLinkHandled.current) return;
+    const invoiceId = searchParams.get('invoiceId');
+    const contractId = searchParams.get('contractId');
+    if (!invoiceId && !contractId) return;
+
+    let handled = false;
+
+    if (invoiceId) {
+      const inv = invoices.find((i) => String(i._id) === invoiceId);
+      if (inv) {
+        setHighlightedInvoiceId(invoiceId);
+        setSelectedInvoice(inv);
+        requestAnimationFrame(() => {
+          document.getElementById('partner-invoices')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        handled = true;
+      }
+    }
+
+    if (contractId) {
+      const contract = contracts.find((c) => String(c._id) === contractId);
+      if (contract) {
+        setHighlightedContractId(contractId);
+        requestAnimationFrame(() => {
+          document.getElementById('partner-contracts')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          document.getElementById(`contract-${contractId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+        handled = true;
+      }
+    }
+
+    if (handled) deepLinkHandled.current = true;
+  }, [loading, invoices, contracts, searchParams]);
 
   const refreshPartnerOnly = useCallback(async () => {
     if (!id) return;
@@ -291,7 +406,6 @@ export default function PartnerDetailPage() {
       setInvoices(data.invoices || []);
       setProcurements(data.procurements || []);
       setContracts(data.contracts || []);
-      setLinks(data.links || []);
       setActivities(data.activities || []);
       setStats(data.stats || null);
     } catch {
@@ -344,7 +458,7 @@ export default function PartnerDetailPage() {
   }
 
   function startEditTax() {
-    const details = initMapDraft(partner?.taxDetails, ['gst', 'vat']);
+    const details = initMapDraft(partner?.taxDetails, TAX_DETAIL_KEYS);
     setTaxDraft({ taxId: partner?.taxId || '', ...details });
     setEditingSection('tax');
   }
@@ -355,7 +469,7 @@ export default function PartnerDetailPage() {
   }
 
   function startEditRegistration() {
-    setRegistrationDraft(initMapDraft(partner?.registrationDetails, ['registrationNumber', 'country']));
+    setRegistrationDraft(initMapDraft(partner?.registrationDetails, REGISTRATION_KEYS));
     setEditingSection('registration');
   }
 
@@ -364,7 +478,7 @@ export default function PartnerDetailPage() {
   }
 
   function startEditBusiness() {
-    setBusinessDraft(initMapDraft(partner?.businessDetails, ['industry', 'website']));
+    setBusinessDraft(initMapDraft(partner?.businessDetails, BUSINESS_KEYS));
     setEditingSection('business');
   }
 
@@ -373,7 +487,7 @@ export default function PartnerDetailPage() {
   }
 
   function startEditBank() {
-    setBankDraft(initMapDraft(partner?.bankDetails, ['bankName', 'accountNumber', 'ifsc']));
+    setBankDraft(initMapDraft(partner?.bankDetails, BANK_KEYS));
     setEditingSection('bank');
   }
 
@@ -382,19 +496,45 @@ export default function PartnerDetailPage() {
   }
 
   function startEditPayment() {
+    const details = initMapDraft(partner?.paymentDetails, PAYMENT_DETAIL_KEYS);
     setPaymentDraft({
       paymentTerms: partner?.paymentTerms || '',
       creditLimit: partner?.creditLimit != null ? String(partner.creditLimit) : '',
       currency: partner?.currency || 'INR',
+      preferredPaymentMethod: details.preferredPaymentMethod || '',
+      billingCycle: details.billingCycle || '',
+      earlyPaymentDiscount: details.earlyPaymentDiscount || '',
+      lateFeePolicy: details.lateFeePolicy || '',
+      invoiceEmail: details.invoiceEmail || '',
+      poRequired: details.poRequired || '',
     });
     setEditingSection('payment');
   }
 
   async function savePayment() {
+    const {
+      paymentTerms,
+      creditLimit,
+      currency,
+      preferredPaymentMethod,
+      billingCycle,
+      earlyPaymentDiscount,
+      lateFeePolicy,
+      invoiceEmail,
+      poRequired,
+    } = paymentDraft;
     await saveSection('payment', {
-      paymentTerms: paymentDraft.paymentTerms,
-      creditLimit: paymentDraft.creditLimit === '' ? null : Number(paymentDraft.creditLimit),
-      currency: paymentDraft.currency,
+      paymentTerms,
+      creditLimit: creditLimit === '' ? null : Number(creditLimit),
+      currency,
+      paymentDetails: {
+        preferredPaymentMethod,
+        billingCycle,
+        earlyPaymentDiscount,
+        lateFeePolicy,
+        invoiceEmail,
+        poRequired,
+      },
     });
   }
 
@@ -427,17 +567,50 @@ export default function PartnerDetailPage() {
     }
   }
 
-  async function addContact(e: React.FormEvent) {
+  function resetContactForm() {
+    setContactForm({
+      name: '',
+      role: '',
+      department: '',
+      email: '',
+      phone: '',
+      mobile: '',
+      whatsapp: '',
+      notes: '',
+      isPrimary: false,
+    });
+    setEditingContactId(null);
+  }
+
+  function startEditContact(c: any) {
+    setEditingContactId(String(c._id));
+    setContactForm({
+      name: c.name || '',
+      role: c.role || '',
+      department: c.department || '',
+      email: c.email || '',
+      phone: c.phone || '',
+      mobile: c.mobile || '',
+      whatsapp: c.whatsapp || '',
+      notes: c.notes || '',
+      isPrimary: Boolean(c.isPrimary),
+    });
+    setEditingSection('contacts');
+  }
+
+  async function saveContact(e: React.FormEvent) {
     e.preventDefault();
     if (!canEdit) return;
     try {
-      const data = await partnerAction(`/${id}/contacts`, 'POST', contactForm);
+      const data = editingContactId
+        ? await partnerAction(`/${id}/contacts/${editingContactId}`, 'PUT', contactForm)
+        : await partnerAction(`/${id}/contacts`, 'POST', contactForm);
       if (data.partner) setPartner(data.partner);
       else await refreshPartnerOnly();
       if (data.activity) setActivities((prev) => [data.activity, ...prev]);
-      setContactForm({ name: '', role: '', email: '', phone: '', mobile: '', isPrimary: false });
+      resetContactForm();
     } catch (err: any) {
-      alert(err.message || 'Failed to add contact');
+      alert(err.message || 'Failed to save contact');
     }
   }
 
@@ -448,31 +621,54 @@ export default function PartnerDetailPage() {
       if (data.partner) setPartner(data.partner);
       else await refreshPartnerOnly();
       if (data.activity) setActivities((prev) => [data.activity, ...prev]);
+      if (editingContactId === contactId) resetContactForm();
     } catch (err: any) {
       alert(err.message || 'Failed to remove contact');
     }
   }
 
-  async function addAddress(e: React.FormEvent) {
+  function resetAddressForm() {
+    setAddressForm({
+      typeKey: config?.addressTypes?.[0]?.id || '',
+      label: '',
+      street: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      country: '',
+      isPrimary: false,
+    });
+    setEditingAddressId(null);
+  }
+
+  function startEditAddress(a: any) {
+    setEditingAddressId(String(a._id));
+    setAddressForm({
+      typeKey: a.typeKey || config?.addressTypes?.[0]?.id || '',
+      label: a.label || '',
+      street: a.street || '',
+      city: a.city || '',
+      state: a.state || '',
+      zipCode: a.zipCode || '',
+      country: a.country || '',
+      isPrimary: Boolean(a.isPrimary),
+    });
+    setEditingSection('addresses');
+  }
+
+  async function saveAddress(e: React.FormEvent) {
     e.preventDefault();
     if (!canEdit) return;
     try {
-      const data = await partnerAction(`/${id}/addresses`, 'POST', addressForm);
+      const data = editingAddressId
+        ? await partnerAction(`/${id}/addresses/${editingAddressId}`, 'PUT', addressForm)
+        : await partnerAction(`/${id}/addresses`, 'POST', addressForm);
       if (data.partner) setPartner(data.partner);
       else await refreshPartnerOnly();
       if (data.activity) setActivities((prev) => [data.activity, ...prev]);
-      setAddressForm({
-        typeKey: config?.addressTypes?.[0]?.id || '',
-        label: '',
-        street: '',
-        city: '',
-        state: '',
-        zipCode: '',
-        country: '',
-        isPrimary: false,
-      });
+      resetAddressForm();
     } catch (err: any) {
-      alert(err.message || 'Failed to add address');
+      alert(err.message || 'Failed to save address');
     }
   }
 
@@ -483,6 +679,7 @@ export default function PartnerDetailPage() {
       if (data.partner) setPartner(data.partner);
       else await refreshPartnerOnly();
       if (data.activity) setActivities((prev) => [data.activity, ...prev]);
+      if (editingAddressId === addressId) resetAddressForm();
     } catch (err: any) {
       alert(err.message || 'Failed to remove address');
     }
@@ -529,21 +726,66 @@ export default function PartnerDetailPage() {
     }
   }
 
-  async function addContract(e: React.FormEvent) {
+  function resetContractForm() {
+    setContractForm({
+      contractNumber: '',
+      title: '',
+      startDate: '',
+      endDate: '',
+      renewalDate: '',
+      autoRenewal: false,
+      reminderDays: '30',
+      status: 'Draft',
+      notes: '',
+    });
+    setEditingContractId(null);
+  }
+
+  function startEditContract(c: any) {
+    setEditingContractId(String(c._id));
+    setContractForm({
+      contractNumber: c.contractNumber || '',
+      title: c.title || '',
+      startDate: c.startDate ? String(c.startDate).slice(0, 10) : '',
+      endDate: c.endDate ? String(c.endDate).slice(0, 10) : '',
+      renewalDate: c.renewalDate ? String(c.renewalDate).slice(0, 10) : '',
+      autoRenewal: Boolean(c.autoRenewal),
+      reminderDays: c.reminderDays != null ? String(c.reminderDays) : '30',
+      status: c.status || 'Draft',
+      notes: c.notes || '',
+    });
+  }
+
+  async function saveContract(e: React.FormEvent) {
     e.preventDefault();
     if (!canEdit) return;
     try {
-      const data = await partnerAction(`/${id}/contracts`, 'POST', contractForm);
-      if (data.contract) {
-        setContracts((prev) => [data.contract, ...prev]);
-        setStats((prev: any) => (prev ? { ...prev, contractCount: (prev.contractCount || 0) + 1 } : prev));
+      const payload = {
+        ...contractForm,
+        reminderDays: contractForm.reminderDays === '' ? 30 : Number(contractForm.reminderDays),
+        autoRenewal: Boolean(contractForm.autoRenewal),
+      };
+      if (editingContractId) {
+        const data = await partnerAction(`/${id}/contracts/${editingContractId}`, 'PUT', payload);
+        if (data.contract) {
+          setContracts((prev) => prev.map((c) => (String(c._id) === editingContractId ? data.contract : c)));
+        } else {
+          await refreshRelated();
+        }
+        if (data.activity) setActivities((prev) => [data.activity, ...prev]);
       } else {
-        await refreshRelated();
+        const data = await partnerAction(`/${id}/contracts`, 'POST', payload);
+        if (data.contract) {
+          setContracts((prev) => [data.contract, ...prev]);
+          setStats((prev: any) => (prev ? { ...prev, contractCount: (prev.contractCount || 0) + 1 } : prev));
+        } else {
+          await refreshRelated();
+        }
+        if (data.activity) setActivities((prev) => [data.activity, ...prev]);
       }
-      if (data.activity) setActivities((prev) => [data.activity, ...prev]);
-      setContractForm({ contractNumber: '', title: '', startDate: '', endDate: '', status: 'Draft', notes: '' });
+      resetContractForm();
     } catch (err: any) {
-      alert(err.message || 'Failed to add contract');
+      alert(err.message || 'Failed to save contract');
     }
   }
 
@@ -553,49 +795,100 @@ export default function PartnerDetailPage() {
       await partnerAction(`/${id}/contracts/${contractId}`, 'DELETE');
       setContracts((prev) => prev.filter((c) => c._id !== contractId));
       setStats((prev: any) => (prev ? { ...prev, contractCount: Math.max(0, (prev.contractCount || 0) - 1) } : prev));
+      if (editingContractId === contractId) resetContractForm();
     } catch (err: any) {
       alert(err.message || 'Failed to delete contract');
     }
   }
 
-  async function addLink(e: React.FormEvent) {
+  function resetInvoiceForm() {
+    setInvoiceForm({
+      invoiceNumber: '',
+      purchaseDate: '',
+      dueDate: '',
+      totalAmount: '',
+      paidAmount: '',
+      currency: partner?.currency || 'INR',
+      status: 'Pending',
+      paymentMethod: 'Bank Transfer',
+      notes: '',
+    });
+    setEditingInvoiceId(null);
+  }
+
+  function startEditInvoice(inv: any) {
+    setEditingInvoiceId(String(inv._id));
+    setShowInvoiceForm(true);
+    setInvoiceForm({
+      invoiceNumber: inv.invoiceNumber || '',
+      purchaseDate: inv.purchaseDate ? String(inv.purchaseDate).slice(0, 10) : '',
+      dueDate: inv.dueDate ? String(inv.dueDate).slice(0, 10) : '',
+      totalAmount: inv.totalAmount != null ? String(inv.totalAmount) : '',
+      paidAmount: inv.paidAmount != null ? String(inv.paidAmount) : '',
+      currency: inv.currency || partner?.currency || 'INR',
+      status: inv.status || 'Pending',
+      paymentMethod: inv.paymentMethod || 'Bank Transfer',
+      notes: inv.notes || '',
+    });
+  }
+
+  async function saveInvoice(e: React.FormEvent) {
     e.preventDefault();
-    if (!canEdit) return;
+    if (!canEdit || !partner) return;
+    setSavingInvoice(true);
     try {
-      const data = await partnerAction(`/${id}/links`, 'POST', linkForm);
-      if (data.link) setLinks((prev) => [data.link, ...prev]);
-      else await refreshRelated();
-      if (data.activity) setActivities((prev) => [data.activity, ...prev]);
-      setLinkForm({
-        relationshipTypeKey: config?.assetRelationshipTypes?.[0]?.key || '',
-        resourceType: 'asset',
-        resourceId: '',
-        notes: '',
-      });
+      const totalAmount = Number(invoiceForm.totalAmount) || 0;
+      const paidAmount = Number(invoiceForm.paidAmount) || 0;
+      const payload = {
+        invoiceNumber: invoiceForm.invoiceNumber.trim(),
+        purchaseDate: invoiceForm.purchaseDate || new Date().toISOString().slice(0, 10),
+        dueDate: invoiceForm.dueDate || undefined,
+        totalAmount,
+        paidAmount,
+        currency: invoiceForm.currency || partner.currency || 'INR',
+        status: invoiceForm.status,
+        paymentMethod: invoiceForm.paymentMethod,
+        notes: invoiceForm.notes,
+      };
+      if (editingInvoiceId) {
+        const updated = await updatePartnerInvoice(editingInvoiceId, payload);
+        setInvoices((prev) => prev.map((inv) => (String(inv._id) === editingInvoiceId ? { ...inv, ...updated } : inv)));
+        if (selectedInvoice && String(selectedInvoice._id) === editingInvoiceId) {
+          setSelectedInvoice({ ...selectedInvoice, ...updated });
+        }
+      } else {
+        const created = await createPartnerInvoice({
+          ...payload,
+          vendorId: partner._id,
+          partnerId: partner._id,
+        });
+        setInvoices((prev) => [created, ...prev]);
+        setStats((prev: any) =>
+          prev
+            ? {
+                ...prev,
+                invoiceCount: (prev.invoiceCount || 0) + 1,
+                totalPurchased: (prev.totalPurchased || 0) + totalAmount,
+                pendingPayment: (prev.pendingPayment || 0) + Math.max(0, totalAmount - paidAmount),
+              }
+            : prev
+        );
+      }
+      resetInvoiceForm();
+      setShowInvoiceForm(false);
     } catch (err: any) {
-      alert(err.message || 'Failed to add link');
+      alert(err.message || 'Failed to save invoice');
+    } finally {
+      setSavingInvoice(false);
     }
   }
 
-  async function removeLink(linkId: string) {
-    if (!confirm('Remove this link?')) return;
-    try {
-      await partnerAction(`/${id}/links/${linkId}`, 'DELETE');
-      setLinks((prev) => prev.filter((l) => l._id !== linkId));
-    } catch (err: any) {
-      alert(err.message || 'Failed to remove link');
-    }
-  }
+  const pagedAssets = useMemo(() => {
+    const start = (assetsPage - 1) * ASSETS_PAGE_SIZE;
+    return assets.slice(start, start + ASSETS_PAGE_SIZE);
+  }, [assets, assetsPage]);
 
-  const relationshipOptions = useMemo(() => {
-    const asset = (config?.assetRelationshipTypes || []).map((r) => ({ ...r, group: 'Asset' }));
-    const service = (config?.serviceRelationshipTypes || []).map((r) => ({
-      key: r.key,
-      label: r.label,
-      group: 'Service',
-    }));
-    return [...asset, ...service];
-  }, [config]);
+  const assetsTotalPages = Math.max(1, Math.ceil(assets.length / ASSETS_PAGE_SIZE));
 
   const noteItems = useMemo(() => {
     const fromActivities = activities.filter((a) => a.type === 'note');
@@ -844,7 +1137,7 @@ export default function PartnerDetailPage() {
               <KeyValueEditGrid
                 draft={Object.fromEntries(Object.entries(taxDraft).filter(([k]) => k !== 'taxId'))}
                 onChange={(key, value) => setTaxDraft({ ...taxDraft, [key]: value })}
-                priorityKeys={['gst', 'vat']}
+                priorityKeys={TAX_DETAIL_KEYS}
               />
             </div>
           ) : (
@@ -853,12 +1146,22 @@ export default function PartnerDetailPage() {
                 <p className="text-gray-500">Tax ID</p>
                 <p className="text-gray-200">{partner.taxId || '—'}</p>
               </div>
-              {Object.entries(partner.taxDetails || {}).map(([k, v]) => (
+              {TAX_DETAIL_KEYS.map((k) => (
                 <div key={k}>
-                  <p className="text-gray-500 capitalize">{k}</p>
-                  <p className="text-gray-200">{String(v ?? '—')}</p>
+                  <p className="text-gray-500">{labelize(k)}</p>
+                  <p className="text-gray-200">
+                    {(partner.taxDetails && (partner.taxDetails as any)[k]) || '—'}
+                  </p>
                 </div>
               ))}
+              {Object.keys(partner.taxDetails || {})
+                .filter((k) => !TAX_DETAIL_KEYS.includes(k))
+                .map((k) => (
+                  <div key={k}>
+                    <p className="text-gray-500">{labelize(k)}</p>
+                    <p className="text-gray-200">{String((partner.taxDetails as any)[k] ?? '—')}</p>
+                  </div>
+                ))}
             </div>
           )}
         </section>
@@ -881,10 +1184,10 @@ export default function PartnerDetailPage() {
             <KeyValueEditGrid
               draft={registrationDraft}
               onChange={(key, value) => setRegistrationDraft({ ...registrationDraft, [key]: value })}
-              priorityKeys={['registrationNumber', 'country']}
+              priorityKeys={REGISTRATION_KEYS}
             />
           ) : (
-            <KeyValueDisplay data={partner.registrationDetails} />
+            <KeyValueDisplay data={partner.registrationDetails} guaranteedKeys={REGISTRATION_KEYS} />
           )}
         </section>
       )}
@@ -906,10 +1209,10 @@ export default function PartnerDetailPage() {
             <KeyValueEditGrid
               draft={businessDraft}
               onChange={(key, value) => setBusinessDraft({ ...businessDraft, [key]: value })}
-              priorityKeys={['industry', 'website']}
+              priorityKeys={BUSINESS_KEYS}
             />
           ) : (
-            <KeyValueDisplay data={partner.businessDetails} />
+            <KeyValueDisplay data={partner.businessDetails} guaranteedKeys={BUSINESS_KEYS} />
           )}
         </section>
       )}
@@ -921,36 +1224,50 @@ export default function PartnerDetailPage() {
             sectionKey="contacts"
             editingSection={editingSection}
             onEdit={() => setEditingSection('contacts')}
-            onCancel={() => setEditingSection(null)}
+            onCancel={() => {
+              setEditingSection(null);
+              resetContactForm();
+            }}
             toggleOnly
           >
             Contacts
           </SectionTitle>
-          <div className="rounded-lg border border-gray-700/50 overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="rounded-lg border border-gray-700/50 overflow-x-auto">
+            <table className="w-full text-sm min-w-[900px]">
               <thead className="bg-gray-900/80 border-b border-gray-700/60">
                 <tr>
                   <th className={thClass}>Name</th>
                   <th className={thClass}>Role</th>
+                  <th className={thClass}>Department</th>
                   <th className={thClass}>Email</th>
                   <th className={thClass}>Phone</th>
+                  <th className={thClass}>Mobile</th>
+                  <th className={thClass}>WhatsApp</th>
+                  <th className={thClass}>Notes</th>
                   <th className={thClass}>Primary</th>
                   {editingSection === 'contacts' && <th className={`${thClass} text-center`}>Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-700/40">
                 {(partner.contacts || []).length === 0 && (
-                  <EmptyRow cols={editingSection === 'contacts' ? 6 : 5} message="No contacts" />
+                  <EmptyRow cols={editingSection === 'contacts' ? 10 : 9} message="No contacts" />
                 )}
                 {(partner.contacts || []).map((c) => (
-                  <tr key={String(c._id)} className="hover:bg-gray-800/40">
+                  <tr key={String(c._id)} className={`hover:bg-gray-800/40 ${editingContactId === String(c._id) ? 'bg-blue-500/10' : ''}`}>
                     <td className={tdClass}>{c.name}</td>
                     <td className={tdClass}>{c.role || '—'}</td>
+                    <td className={tdClass}>{c.department || '—'}</td>
                     <td className={tdClass}>{c.email || '—'}</td>
-                    <td className={tdClass}>{c.phone || c.mobile || '—'}</td>
+                    <td className={tdClass}>{c.phone || '—'}</td>
+                    <td className={tdClass}>{c.mobile || '—'}</td>
+                    <td className={tdClass}>{c.whatsapp || '—'}</td>
+                    <td className={`${tdClass} max-w-[14rem] whitespace-normal break-words`}>{c.notes || '—'}</td>
                     <td className={tdClass}>{c.isPrimary ? 'Yes' : '—'}</td>
                     {editingSection === 'contacts' && (
-                      <td className={`${tdClass} text-center`}>
+                      <td className={`${tdClass} text-center space-x-1 whitespace-nowrap`}>
+                        <button type="button" className={btnGhost} onClick={() => startEditContact(c)}>
+                          Edit
+                        </button>
                         <button type="button" className={btnDanger} onClick={() => removeContact(String(c._id))}>
                           Remove
                         </button>
@@ -962,7 +1279,7 @@ export default function PartnerDetailPage() {
             </table>
           </div>
           {editingSection === 'contacts' && (
-            <form onSubmit={addContact} className="grid md:grid-cols-6 gap-2 items-end">
+            <form onSubmit={saveContact} className="grid md:grid-cols-4 gap-2 items-end">
               <div>
                 <label className={labelClass}>Name *</label>
                 <input required className={inputClass} value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} />
@@ -972,12 +1289,28 @@ export default function PartnerDetailPage() {
                 <input className={inputClass} value={contactForm.role} onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })} />
               </div>
               <div>
+                <label className={labelClass}>Department</label>
+                <input className={inputClass} value={contactForm.department} onChange={(e) => setContactForm({ ...contactForm, department: e.target.value })} />
+              </div>
+              <div>
                 <label className={labelClass}>Email</label>
                 <input type="email" className={inputClass} value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} />
               </div>
               <div>
                 <label className={labelClass}>Phone</label>
                 <input className={inputClass} value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} />
+              </div>
+              <div>
+                <label className={labelClass}>Mobile</label>
+                <input className={inputClass} value={contactForm.mobile} onChange={(e) => setContactForm({ ...contactForm, mobile: e.target.value })} />
+              </div>
+              <div>
+                <label className={labelClass}>WhatsApp</label>
+                <input className={inputClass} value={contactForm.whatsapp} onChange={(e) => setContactForm({ ...contactForm, whatsapp: e.target.value })} />
+              </div>
+              <div>
+                <label className={labelClass}>Notes</label>
+                <input className={inputClass} value={contactForm.notes} onChange={(e) => setContactForm({ ...contactForm, notes: e.target.value })} />
               </div>
               <div className="flex items-center gap-2 pb-1">
                 <input
@@ -990,9 +1323,16 @@ export default function PartnerDetailPage() {
                   Primary
                 </label>
               </div>
-              <button type="submit" className={btnPrimary}>
-                Add contact
-              </button>
+              <div className="flex gap-2">
+                <button type="submit" className={btnPrimary}>
+                  {editingContactId ? 'Update contact' : 'Add contact'}
+                </button>
+                {editingContactId && (
+                  <button type="button" className={btnGhost} onClick={resetContactForm}>
+                    Cancel edit
+                  </button>
+                )}
+              </div>
             </form>
           )}
         </section>
@@ -1005,38 +1345,50 @@ export default function PartnerDetailPage() {
             sectionKey="addresses"
             editingSection={editingSection}
             onEdit={() => setEditingSection('addresses')}
-            onCancel={() => setEditingSection(null)}
+            onCancel={() => {
+              setEditingSection(null);
+              resetAddressForm();
+            }}
             toggleOnly
           >
             Addresses
           </SectionTitle>
-          <div className="rounded-lg border border-gray-700/50 overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="rounded-lg border border-gray-700/50 overflow-x-auto">
+            <table className="w-full text-sm min-w-[900px]">
               <thead className="bg-gray-900/80 border-b border-gray-700/60">
                 <tr>
                   <th className={thClass}>Type</th>
                   <th className={thClass}>Label</th>
                   <th className={thClass}>Street</th>
                   <th className={thClass}>City</th>
+                  <th className={thClass}>State</th>
+                  <th className={thClass}>ZIP</th>
                   <th className={thClass}>Country</th>
+                  <th className={thClass}>Primary</th>
                   {editingSection === 'addresses' && <th className={`${thClass} text-center`}>Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-700/40">
                 {(partner.addresses || []).length === 0 && (
-                  <EmptyRow cols={editingSection === 'addresses' ? 6 : 5} message="No addresses" />
+                  <EmptyRow cols={editingSection === 'addresses' ? 9 : 8} message="No addresses" />
                 )}
                 {(partner.addresses || []).map((a) => (
-                  <tr key={String(a._id)} className="hover:bg-gray-800/40">
+                  <tr key={String(a._id)} className={`hover:bg-gray-800/40 ${editingAddressId === String(a._id) ? 'bg-blue-500/10' : ''}`}>
                     <td className={tdClass}>
                       {config?.addressTypes.find((t) => t.id === a.typeKey)?.name || a.typeKey || '—'}
                     </td>
                     <td className={tdClass}>{a.label || '—'}</td>
                     <td className={tdClass}>{a.street || '—'}</td>
                     <td className={tdClass}>{a.city || '—'}</td>
+                    <td className={tdClass}>{a.state || '—'}</td>
+                    <td className={tdClass}>{a.zipCode || '—'}</td>
                     <td className={tdClass}>{a.country || '—'}</td>
+                    <td className={tdClass}>{a.isPrimary ? 'Yes' : '—'}</td>
                     {editingSection === 'addresses' && (
-                      <td className={`${tdClass} text-center`}>
+                      <td className={`${tdClass} text-center space-x-1 whitespace-nowrap`}>
+                        <button type="button" className={btnGhost} onClick={() => startEditAddress(a)}>
+                          Edit
+                        </button>
                         <button type="button" className={btnDanger} onClick={() => removeAddress(String(a._id))}>
                           Remove
                         </button>
@@ -1048,7 +1400,7 @@ export default function PartnerDetailPage() {
             </table>
           </div>
           {editingSection === 'addresses' && (
-            <form onSubmit={addAddress} className="grid md:grid-cols-4 gap-2">
+            <form onSubmit={saveAddress} className="grid md:grid-cols-4 gap-2">
               <div>
                 <label className={labelClass}>Type</label>
                 <select className={inputClass} value={addressForm.typeKey} onChange={(e) => setAddressForm({ ...addressForm, typeKey: e.target.value })}>
@@ -1083,10 +1435,24 @@ export default function PartnerDetailPage() {
                 <label className={labelClass}>Country</label>
                 <input className={inputClass} value={addressForm.country} onChange={(e) => setAddressForm({ ...addressForm, country: e.target.value })} />
               </div>
-              <div className="flex items-end">
+              <div className="flex items-center gap-2 pb-0.5">
+                <input
+                  id="address-primary"
+                  type="checkbox"
+                  checked={addressForm.isPrimary}
+                  onChange={(e) => setAddressForm({ ...addressForm, isPrimary: e.target.checked })}
+                />
+                <label htmlFor="address-primary" className="text-xs text-gray-400">Primary</label>
+              </div>
+              <div className="flex items-end gap-2">
                 <button type="submit" className={btnPrimary}>
-                  Add address
+                  {editingAddressId ? 'Update address' : 'Add address'}
                 </button>
+                {editingAddressId && (
+                  <button type="button" className={btnGhost} onClick={resetAddressForm}>
+                    Cancel edit
+                  </button>
+                )}
               </div>
             </form>
           )}
@@ -1110,10 +1476,10 @@ export default function PartnerDetailPage() {
             <KeyValueEditGrid
               draft={bankDraft}
               onChange={(key, value) => setBankDraft({ ...bankDraft, [key]: value })}
-              priorityKeys={['bankName', 'accountNumber', 'ifsc']}
+              priorityKeys={BANK_KEYS}
             />
           ) : (
-            <KeyValueDisplay data={partner.bankDetails} />
+            <KeyValueDisplay data={partner.bankDetails} guaranteedKeys={BANK_KEYS} />
           )}
         </section>
       )}
@@ -1134,11 +1500,12 @@ export default function PartnerDetailPage() {
           {editingSection === 'payment' ? (
             <div className="grid md:grid-cols-3 gap-3">
               <div>
-                <label className={labelClass}>Terms</label>
+                <label className={labelClass}>Payment terms</label>
                 <input
                   className={inputClass}
                   value={paymentDraft.paymentTerms}
                   onChange={(e) => setPaymentDraft({ ...paymentDraft, paymentTerms: e.target.value })}
+                  placeholder="Net 30"
                 />
               </div>
               <div>
@@ -1158,11 +1525,71 @@ export default function PartnerDetailPage() {
                   onChange={(e) => setPaymentDraft({ ...paymentDraft, currency: e.target.value })}
                 />
               </div>
+              <div>
+                <label className={labelClass}>Preferred payment method</label>
+                <select
+                  className={inputClass}
+                  value={paymentDraft.preferredPaymentMethod}
+                  onChange={(e) => setPaymentDraft({ ...paymentDraft, preferredPaymentMethod: e.target.value })}
+                >
+                  <option value="">Select</option>
+                  {['Bank Transfer', 'Cheque', 'Cash', 'Credit Card', 'UPI', 'Other'].map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Billing cycle</label>
+                <input
+                  className={inputClass}
+                  value={paymentDraft.billingCycle}
+                  onChange={(e) => setPaymentDraft({ ...paymentDraft, billingCycle: e.target.value })}
+                  placeholder="Monthly / Quarterly"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Early payment discount</label>
+                <input
+                  className={inputClass}
+                  value={paymentDraft.earlyPaymentDiscount}
+                  onChange={(e) => setPaymentDraft({ ...paymentDraft, earlyPaymentDiscount: e.target.value })}
+                  placeholder="2% if paid in 10 days"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Late fee policy</label>
+                <input
+                  className={inputClass}
+                  value={paymentDraft.lateFeePolicy}
+                  onChange={(e) => setPaymentDraft({ ...paymentDraft, lateFeePolicy: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Invoice email</label>
+                <input
+                  type="email"
+                  className={inputClass}
+                  value={paymentDraft.invoiceEmail}
+                  onChange={(e) => setPaymentDraft({ ...paymentDraft, invoiceEmail: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>PO required</label>
+                <select
+                  className={inputClass}
+                  value={paymentDraft.poRequired}
+                  onChange={(e) => setPaymentDraft({ ...paymentDraft, poRequired: e.target.value })}
+                >
+                  <option value="">Select</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
             </div>
           ) : (
             <div className="grid md:grid-cols-3 gap-3 text-xs">
               <div>
-                <p className="text-gray-500">Terms</p>
+                <p className="text-gray-500">Payment terms</p>
                 <p className="text-gray-200">{partner.paymentTerms || '—'}</p>
               </div>
               <div>
@@ -1175,28 +1602,27 @@ export default function PartnerDetailPage() {
                 <p className="text-gray-500">Currency</p>
                 <p className="text-gray-200">{partner.currency || 'INR'}</p>
               </div>
+              {PAYMENT_DETAIL_KEYS.map((k) => (
+                <div key={k}>
+                  <p className="text-gray-500">{labelize(k)}</p>
+                  <p className="text-gray-200">
+                    {(partner.paymentDetails && (partner.paymentDetails as any)[k]) || '—'}
+                  </p>
+                </div>
+              ))}
             </div>
           )}
         </section>
       )}
 
       <section className={sectionClass}>
-        <SectionTitle
-          canEdit={canEdit}
-          sectionKey="tags"
-          editingSection={editingSection}
-          onEdit={() => setEditingSection('tags')}
-          onCancel={() => setEditingSection(null)}
-          toggleOnly
-        >
-          Tags
-        </SectionTitle>
+        <SectionTitle>Tags</SectionTitle>
         <div className="flex flex-wrap gap-1.5">
           {(partner.tags || []).length === 0 && <span className="text-xs text-gray-500">No tags</span>}
           {(partner.tags || []).map((tag) => (
             <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md border border-gray-700/60 bg-gray-800/60 text-gray-300">
               {tag}
-              {editingSection === 'tags' && (
+              {canEdit && (
                 <button type="button" className="text-gray-500 hover:text-red-300" onClick={() => removeTag(tag)}>
                   ×
                 </button>
@@ -1204,7 +1630,7 @@ export default function PartnerDetailPage() {
             </span>
           ))}
         </div>
-        {editingSection === 'tags' && (
+        {canEdit && (
           <div className="flex gap-2 max-w-md">
             <input
               className={inputClass}
@@ -1219,7 +1645,7 @@ export default function PartnerDetailPage() {
               }}
             />
             <button type="button" className={btnPrimary} onClick={saveTags}>
-              Save
+              Add
             </button>
           </div>
         )}
@@ -1240,7 +1666,7 @@ export default function PartnerDetailPage() {
             </button>
           </form>
         )}
-        <ul className="space-y-2">
+        <ul className="space-y-2 max-h-64 overflow-y-auto pr-1">
           {noteItems.length === 0 && <li className="text-xs text-gray-500">No notes yet</li>}
           {noteItems.map((a) => (
             <li key={a._id} className="text-xs text-gray-300 border-b border-gray-800/80 pb-2">
@@ -1324,13 +1750,14 @@ export default function PartnerDetailPage() {
                 <th className={thClass}>Name</th>
                 <th className={thClass}>Category</th>
                 <th className={thClass}>Status</th>
+                <th className={thClass}>Relationship</th>
                 <th className={`${thClass} text-right`}>Cost</th>
                 <th className={thClass}>Purchase</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-700/40">
-              {assets.length === 0 && <EmptyRow cols={6} message="No linked assets" />}
-              {assets.map((a) => (
+              {assets.length === 0 && <EmptyRow cols={7} message="No linked assets" />}
+              {pagedAssets.map((a) => (
                 <tr key={a._id} className="hover:bg-gray-800/40">
                   <td className={tdClass}>
                     <Link href={`/dashboard/assets/${a._id}`} className="text-blue-300 no-underline">
@@ -1340,6 +1767,29 @@ export default function PartnerDetailPage() {
                   <td className={tdClass}>{a.name}</td>
                   <td className={tdClass}>{a.category || '—'}</td>
                   <td className={tdClass}>{a.status || '—'}</td>
+                  <td className={tdClass}>
+                    {(() => {
+                      const partnerId = String(partner?._id || id || '');
+                      const rels = Array.isArray(a.partnerRelationships)
+                        ? a.partnerRelationships.filter(
+                            (r: any) => String(r.partnerId?._id || r.partnerId) === partnerId
+                          )
+                        : [];
+                      const keys = rels.length
+                        ? rels.map((r: any) => r.relationshipTypeKey).filter(Boolean)
+                        : a.relationshipTypeKey
+                        ? [a.relationshipTypeKey]
+                        : [];
+                      if (!keys.length) return '—';
+                      return Array.from(new Set(keys as string[]))
+                        .map(
+                          (key) =>
+                            config?.assetRelationshipTypes?.find((r) => r.key === key)?.label ||
+                            String(key).replace(/_/g, ' ')
+                        )
+                        .join('; ');
+                    })()}
+                  </td>
                   <td className={`${tdClass} text-right`}>{formatMoney(a.cost || 0, partner.currency)}</td>
                   <td className={tdClass}>{formatDate(a.purchaseDate)}</td>
                 </tr>
@@ -1347,30 +1797,165 @@ export default function PartnerDetailPage() {
             </tbody>
           </table>
         </div>
+        {assets.length > ASSETS_PAGE_SIZE && (
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span>
+              Showing {(assetsPage - 1) * ASSETS_PAGE_SIZE + 1}–
+              {Math.min(assetsPage * ASSETS_PAGE_SIZE, assets.length)} of {assets.length}
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className={btnGhost}
+                disabled={assetsPage <= 1}
+                onClick={() => setAssetsPage((p) => Math.max(1, p - 1))}
+              >
+                Prev
+              </button>
+              <span className="text-gray-400 self-center">
+                {assetsPage} / {assetsTotalPages}
+              </span>
+              <button
+                type="button"
+                className={btnGhost}
+                disabled={assetsPage >= assetsTotalPages}
+                onClick={() => setAssetsPage((p) => Math.min(assetsTotalPages, p + 1))}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
-      <section className={sectionClass}>
-        <SectionTitle>Invoices</SectionTitle>
-        <div className="rounded-lg border border-gray-700/50 overflow-hidden">
-          <table className="w-full text-sm">
+      <section id="partner-invoices" className={sectionClass}>
+        <div className="flex items-center justify-between gap-2">
+          <SectionTitle>Invoices</SectionTitle>
+          {canEdit && (
+            <button
+              type="button"
+              className={btnPrimary}
+              onClick={() => {
+                if (showInvoiceForm) {
+                  resetInvoiceForm();
+                  setShowInvoiceForm(false);
+                } else {
+                  resetInvoiceForm();
+                  setShowInvoiceForm(true);
+                }
+              }}
+            >
+              {showInvoiceForm ? 'Close form' : 'Add invoice'}
+            </button>
+          )}
+        </div>
+        {showInvoiceForm && canEdit && (
+          <form onSubmit={saveInvoice} className="grid md:grid-cols-3 gap-2 rounded-lg border border-gray-700/50 p-3 bg-gray-900/40">
+            <div>
+              <label className={labelClass}>Invoice # *</label>
+              <input required className={inputClass} value={invoiceForm.invoiceNumber} onChange={(e) => setInvoiceForm({ ...invoiceForm, invoiceNumber: e.target.value })} />
+            </div>
+            <div>
+              <label className={labelClass}>Invoice date *</label>
+              <input required type="date" className={inputClass} value={invoiceForm.purchaseDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, purchaseDate: e.target.value })} />
+            </div>
+            <div>
+              <label className={labelClass}>Due date</label>
+              <input type="date" className={inputClass} value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })} />
+            </div>
+            <div>
+              <label className={labelClass}>Total amount *</label>
+              <input required type="number" min="0" step="0.01" className={inputClass} value={invoiceForm.totalAmount} onChange={(e) => setInvoiceForm({ ...invoiceForm, totalAmount: e.target.value })} />
+            </div>
+            <div>
+              <label className={labelClass}>Paid amount</label>
+              <input type="number" min="0" step="0.01" className={inputClass} value={invoiceForm.paidAmount} onChange={(e) => setInvoiceForm({ ...invoiceForm, paidAmount: e.target.value })} />
+            </div>
+            <div>
+              <label className={labelClass}>Currency</label>
+              <input className={inputClass} value={invoiceForm.currency} onChange={(e) => setInvoiceForm({ ...invoiceForm, currency: e.target.value })} />
+            </div>
+            <div>
+              <label className={labelClass}>Status</label>
+              <select className={inputClass} value={invoiceForm.status} onChange={(e) => setInvoiceForm({ ...invoiceForm, status: e.target.value })}>
+                {['Pending', 'Paid', 'Overdue', 'Cancelled'].map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Payment method</label>
+              <select className={inputClass} value={invoiceForm.paymentMethod} onChange={(e) => setInvoiceForm({ ...invoiceForm, paymentMethod: e.target.value })}>
+                {['Bank Transfer', 'Cheque', 'Cash', 'Credit Card', 'Other'].map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Notes</label>
+              <input className={inputClass} value={invoiceForm.notes} onChange={(e) => setInvoiceForm({ ...invoiceForm, notes: e.target.value })} />
+            </div>
+            <div className="md:col-span-3 flex justify-end gap-2">
+              {editingInvoiceId && (
+                <button type="button" className={btnGhost} onClick={() => { resetInvoiceForm(); setShowInvoiceForm(false); }}>
+                  Cancel edit
+                </button>
+              )}
+              <button type="submit" className={btnPrimary} disabled={savingInvoice}>
+                {savingInvoice ? 'Saving…' : editingInvoiceId ? 'Update invoice' : 'Create invoice'}
+              </button>
+            </div>
+          </form>
+        )}
+        <div className="rounded-lg border border-gray-700/50 overflow-x-auto">
+          <table className="w-full text-sm min-w-[1000px]">
             <thead className="bg-gray-900/80 border-b border-gray-700/60">
               <tr>
                 <th className={thClass}>Invoice #</th>
                 <th className={thClass}>Date</th>
+                <th className={thClass}>Due</th>
                 <th className={thClass}>Status</th>
+                <th className={thClass}>Method</th>
+                <th className={thClass}>Currency</th>
                 <th className={`${thClass} text-right`}>Total</th>
                 <th className={`${thClass} text-right`}>Paid</th>
+                <th className={`${thClass} text-right`}>Balance</th>
+                <th className={thClass}>Notes</th>
+                {canEdit && <th className={`${thClass} text-center`}>Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-700/40">
-              {invoices.length === 0 && <EmptyRow cols={5} message="No invoices" />}
+              {invoices.length === 0 && <EmptyRow cols={canEdit ? 11 : 10} message="No invoices" />}
               {invoices.map((inv) => (
-                <tr key={inv._id} className="hover:bg-gray-800/40">
-                  <td className={tdClass}>{inv.invoiceNumber}</td>
+                <tr
+                  key={inv._id}
+                  id={`invoice-${inv._id}`}
+                  className={`hover:bg-gray-800/40 cursor-pointer ${
+                    editingInvoiceId === String(inv._id) || highlightedInvoiceId === String(inv._id)
+                      ? 'bg-blue-500/10'
+                      : ''
+                  }`}
+                  onClick={() => setSelectedInvoice(inv)}
+                >
+                  <td className={`${tdClass} text-blue-300`}>{inv.invoiceNumber}</td>
                   <td className={tdClass}>{formatDate(inv.purchaseDate)}</td>
-                  <td className={tdClass}>{inv.status}</td>
-                  <td className={`${tdClass} text-right`}>{formatMoney(inv.totalAmount || 0, partner.currency)}</td>
-                  <td className={`${tdClass} text-right`}>{formatMoney(inv.paidAmount || 0, partner.currency)}</td>
+                  <td className={tdClass}>{formatDate(inv.dueDate)}</td>
+                  <td className={tdClass}>{inv.status || '—'}</td>
+                  <td className={tdClass}>{inv.paymentMethod || '—'}</td>
+                  <td className={tdClass}>{inv.currency || partner.currency || 'INR'}</td>
+                  <td className={`${tdClass} text-right`}>{formatMoney(inv.totalAmount || 0, inv.currency || partner.currency)}</td>
+                  <td className={`${tdClass} text-right`}>{formatMoney(inv.paidAmount || 0, inv.currency || partner.currency)}</td>
+                  <td className={`${tdClass} text-right`}>
+                    {formatMoney(Math.max(0, (inv.totalAmount || 0) - (inv.paidAmount || 0)), inv.currency || partner.currency)}
+                  </td>
+                  <td className={tdClass}>{inv.notes || '—'}</td>
+                  {canEdit && (
+                    <td className={`${tdClass} text-center`} onClick={(e) => e.stopPropagation()}>
+                      <button type="button" className={btnGhost} onClick={() => startEditInvoice(inv)}>
+                        Edit
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -1384,21 +1969,36 @@ export default function PartnerDetailPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-900/80 border-b border-gray-700/60">
               <tr>
-                <th className={thClass}>Title / Ref</th>
+                <th className={thClass}>Purchase ID</th>
+                <th className={thClass}>PO #</th>
+                <th className={thClass}>Invoice #</th>
                 <th className={thClass}>Date</th>
-                <th className={thClass}>Status</th>
-                <th className={`${thClass} text-right`}>Amount</th>
+                <th className={thClass}>Lifecycle</th>
+                <th className={thClass}>Payment</th>
+                <th className={`${thClass} text-right`}>Total</th>
+                <th className={thClass}>Open</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-700/40">
-              {procurements.length === 0 && <EmptyRow cols={4} message="No procurements" />}
+              {procurements.length === 0 && <EmptyRow cols={8} message="No procurements" />}
               {procurements.map((p) => (
                 <tr key={p._id} className="hover:bg-gray-800/40">
-                  <td className={tdClass}>{p.title || p.poNumber || p._id}</td>
+                  <td className={tdClass}>{p.purchaseId || '—'}</td>
+                  <td className={tdClass}>{p.purchaseOrderNumber || '—'}</td>
+                  <td className={tdClass}>{p.invoiceNumber || '—'}</td>
                   <td className={tdClass}>{formatDate(p.purchaseDate || p.createdAt)}</td>
-                  <td className={tdClass}>{p.status || '—'}</td>
+                  <td className={tdClass}>{p.lifecycleStage || p.status || '—'}</td>
+                  <td className={tdClass}>{p.paymentStatus || '—'}</td>
                   <td className={`${tdClass} text-right`}>
-                    {formatMoney(p.amount || p.totalAmount || 0, partner.currency)}
+                    {formatMoney(p.totalCost ?? p.amount ?? 0, partner.currency)}
+                  </td>
+                  <td className={tdClass}>
+                    <Link
+                      href={`/dashboard/budgets/procurement?id=${p._id}`}
+                      className="text-blue-300 no-underline"
+                    >
+                      View
+                    </Link>
                   </td>
                 </tr>
               ))}
@@ -1407,31 +2007,50 @@ export default function PartnerDetailPage() {
         </div>
       </section>
 
-      <section className={sectionClass}>
+      <section id="partner-contracts" className={sectionClass}>
         <SectionTitle>Contracts</SectionTitle>
-        <div className="rounded-lg border border-gray-700/50 overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="rounded-lg border border-gray-700/50 overflow-x-auto">
+          <table className="w-full text-sm min-w-[1000px]">
             <thead className="bg-gray-900/80 border-b border-gray-700/60">
               <tr>
                 <th className={thClass}>Number</th>
                 <th className={thClass}>Title</th>
                 <th className={thClass}>Start</th>
                 <th className={thClass}>End</th>
+                <th className={thClass}>Renewal</th>
+                <th className={thClass}>Reminder</th>
+                <th className={thClass}>Auto</th>
                 <th className={thClass}>Status</th>
+                <th className={thClass}>Notes</th>
                 {canEdit && <th className={`${thClass} text-center`}>Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-700/40">
-              {contracts.length === 0 && <EmptyRow cols={canEdit ? 6 : 5} message="No contracts" />}
+              {contracts.length === 0 && <EmptyRow cols={canEdit ? 10 : 9} message="No contracts" />}
               {contracts.map((c) => (
-                <tr key={c._id} className="hover:bg-gray-800/40">
+                <tr
+                  key={c._id}
+                  id={`contract-${c._id}`}
+                  className={`hover:bg-gray-800/40 ${
+                    editingContractId === String(c._id) || highlightedContractId === String(c._id)
+                      ? 'bg-blue-500/10'
+                      : ''
+                  }`}
+                >
                   <td className={tdClass}>{c.contractNumber}</td>
                   <td className={tdClass}>{c.title || '—'}</td>
                   <td className={tdClass}>{formatDate(c.startDate)}</td>
                   <td className={tdClass}>{formatDate(c.endDate)}</td>
+                  <td className={tdClass}>{formatDate(c.renewalDate)}</td>
+                  <td className={tdClass}>{c.reminderDays != null ? `${c.reminderDays}d` : '—'}</td>
+                  <td className={tdClass}>{c.autoRenewal ? 'Yes' : '—'}</td>
                   <td className={tdClass}>{c.status}</td>
+                  <td className={tdClass}>{c.notes || '—'}</td>
                   {canEdit && (
-                    <td className={`${tdClass} text-center`}>
+                    <td className={`${tdClass} text-center space-x-1 whitespace-nowrap`}>
+                      <button type="button" className={btnGhost} onClick={() => startEditContract(c)}>
+                        Edit
+                      </button>
                       <button type="button" className={btnDanger} onClick={() => removeContract(c._id)}>
                         Delete
                       </button>
@@ -1443,7 +2062,7 @@ export default function PartnerDetailPage() {
           </table>
         </div>
         {canEdit && (
-          <form onSubmit={addContract} className="grid md:grid-cols-3 gap-2">
+          <form onSubmit={saveContract} className="grid md:grid-cols-3 gap-2">
             <div>
               <label className={labelClass}>Contract # *</label>
               <input required className={inputClass} value={contractForm.contractNumber} onChange={(e) => setContractForm({ ...contractForm, contractNumber: e.target.value })} />
@@ -1456,9 +2075,7 @@ export default function PartnerDetailPage() {
               <label className={labelClass}>Status</label>
               <select className={inputClass} value={contractForm.status} onChange={(e) => setContractForm({ ...contractForm, status: e.target.value })}>
                 {['Draft', 'Active', 'Expired', 'Renewed', 'Cancelled'].map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
+                  <option key={s} value={s}>{s}</option>
                 ))}
               </select>
             </div>
@@ -1470,99 +2087,36 @@ export default function PartnerDetailPage() {
               <label className={labelClass}>End</label>
               <input type="date" className={inputClass} value={contractForm.endDate} onChange={(e) => setContractForm({ ...contractForm, endDate: e.target.value })} />
             </div>
-            <div className="flex items-end">
-              <button type="submit" className={btnPrimary}>
-                Add contract
-              </button>
-            </div>
-          </form>
-        )}
-      </section>
-
-      <section className={sectionClass}>
-        <SectionTitle>Links</SectionTitle>
-        <div className="rounded-lg border border-gray-700/50 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-900/80 border-b border-gray-700/60">
-              <tr>
-                <th className={thClass}>Relationship</th>
-                <th className={thClass}>Resource type</th>
-                <th className={thClass}>Resource ID</th>
-                <th className={thClass}>Notes</th>
-                {canEdit && <th className={`${thClass} text-center`}>Actions</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-700/40">
-              {links.length === 0 && <EmptyRow cols={canEdit ? 5 : 4} message="No links" />}
-              {links.map((l) => (
-                <tr key={l._id} className="hover:bg-gray-800/40">
-                  <td className={tdClass}>
-                    {relationshipOptions.find((r) => r.key === l.relationshipTypeKey)?.label || l.relationshipTypeKey}
-                  </td>
-                  <td className={tdClass}>{l.resourceType}</td>
-                  <td className={`${tdClass} font-mono`}>{String(l.resourceId)}</td>
-                  <td className={tdClass}>{l.notes || '—'}</td>
-                  {canEdit && (
-                    <td className={`${tdClass} text-center`}>
-                      <button type="button" className={btnDanger} onClick={() => removeLink(l._id)}>
-                        Remove
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {canEdit && (
-          <form onSubmit={addLink} className="grid md:grid-cols-4 gap-2">
             <div>
-              <label className={labelClass}>Relationship *</label>
-              <select
-                className={inputClass}
-                value={linkForm.relationshipTypeKey}
-                onChange={(e) => setLinkForm({ ...linkForm, relationshipTypeKey: e.target.value })}
-              >
-                {relationshipOptions.map((r) => (
-                  <option key={`${r.group}-${r.key}`} value={r.key}>
-                    {r.group}: {r.label}
-                  </option>
-                ))}
-              </select>
+              <label className={labelClass}>Renewal date</label>
+              <input type="date" className={inputClass} value={contractForm.renewalDate} onChange={(e) => setContractForm({ ...contractForm, renewalDate: e.target.value })} />
             </div>
             <div>
-              <label className={labelClass}>Resource type *</label>
-              <select
-                className={inputClass}
-                value={linkForm.resourceType}
-                onChange={(e) => setLinkForm({ ...linkForm, resourceType: e.target.value })}
-              >
-                <option value="asset">asset</option>
-                <option value="invoice">invoice</option>
-                <option value="procurement">procurement</option>
-                <option value="maintenance">maintenance</option>
-                <option value="work_order">work_order</option>
-                <option value="audit">audit</option>
-                <option value="issue">issue</option>
-                <option value="inspection">inspection</option>
-                <option value="project">project</option>
-                <option value="budget">budget</option>
-              </select>
+              <label className={labelClass}>Reminder days</label>
+              <input type="number" min="0" className={inputClass} value={contractForm.reminderDays} onChange={(e) => setContractForm({ ...contractForm, reminderDays: e.target.value })} />
             </div>
-            <div>
-              <label className={labelClass}>Resource ID *</label>
+            <div className="flex items-center gap-2 pb-1">
               <input
-                required
-                className={inputClass}
-                value={linkForm.resourceId}
-                onChange={(e) => setLinkForm({ ...linkForm, resourceId: e.target.value })}
-                placeholder="Mongo ObjectId"
+                id="contract-auto"
+                type="checkbox"
+                checked={contractForm.autoRenewal}
+                onChange={(e) => setContractForm({ ...contractForm, autoRenewal: e.target.checked })}
               />
+              <label htmlFor="contract-auto" className="text-xs text-gray-400">Auto renewal</label>
             </div>
-            <div className="flex items-end">
+            <div>
+              <label className={labelClass}>Notes</label>
+              <input className={inputClass} value={contractForm.notes} onChange={(e) => setContractForm({ ...contractForm, notes: e.target.value })} />
+            </div>
+            <div className="flex items-end gap-2">
               <button type="submit" className={btnPrimary}>
-                Add link
+                {editingContractId ? 'Update contract' : 'Add contract'}
               </button>
+              {editingContractId && (
+                <button type="button" className={btnGhost} onClick={resetContractForm}>
+                  Cancel edit
+                </button>
+              )}
             </div>
           </form>
         )}
@@ -1577,24 +2131,125 @@ export default function PartnerDetailPage() {
         />
       </section>
 
-      <section className={sectionClass}>
-        <SectionTitle>Performance</SectionTitle>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          {performance.length === 0 && <p className="text-xs text-gray-500 col-span-full">No KPIs available</p>}
-          {performance.map((kpi) => (
-            <div key={kpi.key} className="px-3 py-2 rounded-lg border border-gray-700/50 bg-gray-900/40">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">{kpi.label}</p>
-              <p className="text-sm font-semibold text-blue-300 mt-1 tabular-nums">
-                {kpi.available === false || kpi.value == null
-                  ? '—'
-                  : kpi.unit === 'currency'
-                    ? formatMoney(Number(kpi.value), partner.currency)
-                    : `${kpi.value}${kpi.unit === 'percent' ? '%' : kpi.unit && kpi.unit !== 'count' && kpi.unit !== 'score' ? ` ${kpi.unit}` : ''}`}
-              </p>
+
+      {selectedInvoice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={() => setSelectedInvoice(null)}>
+          <div
+            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-gray-700/60 bg-gray-900 shadow-xl p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-100">Invoice {selectedInvoice.invoiceNumber}</h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">{selectedInvoice.status}</p>
+              </div>
+              <div className="flex gap-2">
+                {canEdit && (
+                  <button
+                    type="button"
+                    className={btnPrimary}
+                    onClick={() => {
+                      startEditInvoice(selectedInvoice);
+                      setSelectedInvoice(null);
+                    }}
+                  >
+                    Edit
+                  </button>
+                )}
+                <button type="button" className={btnGhost} onClick={() => setSelectedInvoice(null)}>
+                  Close
+                </button>
+              </div>
             </div>
-          ))}
+            <div className="grid md:grid-cols-2 gap-3 text-xs">
+              <div>
+                <p className="text-gray-500">Invoice date</p>
+                <p className="text-gray-200">{formatDate(selectedInvoice.purchaseDate)}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Due date</p>
+                <p className="text-gray-200">{formatDate(selectedInvoice.dueDate)}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Total</p>
+                <p className="text-gray-200">
+                  {formatMoney(selectedInvoice.totalAmount || 0, selectedInvoice.currency || partner.currency)}
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-500">Paid</p>
+                <p className="text-gray-200">
+                  {formatMoney(selectedInvoice.paidAmount || 0, selectedInvoice.currency || partner.currency)}
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-500">Balance due</p>
+                <p className="text-gray-200">
+                  {formatMoney(
+                    Math.max(0, (selectedInvoice.totalAmount || 0) - (selectedInvoice.paidAmount || 0)),
+                    selectedInvoice.currency || partner.currency
+                  )}
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-500">Payment method</p>
+                <p className="text-gray-200">{selectedInvoice.paymentMethod || '—'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Currency</p>
+                <p className="text-gray-200">{selectedInvoice.currency || partner.currency || 'INR'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Created</p>
+                <p className="text-gray-200">{formatDate(selectedInvoice.createdAt)}</p>
+              </div>
+              <div className="md:col-span-2">
+                <p className="text-gray-500">Notes</p>
+                <p className="text-gray-200 whitespace-pre-wrap">{selectedInvoice.notes || '—'}</p>
+              </div>
+              {selectedInvoice.invoiceFileUrl && (
+                <div className="md:col-span-2">
+                  <p className="text-gray-500">Attachment</p>
+                  <a href={selectedInvoice.invoiceFileUrl} target="_blank" rel="noreferrer" className="text-blue-300 no-underline">
+                    Open file
+                  </a>
+                </div>
+              )}
+            </div>
+            {(selectedInvoice.items || []).length > 0 && (
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-2">Line items</p>
+                <div className="rounded-lg border border-gray-700/50 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-900/80 border-b border-gray-700/60">
+                      <tr>
+                        <th className={thClass}>Description</th>
+                        <th className={`${thClass} text-right`}>Qty</th>
+                        <th className={`${thClass} text-right`}>Unit</th>
+                        <th className={`${thClass} text-right`}>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-700/40">
+                      {selectedInvoice.items.map((item: any, idx: number) => (
+                        <tr key={idx}>
+                          <td className={tdClass}>{item.description || '—'}</td>
+                          <td className={`${tdClass} text-right`}>{item.quantity ?? '—'}</td>
+                          <td className={`${tdClass} text-right`}>
+                            {formatMoney(item.unitPrice || 0, selectedInvoice.currency || partner.currency)}
+                          </td>
+                          <td className={`${tdClass} text-right`}>
+                            {formatMoney(item.totalPrice || 0, selectedInvoice.currency || partner.currency)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </section>
+      )}
     </div>
   );
 }

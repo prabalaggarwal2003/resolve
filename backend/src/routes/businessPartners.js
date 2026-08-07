@@ -67,6 +67,7 @@ const PARTNER_WRITABLE_FIELDS = [
   'businessDetails',
   'bankDetails',
   'taxDetails',
+  'paymentDetails',
   'primaryContact',
   'tags',
   'customFields',
@@ -172,7 +173,14 @@ router.get('/activity', requirePartnerRead, async (req, res) => {
 
 router.get('/summary', requirePartnerRead, async (req, res) => {
   try {
-    const summary = await getPartnerDashboardSummary(req.user.organizationId);
+    const pageFilters = {
+      status: req.query.status || '',
+      partnerTypeKey: req.query.partnerTypeKey || req.query.partnerType || '',
+      categoryKey: req.query.categoryKey || req.query.category || '',
+      tag: req.query.tag || '',
+      search: req.query.search || '',
+    };
+    const summary = await getPartnerDashboardSummary(req.user.organizationId, pageFilters);
     res.json(summary);
   } catch (error) {
     console.error('Partner summary error:', error);
@@ -274,6 +282,30 @@ router.delete('/dashboards/:dashboardId', requirePartnerRead, async (req, res) =
   }
 });
 
+router.post('/dashboards/:dashboardId/duplicate', requirePartnerRead, async (req, res) => {
+  try {
+    const source = await BusinessPartnerDashboard.findById(req.params.dashboardId).lean();
+    if (!canAccessDashboard(source, req.user)) {
+      return res.status(404).json({ message: 'Dashboard not found' });
+    }
+    const name = String(req.body?.name || `${source.name} (copy)`).trim();
+    const dashboard = await BusinessPartnerDashboard.create({
+      organizationId: req.user.organizationId,
+      name,
+      description: source.description || '',
+      scope: 'personal',
+      ownerId: req.user._id,
+      layout: source.layout || getDefaultPartnerDashboardLayout(),
+      autoRefresh: source.autoRefresh || 'manual',
+      allowedRoleIds: [],
+    });
+    res.status(201).json({ dashboard });
+  } catch (error) {
+    console.error('Duplicate partner dashboard error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 /* -------------------------------------------------- module-level sub-lists */
 
 router.get('/contracts', requirePartnerRead, async (req, res) => {
@@ -281,6 +313,16 @@ router.get('/contracts', requirePartnerRead, async (req, res) => {
     const query = { organizationId: req.user.organizationId };
     if (req.query.status) query.status = req.query.status;
     if (req.query.partnerId) query.partnerId = req.query.partnerId;
+    if (req.query.search) {
+      const q = String(req.query.search).trim();
+      if (q) {
+        query.$or = [
+          { contractNumber: { $regex: q, $options: 'i' } },
+          { title: { $regex: q, $options: 'i' } },
+          { notes: { $regex: q, $options: 'i' } },
+        ];
+      }
+    }
     if (req.query.expiringInDays) {
       const days = Number(req.query.expiringInDays) || 30;
       query.endDate = { $gte: new Date(), $lte: new Date(Date.now() + days * 86400000) };
@@ -493,7 +535,7 @@ router.get('/:id', requirePartnerRead, async (req, res) => {
         Asset.find(linkQuery)
           .populate('locationId', 'name path')
           .populate('departmentId', 'name')
-          .select('assetId name cost category status purchaseDate')
+          .select('assetId name cost category status purchaseDate relationshipTypeKey partnerRelationships')
           .sort({ purchaseDate: -1 })
           .lean(),
         Invoice.find(linkQuery).sort({ purchaseDate: -1 }).lean(),

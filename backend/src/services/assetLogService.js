@@ -1,4 +1,9 @@
 import { User, Location, Department, Vendor } from '../models/index.js';
+import {
+  normalizePartnerRelationshipsInput,
+  resolvePartnerRelationships,
+} from './assetPartnerRelationships.js';
+import { getBusinessPartnerOrgConfig } from './businessPartnerOrgConfigService.js';
 
 const FIELD_LABELS = {
   name: 'Name',
@@ -14,7 +19,10 @@ const FIELD_LABELS = {
   departmentId: 'Department',
   purchaseDate: 'Purchase date',
   warrantyExpiry: 'Warranty expiry',
-  vendorId: 'Vendor',
+  vendorId: 'Partner',
+  partnerId: 'Partner',
+  relationshipTypeKey: 'Partner relationship',
+  partnerRelationships: 'Partner relationships',
   cost: 'Cost',
   amcExpiry: 'AMC expiry',
   nextMaintenanceDate: 'Next maintenance',
@@ -35,10 +43,13 @@ export const IMPORTANT_CHANGE_FIELDS = new Set([
   'cost',
   'purchaseDate',
   'vendorId',
+  'partnerId',
+  'relationshipTypeKey',
+  'partnerRelationships',
   'condition',
 ]);
 
-const REFERENCE_FIELDS = new Set(['assignedTo', 'locationId', 'departmentId', 'vendorId']);
+const REFERENCE_FIELDS = new Set(['assignedTo', 'locationId', 'departmentId', 'vendorId', 'partnerId']);
 
 const SKIP_FIELDS = new Set([
   '_id',
@@ -58,10 +69,91 @@ const SKIP_FIELDS = new Set([
   'maintenanceReason',
 ]);
 
+const PRIMARY_PARTNER_SYNC_FIELDS = new Set(['vendorId', 'partnerId', 'relationshipTypeKey']);
+
 function normalizeId(value) {
   if (value == null || value === '') return null;
   if (typeof value === 'object' && value._id) return String(value._id);
   return String(value);
+}
+
+function rowIdentity(row) {
+  if (row._id) return `id:${String(row._id)}`;
+  return `key:${String(row.partnerId)}::${row.relationshipTypeKey}`;
+}
+
+function contentEqual(a, b) {
+  return (
+    String(a.partnerId) === String(b.partnerId) &&
+    a.relationshipTypeKey === b.relationshipTypeKey &&
+    String(a.notes || '') === String(b.notes || '')
+  );
+}
+
+async function formatPartnerRelationshipRow(row, cache) {
+  const id = String(row.partnerId);
+  if (!cache.vendors[id]) {
+    const vendor = await Vendor.findById(id).select('name partnerCode').lean();
+    cache.vendors[id] = vendor
+      ? `${vendor.partnerCode || id.slice(-6)} — ${vendor.name}`
+      : id;
+  }
+  const relLabel =
+    cache.relationshipLabels?.[row.relationshipTypeKey] ||
+    String(row.relationshipTypeKey || '').replace(/_/g, ' ') ||
+    '—';
+  const note = row.notes ? ` · ${row.notes}` : '';
+  return `${cache.vendors[id]} (${relLabel})${note}`;
+}
+
+async function diffPartnerRelationships(oldRows, newRows, cache) {
+  const before = new Map();
+  const after = new Map();
+
+  for (const row of normalizePartnerRelationshipsInput(oldRows)) {
+    before.set(rowIdentity(row), row);
+  }
+  for (const row of normalizePartnerRelationshipsInput(newRows)) {
+    after.set(rowIdentity(row), row);
+  }
+
+  const changes = [];
+  const matchedAfter = new Set();
+
+  for (const [key, oldRow] of before.entries()) {
+    const newRow = after.get(key);
+    if (newRow) {
+      matchedAfter.add(key);
+      if (!contentEqual(oldRow, newRow)) {
+        changes.push({
+          field: 'partnerRelationships',
+          label: 'Partner relationship updated',
+          oldValue: await formatPartnerRelationshipRow(oldRow, cache),
+          newValue: await formatPartnerRelationshipRow(newRow, cache),
+        });
+      }
+      continue;
+    }
+
+    changes.push({
+      field: 'partnerRelationships',
+      label: 'Partner relationship removed',
+      oldValue: await formatPartnerRelationshipRow(oldRow, cache),
+      newValue: '—',
+    });
+  }
+
+  for (const [key, newRow] of after.entries()) {
+    if (matchedAfter.has(key)) continue;
+    changes.push({
+      field: 'partnerRelationships',
+      label: 'Partner relationship added',
+      oldValue: '—',
+      newValue: await formatPartnerRelationshipRow(newRow, cache),
+    });
+  }
+
+  return changes;
 }
 
 function formatPrimitive(field, value) {
@@ -146,7 +238,7 @@ async function resolveDisplayValue(field, value, cache) {
     }
     return cache.departments[id];
   }
-  if (field === 'vendorId') {
+  if (field === 'vendorId' || field === 'partnerId') {
     if (!cache.vendors[id]) {
       const vendor = await Vendor.findById(id).select('name partnerCode').lean();
       cache.vendors[id] = vendor ? `${vendor.partnerCode} — ${vendor.name}` : id;
@@ -233,12 +325,33 @@ function parseSummaryToChanges(summary) {
 }
 
 export async function buildAssetEditChanges(prev, patchBody) {
-  const cache = { users: {}, locations: {}, departments: {}, vendors: {} };
+  const cache = { users: {}, locations: {}, departments: {}, vendors: {}, relationshipLabels: {} };
   const changes = [];
+  const skipPrimaryPartnerFields = patchBody.partnerRelationships !== undefined;
+
+  if (skipPrimaryPartnerFields || prev?.organizationId) {
+    try {
+      const cfg = await getBusinessPartnerOrgConfig(prev.organizationId);
+      cache.relationshipLabels = Object.fromEntries(
+        (cfg.assetRelationshipTypes || []).map((r) => [r.key, r.label])
+      );
+    } catch {
+      /* labels fall back to keys */
+    }
+  }
 
   for (const [key, newVal] of Object.entries(patchBody)) {
     if (SKIP_FIELDS.has(key) || key.startsWith('maintenanceHistory.') || key === '$push') continue;
     if (key === 'customFields') continue;
+    if (skipPrimaryPartnerFields && PRIMARY_PARTNER_SYNC_FIELDS.has(key)) continue;
+
+    if (key === 'partnerRelationships') {
+      const oldRels = resolvePartnerRelationships(prev);
+      const newRels = normalizePartnerRelationshipsInput(newVal);
+      const relChanges = await diffPartnerRelationships(oldRels, newRels, cache);
+      changes.push(...relChanges);
+      continue;
+    }
 
     const label = FIELD_LABELS[key];
     if (!label) continue;

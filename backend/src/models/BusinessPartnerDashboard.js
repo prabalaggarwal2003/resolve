@@ -11,6 +11,8 @@ const widgetSchema = new mongoose.Schema(
     order: { type: Number, default: 0 },
     colSpan: { type: Number, default: 1 },
     rowSpan: { type: Number, default: 1 },
+    hidden: { type: Boolean, default: false },
+    sizeLocked: { type: Boolean, default: false },
   },
   { _id: false }
 );

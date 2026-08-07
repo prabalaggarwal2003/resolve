@@ -35,7 +35,6 @@ export default function PartnerSettingsPage() {
   const [newStatus, setNewStatus] = useState({ id: '', name: '', color: '#6b7280' });
   const [newAddressType, setNewAddressType] = useState({ id: '', name: '' });
   const [newAssetRel, setNewAssetRel] = useState({ key: '', label: '' });
-  const [newServiceRel, setNewServiceRel] = useState({ key: '', label: '', resourceType: '' });
   const [newField, setNewField] = useState({ key: '', label: '', type: 'text', required: false });
 
   useEffect(() => {
@@ -57,7 +56,6 @@ export default function PartnerSettingsPage() {
         profileSections: config.profileSections,
         addressTypes: config.addressTypes,
         assetRelationshipTypes: config.assetRelationshipTypes,
-        serviceRelationshipTypes: config.serviceRelationshipTypes,
         customFields: config.customFields,
         performanceKpis: config.performanceKpis,
         settings: config.settings,
@@ -476,87 +474,6 @@ export default function PartnerSettingsPage() {
               }}
             >
               Add asset relationship
-            </button>
-          </div>
-        )}
-      </section>
-
-      <section className={sectionClass}>
-        <h3 className="text-sm font-semibold text-gray-100">Service relationship types</h3>
-        <div className="space-y-2">
-          {config.serviceRelationshipTypes.map((r) => (
-            <div key={r.key} className="flex gap-2 items-center">
-              <span className="text-[11px] font-mono text-gray-500 w-40 shrink-0">{r.key}</span>
-              <input
-                className={inputClass}
-                disabled={!canEdit}
-                value={r.label}
-                onChange={(e) =>
-                  setConfig({
-                    ...config,
-                    serviceRelationshipTypes: config.serviceRelationshipTypes.map((x) =>
-                      x.key === r.key ? { ...x, label: e.target.value } : x
-                    ),
-                  })
-                }
-              />
-              <span className="text-[11px] text-gray-500">{r.resourceType || ''}</span>
-              {canEdit && (
-                <button
-                  type="button"
-                  className={btnDanger}
-                  onClick={() =>
-                    setConfig({
-                      ...config,
-                      serviceRelationshipTypes: config.serviceRelationshipTypes.filter((x) => x.key !== r.key),
-                    })
-                  }
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-        {canEdit && (
-          <div className="flex flex-wrap gap-2">
-            <input
-              className={`${inputClass} max-w-[120px]`}
-              placeholder="key"
-              value={newServiceRel.key}
-              onChange={(e) => setNewServiceRel({ ...newServiceRel, key: e.target.value })}
-            />
-            <input
-              className={`${inputClass} max-w-[160px]`}
-              placeholder="Label"
-              value={newServiceRel.label}
-              onChange={(e) =>
-                setNewServiceRel({
-                  ...newServiceRel,
-                  key: newServiceRel.key || slugify(e.target.value),
-                  label: e.target.value,
-                })
-              }
-            />
-            <input
-              className={`${inputClass} max-w-[140px]`}
-              placeholder="resourceType"
-              value={newServiceRel.resourceType}
-              onChange={(e) => setNewServiceRel({ ...newServiceRel, resourceType: e.target.value })}
-            />
-            <button
-              type="button"
-              className={btnPrimary}
-              onClick={() => {
-                if (!newServiceRel.key || !newServiceRel.label) return;
-                setConfig({
-                  ...config,
-                  serviceRelationshipTypes: [...config.serviceRelationshipTypes, { ...newServiceRel }],
-                });
-                setNewServiceRel({ key: '', label: '', resourceType: '' });
-              }}
-            >
-              Add service relationship
             </button>
           </div>
         )}

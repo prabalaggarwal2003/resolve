@@ -10,6 +10,7 @@ import {
   type DisplaySection,
 } from '@/lib/assetFieldDisplay';
 import { breadcrumbForNode } from '@/lib/locations';
+import { partnerRelationshipsFromAsset } from '@/components/AssetPartnerRelationshipsEditor';
 
 const STATUS_BADGE: Record<string, string> = {
   available: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
@@ -122,9 +123,21 @@ function formatFieldValue(field: AssetFieldDef, raw: unknown, asset: Record<stri
   }
 
   if (field.kind === 'vendor') {
-    const v = asset.vendorId as { vendorId?: string; name?: string } | undefined;
-    if (v?.name) return `${v.vendorId ? `${v.vendorId} — ` : ''}${v.name}`;
+    const v = (asset.partnerId || asset.vendorId) as
+      | { vendorId?: string; partnerCode?: string; name?: string }
+      | undefined;
+    if (v?.name) {
+      const code = v.partnerCode || v.vendorId;
+      return `${code ? `${code} — ` : ''}${v.name}`;
+    }
     return '—';
+  }
+
+  if (field.kind === 'relationship') {
+    const key = String(raw || '');
+    if (!key) return '—';
+    const labels = asset.__relationshipTypeLabels as Record<string, string> | undefined;
+    return labels?.[key] || key.replace(/_/g, ' ');
   }
 
   if (field.key === 'budgetId') {
@@ -207,13 +220,39 @@ export default function AssetFieldsDisplay({
   asset,
   warrantyAccent,
   warrantyBadge,
+  relationshipTypeLabels,
 }: {
   asset: Record<string, unknown>;
   warrantyAccent?: string;
   warrantyBadge?: ReactNode;
+  relationshipTypeLabels?: Record<string, string>;
 }) {
-  const fields = getAssetDisplayFields(asset);
+  const displayAsset = relationshipTypeLabels
+    ? { ...asset, __relationshipTypeLabels: relationshipTypeLabels }
+    : asset;
+  const fields = getAssetDisplayFields(displayAsset).filter(
+    (f) => f.key !== 'vendorId' && f.key !== 'relationshipTypeKey'
+  );
   const groups = groupDisplayFieldsBySection(fields);
+  const partnerRels = partnerRelationshipsFromAsset(asset);
+
+  const partnerName = (partnerId: string) => {
+    const populated = (asset.partnerRelationships as any[] | undefined)?.find(
+      (r) => String(r?.partnerId?._id || r?.partnerId) === partnerId
+    )?.partnerId;
+    if (populated?.name) {
+      const code = populated.partnerCode || populated.vendorId;
+      return code ? `${code} — ${populated.name}` : populated.name;
+    }
+    const primary = (asset.partnerId || asset.vendorId) as
+      | { _id?: string; name?: string; partnerCode?: string; vendorId?: string }
+      | undefined;
+    if (primary && String(primary._id || primary) === partnerId && primary.name) {
+      const code = primary.partnerCode || primary.vendorId;
+      return code ? `${code} — ${primary.name}` : primary.name;
+    }
+    return partnerId;
+  };
 
   return (
     <>
@@ -229,13 +268,13 @@ export default function AssetFieldsDisplay({
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
               {sectionFields.map((field) => {
-                const raw = getFieldRawValue(asset, field);
+                const raw = getFieldRawValue(displayAsset, field);
                 const isWarranty = field.key === 'warrantyExpiry';
                 return (
                   <DetailTile
                     key={field.key}
                     label={field.label}
-                    value={formatFieldValue(field, raw, asset)}
+                    value={formatFieldValue(field, raw, displayAsset)}
                     wide={field.wide}
                     accent={isWarranty ? warrantyAccent : undefined}
                     badge={isWarranty ? warrantyBadge : undefined}
@@ -243,6 +282,48 @@ export default function AssetFieldsDisplay({
                 );
               })}
             </div>
+
+            {section === 'purchase' && (
+              <div className="mt-4 pt-3 border-t border-gray-700/50">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Partner relationships</p>
+                {partnerRels.length === 0 ? (
+                  <p className="text-xs text-gray-500">No partners linked</p>
+                ) : (
+                  <div className="rounded-lg border border-gray-700/50 overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-900/60 border-b border-gray-700/50">
+                        <tr>
+                          <th className="px-3 py-1.5 text-left text-[10px] uppercase tracking-wide text-gray-500">
+                            Partner
+                          </th>
+                          <th className="px-3 py-1.5 text-left text-[10px] uppercase tracking-wide text-gray-500">
+                            Relationship
+                          </th>
+                          <th className="px-3 py-1.5 text-left text-[10px] uppercase tracking-wide text-gray-500">
+                            Notes
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-700/40">
+                        {partnerRels.map((rel, idx) => (
+                          <tr key={`${rel.partnerId}-${rel.relationshipTypeKey}-${idx}`}>
+                            <td className="px-3 py-1.5 text-xs text-gray-200">{partnerName(rel.partnerId)}</td>
+                            <td className="px-3 py-1.5 text-xs text-gray-300">
+                              {relationshipTypeLabels?.[rel.relationshipTypeKey] ||
+                                rel.relationshipTypeKey.replace(/_/g, ' ') ||
+                                '—'}
+                            </td>
+                            <td className="px-3 py-1.5 text-xs text-gray-400 whitespace-normal break-words">
+                              {rel.notes || '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
       })}

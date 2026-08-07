@@ -203,6 +203,7 @@ function getReportCount(issue: Issue): number {
 export default function AssetDetailPage() {
   const params = useParams();
   const [asset, setAsset] = useState<Asset | null>(null);
+  const [relationshipTypeLabels, setRelationshipTypeLabels] = useState<Record<string, string>>({});
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -241,12 +242,15 @@ export default function AssetDetailPage() {
       fetch(api(`/api/assets/${params.id}`), { headers }).then((r) => r.json()),
       fetch(api(`/api/assets/${params.id}/timeline`), { headers }).then((r) => r.json()),
       fetch(api(`/api/issues?assetId=${params.id}`), { headers }).then((r) => r.json()),
+      fetch(api('/api/business-partners/config'), { headers }).then((r) => r.json()).catch(() => null),
     ])
-      .then(([assetData, timelineData, issuesData]) => {
+      .then(([assetData, timelineData, issuesData, partnerCfg]) => {
         if (assetData._id) setAsset(assetData);
         else setError(assetData.message || 'Not found');
         if (timelineData.timeline) setTimeline(timelineData.timeline);
         if (issuesData.issues) setIssues(issuesData.issues);
+        const types = partnerCfg?.config?.assetRelationshipTypes || [];
+        setRelationshipTypeLabels(Object.fromEntries(types.map((r: { key: string; label: string }) => [r.key, r.label])));
       })
       .catch(() => setError('Failed to load'))
       .finally(() => setLoading(false));
@@ -436,6 +440,7 @@ export default function AssetDetailPage() {
 
       <AssetFieldsDisplay
         asset={asset as Record<string, unknown>}
+        relationshipTypeLabels={relationshipTypeLabels}
         warrantyAccent={warrantyExpired ? 'text-red-300' : warrantySoon ? 'text-amber-300' : undefined}
         warrantyBadge={
           warrantyExpired ? (

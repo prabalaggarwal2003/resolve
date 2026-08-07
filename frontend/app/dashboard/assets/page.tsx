@@ -62,6 +62,7 @@ function AssetsPageContent() {
   const [locationTree, setLocationTree] = useState<LocationTreeNode[]>([]);
   const [locations, setLocations] = useState<{ _id: string; name: string }[]>([]);
   const [vendors, setVendors] = useState<{ _id: string; vendorId: string; name: string }[]>([]);
+  const [relationshipTypes, setRelationshipTypes] = useState<{ key: string; label: string }[]>([]);
   const [users, setUsers] = useState<{ _id: string; name: string }[]>([]);
   const [customFilterFields, setCustomFilterFields] = useState<{ field: string; label: string; type: 'text' | 'number' | 'date' | 'select' }[]>([]);
   const [assetGroups, setAssetGroups] = useState<{ _id: string; name: string }[]>([]);
@@ -173,8 +174,9 @@ function AssetsPageContent() {
       fetch(api('/api/users'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       fetch(api('/api/asset-groups'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       fetch(api('/api/asset-templates'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      fetch(api('/api/business-partners/config'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()).catch(() => null),
     ])
-      .then(([deptRes, locRes, vendorsRes, usersRes, groupsRes, tplRes]) => {
+      .then(([deptRes, locRes, vendorsRes, usersRes, groupsRes, tplRes, partnerCfg]) => {
         if (deptRes.departments) setDepartments(deptRes.departments);
         if (locRes.tree) {
           setLocationTree(locRes.tree);
@@ -186,7 +188,22 @@ function AssetsPageContent() {
           );
         }
         if (groupsRes.groups) setAssetGroups(groupsRes.groups);
-        if (Array.isArray(vendorsRes)) setVendors(vendorsRes.filter((v: { status: string }) => v.status === 'Active'));
+        if (Array.isArray(vendorsRes)) {
+          setVendors(
+            vendorsRes
+              .filter((v: { status: string }) => v.status === 'Active')
+              .map((v: { _id: string; vendorId?: string; partnerCode?: string; name: string }) => ({
+                _id: v._id,
+                vendorId: v.vendorId || v.partnerCode || '',
+                name: v.name,
+              }))
+          );
+        }
+        if (partnerCfg?.config?.assetRelationshipTypes) {
+          setRelationshipTypes(partnerCfg.config.assetRelationshipTypes);
+        } else if (partnerCfg?.assetRelationshipTypes) {
+          setRelationshipTypes(partnerCfg.assetRelationshipTypes);
+        }
         if (usersRes.users) setUsers(usersRes.users);
         if (tplRes.templates) {
           const names = tplRes.templates.map((t: { name: string }) => t.name);
@@ -332,7 +349,8 @@ function AssetsPageContent() {
       const date = new Date().toISOString().split('T')[0];
       const fileName =
         scope === 'filtered' ? `assets-filtered-${date}.csv` : `assets-all-${date}.csv`;
-      downloadTextFile(buildAssetsCsv(rows, columns), fileName);
+      const relationshipTypeLabels = Object.fromEntries(relationshipTypes.map((r) => [r.key, r.label]));
+      downloadTextFile(buildAssetsCsv(rows, columns, relationshipTypeLabels), fileName);
       trackDownload(fileName, 'asset', scope === 'filtered' ? 'Filtered assets CSV' : 'All assets CSV');
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to download asset list');
@@ -523,6 +541,7 @@ function AssetsPageContent() {
         locationTree={locationTree}
         assetGroups={assetGroups}
         vendors={vendors}
+        relationshipTypes={relationshipTypes}
         users={users}
         categories={categories}
         customFilterFields={customFilterFields}
@@ -547,6 +566,7 @@ function AssetsPageContent() {
             assets={assets}
             visibleColumns={visibleColumns}
             canEdit={canEdit}
+            relationshipTypeLabels={Object.fromEntries(relationshipTypes.map((r) => [r.key, r.label]))}
           />
 
           <div className="flex flex-wrap items-center justify-between gap-3 mt-4 px-1">

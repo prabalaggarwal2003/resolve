@@ -19,6 +19,7 @@ export const PARTNER_FIELD_LABELS = {
   businessDetails: 'Business Details',
   bankDetails: 'Bank Details',
   taxDetails: 'Tax Details',
+  paymentDetails: 'Payment Details',
   primaryContact: 'Primary Contact',
   contacts: 'Contacts',
   addresses: 'Addresses',
@@ -31,13 +32,20 @@ const NESTED_OBJECT_FIELDS = new Set([
   'businessDetails',
   'bankDetails',
   'taxDetails',
+  'paymentDetails',
   'primaryContact',
   'customFields',
 ]);
 
-/** Match rows linked either through the new partnerId or the legacy vendorId. */
+/** Match rows linked either through partnerId, legacy vendorId, or partnerRelationships. */
 export function partnerLinkQuery(partnerId, organizationId) {
-  const query = { $or: [{ partnerId }, { vendorId: partnerId }] };
+  const query = {
+    $or: [
+      { partnerId },
+      { vendorId: partnerId },
+      { 'partnerRelationships.partnerId': partnerId },
+    ],
+  };
   if (organizationId) query.organizationId = organizationId;
   return query;
 }

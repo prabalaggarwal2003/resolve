@@ -37,6 +37,7 @@ export default function NewAssetPage() {
   const [locationTree, setLocationTree] = useState<LocationTreeNode[]>([]);
   const [departments, setDepartments] = useState<{ _id: string; name: string }[]>([]);
   const [vendors, setVendors] = useState<{ _id: string; vendorId: string; name: string }[]>([]);
+  const [relationshipTypes, setRelationshipTypes] = useState<{ key: string; label: string }[]>([]);
   const [assetId, setAssetId] = useState('');
   const [generatingAssetId, setGeneratingAssetId] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -98,8 +99,9 @@ export default function NewAssetPage() {
       fetch(api('/api/locations/tree'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       fetch(api('/api/departments'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       fetch(api('/api/vendors?status=Active'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      fetch(api('/api/business-partners/config'), { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()).catch(() => null),
     ])
-      .then(([tplRes, groupsRes, locsRes, deptRes, vendorsRes]) => {
+      .then(([tplRes, groupsRes, locsRes, deptRes, vendorsRes, partnerCfg]) => {
         const groupedTemplates = (tplRes.templates || []).filter((t: AssetTemplate) => t.groupId);
         if (groupsRes.groups?.length) {
           setAssetGroups(groupsRes.groups);
@@ -128,7 +130,20 @@ export default function NewAssetPage() {
         }
         if (locsRes.tree) setLocationTree(locsRes.tree);
         if (deptRes.departments) setDepartments(deptRes.departments);
-        if (Array.isArray(vendorsRes)) setVendors(vendorsRes.filter((v: { status: string }) => v.status === 'Active'));
+        if (Array.isArray(vendorsRes)) {
+          setVendors(
+            vendorsRes
+              .filter((v: { status: string }) => v.status === 'Active')
+              .map((v: { _id: string; vendorId?: string; partnerCode?: string; name: string }) => ({
+                _id: v._id,
+                vendorId: v.vendorId || v.partnerCode || '',
+                name: v.name,
+              }))
+          );
+        }
+        if (partnerCfg?.config?.assetRelationshipTypes) {
+          setRelationshipTypes(partnerCfg.config.assetRelationshipTypes);
+        }
       })
       .catch(() => {});
   }, []);
@@ -339,6 +354,7 @@ export default function NewAssetPage() {
             locationTree={locationTree}
             departments={departments}
             vendors={vendors}
+            relationshipTypes={relationshipTypes}
           />
         )}
 

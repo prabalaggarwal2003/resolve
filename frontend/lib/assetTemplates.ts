@@ -134,6 +134,7 @@ export const BUILTIN_SECTION_BY_KEY: Record<string, TemplateSection> = {
   amcExpiry: 'purchase',
   nextMaintenanceDate: 'purchase',
   vendorId: 'purchase',
+  relationshipTypeKey: 'purchase',
   cost: 'purchase',
   budgetId: 'purchase',
   procurementId: 'purchase',

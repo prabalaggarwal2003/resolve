@@ -23,6 +23,7 @@ import { buildAssetListQuery, resolveAssetSort } from '../services/assetQuerySer
 import { recalculateBudgetsForAsset } from '../services/budgetRollupService.js';
 import { linkAssetToProcurement } from '../services/procurementService.js';
 import { getAssetHealthOrgConfig } from '../services/assetHealthOrgConfigService.js';
+import { applyPartnerRelationshipsToBody } from '../services/assetPartnerRelationships.js';
 
 const router = express.Router();
 
@@ -61,6 +62,7 @@ router.get('/', requireCanRead, async (req, res) => {
         .populate('assignedTo', 'name email')
         .populate('vendorId', 'name partnerCode')
         .populate('partnerId', 'name partnerCode')
+        .populate('partnerRelationships.partnerId', 'name partnerCode')
         .populate('budgetId', 'name code')
         .populate('procurementId', 'purchaseId purchaseOrderNumber')
         .sort(sortOpt)
@@ -151,6 +153,7 @@ router.get('/:id', requireCanRead, async (req, res) => {
       .populate('groupId', 'name')
       .populate('vendorId', 'name partnerCode')
       .populate('partnerId', 'name partnerCode')
+      .populate('partnerRelationships.partnerId', 'name partnerCode')
       .populate('budgetId', 'name code currency')
       .populate('procurementId', 'purchaseId purchaseOrderNumber invoiceNumber')
       .populate('assignedTo', 'name email')
@@ -249,6 +252,14 @@ router.post('/', requireCanEdit, async (req, res) => {
     });
     if (body.vendorId && !body.partnerId) body.partnerId = body.vendorId;
     if (body.partnerId && !body.vendorId) body.vendorId = body.partnerId;
+    applyPartnerRelationshipsToBody(body, { seedFromPrimary: true });
+    if (body.relationshipTypeKey !== undefined) {
+      body.relationshipTypeKey = String(body.relationshipTypeKey || '').trim();
+    }
+    if (!body.vendorId && !body.partnerId) {
+      body.relationshipTypeKey = '';
+      body.partnerRelationships = [];
+    }
 
     if (!body.condition) {
       const healthConfig = await getAssetHealthOrgConfig(req.user.organizationId);
@@ -346,6 +357,21 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
     });
     if (update.vendorId !== undefined && update.partnerId === undefined) update.partnerId = update.vendorId;
     if (update.partnerId !== undefined && update.vendorId === undefined) update.vendorId = update.partnerId;
+    if (update.partnerRelationships !== undefined) {
+      applyPartnerRelationshipsToBody(update, { seedFromPrimary: false });
+    } else if ((update.vendorId === null || update.partnerId === null) && update.relationshipTypeKey === undefined) {
+      update.relationshipTypeKey = '';
+      update.partnerRelationships = [];
+    } else if (
+      (update.vendorId !== undefined || update.partnerId !== undefined || update.relationshipTypeKey !== undefined) &&
+      update.partnerRelationships === undefined
+    ) {
+      // Legacy single-field edit: re-seed primary relationship from those fields
+      applyPartnerRelationshipsToBody(update, { seedFromPrimary: true });
+    }
+    if (update.relationshipTypeKey !== undefined) {
+      update.relationshipTypeKey = String(update.relationshipTypeKey || '').trim();
+    }
 
     // Assignment (name + employee code) — optional; may be cleared
     if (update.assignedToName !== undefined) {

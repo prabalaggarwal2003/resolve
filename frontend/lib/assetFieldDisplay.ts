@@ -17,6 +17,7 @@ export type AssetFieldDef = {
     | 'location'
     | 'department'
     | 'vendor'
+    | 'relationship'
     | 'user'
     | 'group';
   wide?: boolean;
@@ -61,7 +62,8 @@ export const STANDARD_ASSET_FIELDS: AssetFieldDef[] = [
   { key: 'warrantyExpiry', label: 'Warranty expiry', section: 'purchase', kind: 'date' },
   { key: 'amcExpiry', label: 'AMC expiry', section: 'purchase', kind: 'date' },
   { key: 'nextMaintenanceDate', label: 'Next maintenance', section: 'purchase', kind: 'date' },
-  { key: 'vendorId', label: 'Vendor', section: 'purchase', kind: 'vendor' },
+  { key: 'vendorId', label: 'Partner', section: 'purchase', kind: 'vendor' },
+  { key: 'relationshipTypeKey', label: 'Partner relationship', section: 'purchase', kind: 'relationship' },
   { key: 'cost', label: 'Cost (INR)', section: 'purchase', kind: 'currency' },
   { key: 'budgetId', label: 'Budget', section: 'purchase', kind: 'text' },
   { key: 'procurementId', label: 'Procurement', section: 'purchase', kind: 'text' },
@@ -82,6 +84,8 @@ const SKIP_KEYS = new Set([
   'createdBy',
   'updatedBy',
   'purchaseInvoiceId',
+  'partnerId',
+  'partnerRelationships',
   'qrCodeUrl',
   'photos',
   'documents',
@@ -183,7 +187,8 @@ export function buildFallbackTemplateFromAsset(asset: Record<string, unknown>): 
     { key: 'warrantyExpiry', label: 'Warranty expiry', type: 'date', required: false, order: 31, section: 'purchase', builtIn: true },
     { key: 'amcExpiry', label: 'AMC expiry', type: 'date', required: false, order: 32, section: 'purchase', builtIn: true },
     { key: 'nextMaintenanceDate', label: 'Next maintenance', type: 'date', required: false, order: 33, section: 'purchase', builtIn: true },
-    { key: 'vendorId', label: 'Vendor', type: 'select', required: false, order: 34, section: 'purchase', builtIn: true },
+    { key: 'vendorId', label: 'Partner', type: 'select', required: false, order: 34, section: 'purchase', builtIn: true },
+    { key: 'relationshipTypeKey', label: 'Partner relationship', type: 'select', required: false, order: 34.5, section: 'purchase', builtIn: true },
     { key: 'cost', label: 'Cost (INR)', type: 'number', required: false, order: 35, section: 'purchase', builtIn: true },
   ];
 

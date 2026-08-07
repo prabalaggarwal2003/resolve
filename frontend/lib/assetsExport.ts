@@ -22,10 +22,17 @@ export type AssetExportRow = {
   tags?: string[];
   assignedToName?: string;
   assignedToEmployeeCode?: string;
+  relationshipTypeKey?: string;
+  partnerRelationships?: {
+    partnerId?: { name?: string; partnerCode?: string; vendorId?: string } | string;
+    relationshipTypeKey?: string;
+  }[];
   locationId?: { name: string; path?: string };
   groupId?: { name: string };
   departmentId?: { name: string };
   assignedTo?: { name: string };
+  vendorId?: { name: string; vendorId?: string; partnerCode?: string };
+  partnerId?: { name: string; vendorId?: string; partnerCode?: string };
 };
 
 function formatDate(d?: string) {
@@ -38,7 +45,42 @@ function formatCurrency(n?: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
 }
 
-export function assetCellText(asset: AssetExportRow, col: ColumnId): string {
+function partnerExportLabel(asset: AssetExportRow) {
+  const rels = Array.isArray(asset.partnerRelationships) ? asset.partnerRelationships : [];
+  if (rels.length) {
+    const names = rels
+      .map((r) => {
+        const p = r.partnerId;
+        if (!p || typeof p === 'string') return '';
+        const code = p.partnerCode || p.vendorId;
+        return p.name ? (code ? `${code} — ${p.name}` : p.name) : '';
+      })
+      .filter(Boolean);
+    return Array.from(new Set(names)).join('; ');
+  }
+  const p = asset.partnerId || asset.vendorId;
+  if (!p?.name) return '';
+  const code = p.partnerCode || p.vendorId;
+  return code ? `${code} — ${p.name}` : p.name;
+}
+
+function relationshipExportLabel(asset: AssetExportRow, relationshipTypeLabels?: Record<string, string>) {
+  const rels = Array.isArray(asset.partnerRelationships) ? asset.partnerRelationships : [];
+  const keys = rels.length
+    ? rels.map((r) => r.relationshipTypeKey).filter(Boolean)
+    : asset.relationshipTypeKey
+    ? [asset.relationshipTypeKey]
+    : [];
+  return Array.from(new Set(keys as string[]))
+    .map((key) => relationshipTypeLabels?.[key] || key.replace(/_/g, ' '))
+    .join('; ');
+}
+
+export function assetCellText(
+  asset: AssetExportRow,
+  col: ColumnId,
+  relationshipTypeLabels?: Record<string, string>
+): string {
   switch (col) {
     case 'assetId':
       return asset.assetId || '';
@@ -54,6 +96,10 @@ export function assetCellText(asset: AssetExportRow, col: ColumnId): string {
       return breadcrumbForNode(asset.locationId) || '';
     case 'assignedTo':
       return asset.assignedToName || asset.assignedTo?.name || '';
+    case 'partner':
+      return partnerExportLabel(asset);
+    case 'relationshipType':
+      return relationshipExportLabel(asset, relationshipTypeLabels);
     case 'model':
       return asset.model || '';
     case 'serialNumber':
@@ -86,11 +132,17 @@ function csvEscape(value: string): string {
   return value;
 }
 
-export function buildAssetsCsv(assets: AssetExportRow[], columns: ColumnId[]): string {
+export function buildAssetsCsv(
+  assets: AssetExportRow[],
+  columns: ColumnId[],
+  relationshipTypeLabels?: Record<string, string>
+): string {
   const headers = columns.map((id) => COLUMN_DEFS[id]?.label || id);
   const lines = [
     headers.map(csvEscape).join(','),
-    ...assets.map((asset) => columns.map((col) => csvEscape(assetCellText(asset, col))).join(',')),
+    ...assets.map((asset) =>
+      columns.map((col) => csvEscape(assetCellText(asset, col, relationshipTypeLabels))).join(',')
+    ),
   ];
   return lines.join('\n');
 }

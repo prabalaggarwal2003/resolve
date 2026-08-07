@@ -24,6 +24,7 @@ const BUILTIN_SECTION_BY_KEY = {
   amcExpiry: 'purchase',
   nextMaintenanceDate: 'purchase',
   vendorId: 'purchase',
+  relationshipTypeKey: 'purchase',
   cost: 'purchase',
   budgetId: 'purchase',
   procurementId: 'purchase',
@@ -33,7 +34,7 @@ const BUILTIN_SECTION_BY_KEY = {
   invoiceNumber: 'purchase',
 };
 
-const DYNAMIC_OPTION_FIELD_KEYS = new Set(['departmentId', 'vendorId']);
+const DYNAMIC_OPTION_FIELD_KEYS = new Set(['departmentId', 'vendorId', 'relationshipTypeKey']);
 
 export async function ensureDefaultTemplates(organizationId, userId) {
   const count = await AssetTemplate.countDocuments({ organizationId });
