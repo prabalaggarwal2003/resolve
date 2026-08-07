@@ -2,6 +2,8 @@ import { isActiveAssetStatus } from '@/lib/assetStatuses';
 import { AUDIT_RESOURCE_LABELS } from '@/lib/auditLabels';
 import type { BudgetDataContext, BudgetFilterFieldKey, BudgetWidgetFilters } from './budgetWidgets';
 import { computeKpiBudgetWidgetData, isBudgetWidget } from './kpiBudgetBridge';
+import type { PartnerDataContext, PartnerFilterFieldKey, PartnerWidgetFilters } from './partnerDashboardWidgets';
+import { computeKpiPartnerWidgetData, isPartnerWidget } from './kpiPartnerBridge';
 
 export type KpiAssetMetrics = {
   assetId: string;
@@ -20,6 +22,8 @@ export type KpiAssetMetrics = {
   location?: string;
   vendorId?: string | null;
   vendorName?: string | null;
+  partnerId?: string | null;
+  partnerName?: string | null;
   assignedToId?: string | null;
   assignedToName?: string | null;
   purchaseDate?: string;
@@ -83,7 +87,7 @@ export type KpiMetric =
   | 'health_score' | 'replacement_score' | 'utilization' | 'warranty';
 
 export type KpiGroupBy =
-  | 'group' | 'template' | 'category' | 'department' | 'location' | 'vendor'
+  | 'group' | 'template' | 'category' | 'department' | 'location' | 'vendor' | 'partner'
   | 'purchase_year' | 'status' | 'condition' | 'assigned_user' | 'warranty_status' | null;
 
 export type KpiChartType =
@@ -97,8 +101,9 @@ export type KpiQuickType =
 
 export type KpiFilterFieldKey =
   | 'dateFrom' | 'dateTo' | 'departmentId' | 'locationId' | 'groupId' | 'templateId'
-  | 'vendorId' | 'status' | 'category' | 'purchaseYear' | 'warrantyStatus' | 'condition' | 'assignedUserId'
-  | 'auditResource';
+  | 'vendorId' | 'partnerId' | 'status' | 'category' | 'purchaseYear' | 'warrantyStatus' | 'condition' | 'assignedUserId'
+  | 'auditResource'
+  | 'partnerStatus' | 'partnerTypeKey' | 'partnerCategoryKey' | 'partnerTag' | 'partnerSearch';
 
 export type KpiWidgetFilters = Partial<Record<KpiFilterFieldKey, string>>;
 
@@ -106,7 +111,7 @@ export type KpiWidget = {
   id: string;
   title: string;
   kind: 'metric' | 'quick';
-  dataSource?: 'asset' | 'budget';
+  dataSource?: 'asset' | 'budget' | 'partner';
   metric?: KpiMetric | string;
   groupBy?: KpiGroupBy | string | null;
   chartType?: KpiChartType;
@@ -115,6 +120,8 @@ export type KpiWidget = {
   filterFields: KpiFilterFieldKey[];
   budgetFilters?: BudgetWidgetFilters;
   budgetFilterFields?: BudgetFilterFieldKey[];
+  partnerFilters?: PartnerWidgetFilters;
+  partnerFilterFields?: PartnerFilterFieldKey[];
   timeRange?: string;
   sortOrder?: 'asc' | 'desc';
   limit?: number;
@@ -144,6 +151,7 @@ export type KpiDataContext = {
   totals: KpiTotals;
   quick: KpiQuickData;
   budget?: BudgetDataContext | null;
+  partners?: PartnerDataContext | null;
 };
 
 export type KpiWidgetResult = {
@@ -195,6 +203,7 @@ export const GROUP_BY_OPTIONS: { id: NonNullable<KpiGroupBy>; label: string }[] 
   { id: 'department', label: 'Department' },
   { id: 'location', label: 'Location' },
   { id: 'vendor', label: 'Vendor' },
+  { id: 'partner', label: 'Partner' },
   { id: 'purchase_year', label: 'Purchase Year' },
   { id: 'status', label: 'Status' },
   { id: 'condition', label: 'Condition' },
@@ -235,6 +244,7 @@ export const WIDGET_FILTER_CATALOG: { key: KpiFilterFieldKey; label: string }[] 
   { key: 'groupId', label: 'Asset group' },
   { key: 'templateId', label: 'Template' },
   { key: 'vendorId', label: 'Vendor' },
+  { key: 'partnerId', label: 'Partner' },
   { key: 'status', label: 'Status' },
   { key: 'category', label: 'Category' },
   { key: 'purchaseYear', label: 'Purchase year' },
@@ -313,6 +323,13 @@ export function applyKpiWidgetFilters(assets: KpiAssetMetrics[], filters?: KpiWi
     if (!eqFilterId(a.groupId, f.groupId)) return false;
     if (!eqFilterId(a.templateId, f.templateId)) return false;
     if (!eqFilterId(a.vendorId, f.vendorId)) return false;
+    if (f.partnerId) {
+      const pid = String(f.partnerId);
+      const linked =
+        (a.partnerId != null && String(a.partnerId) === pid) ||
+        (a.vendorId != null && String(a.vendorId) === pid);
+      if (!linked) return false;
+    }
     if (!eqFilterId(a.assignedToId, f.assignedUserId)) return false;
     if (f.status && a.status !== f.status) return false;
     if (f.category && a.category !== f.category) return false;
@@ -337,6 +354,7 @@ function getGroupKey(a: KpiAssetMetrics, groupBy: KpiGroupBy): string {
     case 'department': return a.department || 'Unassigned';
     case 'location': return a.location || 'Unassigned';
     case 'vendor': return a.vendorName || 'Unassigned';
+    case 'partner': return a.partnerName || a.vendorName || 'Unassigned';
     case 'purchase_year': return a.purchaseYear ? String(a.purchaseYear) : 'Unknown';
     case 'status': return a.status || 'unknown';
     case 'condition': return a.condition || 'unknown';
@@ -410,6 +428,11 @@ export function computeKpiWidgetData(ctx: KpiDataContext, widget: KpiWidget): Kp
   if (budgetResult) return budgetResult;
   if (isBudgetWidget(widget)) {
     return { kpiValue: '—', kpiHint: 'Budget data unavailable', points: [], listRows: [] };
+  }
+  const partnerResult = computeKpiPartnerWidgetData(ctx, widget);
+  if (partnerResult) return partnerResult;
+  if (isPartnerWidget(widget)) {
+    return { kpiValue: '—', kpiHint: 'Partner data unavailable', points: [], listRows: [] };
   }
   if (isRetiredHealthWidget(widget)) {
     return { kpiValue: '—', kpiHint: 'Removed', points: [], listRows: [] };

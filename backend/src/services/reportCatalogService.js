@@ -1,4 +1,4 @@
-import { AssetTemplate, BudgetOrgConfig, BusinessPartnerOrgConfig } from '../models/index.js';
+import { AssetTemplate, BudgetOrgConfig, BusinessPartnerOrgConfig, ReportStudioSettings } from '../models/index.js';
 import {
   BUILTIN_FIELDS,
   REPORT_DATA_SOURCES,
@@ -75,13 +75,31 @@ export async function getReportCatalog(organizationId) {
     };
   });
 
+  let defaultFormatting = { ...DEFAULT_REPORT_FORMATTING };
+  try {
+    const settings = await ReportStudioSettings.findOne({ organizationId }).lean();
+    if (settings?.defaultFormatting) {
+      const fmt = settings.defaultFormatting;
+      defaultFormatting = {
+        ...DEFAULT_REPORT_FORMATTING,
+        header: fmt.header ?? DEFAULT_REPORT_FORMATTING.header,
+        footer: fmt.footer ?? DEFAULT_REPORT_FORMATTING.footer,
+        watermark: fmt.watermark ?? DEFAULT_REPORT_FORMATTING.watermark,
+        orientation: fmt.orientation || DEFAULT_REPORT_FORMATTING.orientation,
+        paperSize: fmt.paperSize || DEFAULT_REPORT_FORMATTING.paperSize,
+      };
+    }
+  } catch {
+    /* keep defaults */
+  }
+
   return {
     sources,
     operators: REPORT_OPERATORS,
     calculations: REPORT_CALCULATION_TYPES,
     visualizations: REPORT_VISUALIZATIONS,
     exportFormats: REPORT_EXPORT_FORMATS,
-    defaultFormatting: DEFAULT_REPORT_FORMATTING,
+    defaultFormatting,
     quickReports: SYSTEM_QUICK_REPORTS.map((q) => ({
       key: q.key,
       name: q.name,

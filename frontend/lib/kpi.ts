@@ -1,5 +1,6 @@
 import type { KpiAssetMetrics, KpiDashboard, KpiQuickData, KpiTotals, KpiWidgetFilters } from './kpiWidgets';
 import type { BudgetDataContext } from './budgetWidgets';
+import type { PartnerDataContext } from './partnerDashboardWidgets';
 
 export function api(path: string) {
   const base = process.env.NEXT_PUBLIC_API_URL || '';
@@ -27,6 +28,7 @@ export type KpiSummaryResponse = {
   totals: KpiTotals;
   quick: KpiQuickData;
   budget?: BudgetDataContext | null;
+  partners?: PartnerDataContext | null;
 };
 
 export async function fetchKpiSummary(pageFilters: KpiWidgetFilters = {}): Promise<KpiSummaryResponse> {

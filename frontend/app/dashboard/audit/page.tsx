@@ -36,7 +36,7 @@ type AuditLog = {
     fieldChanges?: FieldChange[];
     summary?: string;
     reason?: string;
-    changes?: Record<string, { old: unknown; new: unknown }>;
+    changes?: FieldChange[] | Record<string, { old: unknown; new: unknown }>;
   };
   severity: 'low' | 'medium' | 'high' | 'critical';
   ipAddress?: string;
@@ -71,6 +71,38 @@ function api(path: string) {
 const inputClass = 'w-full px-3 py-1.5 text-xs border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-300 focus:ring-1 focus:ring-blue-500/40 focus:border-blue-500/40';
 const labelClass = 'block text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1';
 
+function getFieldChanges(log: AuditLog): FieldChange[] {
+  const fromFieldChanges = log.details?.fieldChanges;
+  if (Array.isArray(fromFieldChanges) && fromFieldChanges.length > 0) return fromFieldChanges;
+
+  const fromChanges = log.details?.changes;
+  if (Array.isArray(fromChanges) && fromChanges.length > 0) return fromChanges;
+
+  if (fromChanges && typeof fromChanges === 'object' && !Array.isArray(fromChanges)) {
+    return Object.entries(fromChanges).map(([field, value]) => ({
+      field,
+      label: field,
+      oldValue: value?.old == null ? '—' : String(value.old),
+      newValue: value?.new == null ? '—' : String(value.new),
+    }));
+  }
+
+  return [];
+}
+
+function isBlankAuditValue(value: unknown): boolean {
+  return value == null || value === '' || value === '—' || value === '(empty)';
+}
+
+function formatFieldChangeLine(c: FieldChange): string {
+  if (c.field === 'password') return 'Password changed';
+  if (c.label === 'Created') return `Created: ${c.newValue ?? c.to ?? '—'}`;
+  const oldValue = c.oldValue ?? c.from;
+  const newValue = c.newValue ?? c.to ?? '—';
+  if (isBlankAuditValue(oldValue)) return `${c.label}: ${newValue}`;
+  return `${c.label}: ${oldValue} → ${newValue}`;
+}
+
 function formatAuditDetails(log: AuditLog): string {
   if (log.action === 'downloaded' && log.details?.fileName) {
     return `Downloaded ${log.details.fileName}`;
@@ -84,17 +116,9 @@ function formatAuditDetails(log: AuditLog): string {
     return log.details.reason;
   }
 
-  const fieldChanges = log.details?.fieldChanges;
-  if (Array.isArray(fieldChanges) && fieldChanges.length > 0) {
-    return fieldChanges
-      .map((c) => {
-        if (c.field === 'password') return 'Password changed';
-        if (c.label === 'Created') return `Created: ${c.newValue}`;
-        const oldValue = c.oldValue ?? c.from ?? '—';
-        const newValue = c.newValue ?? c.to ?? '—';
-        return `${c.label}: ${oldValue} → ${newValue}`;
-      })
-      .join(' · ');
+  const fieldChanges = getFieldChanges(log);
+  if (fieldChanges.length > 0) {
+    return fieldChanges.map(formatFieldChangeLine).join('\n');
   }
 
   if (log.details?.summary) return log.details.summary;
@@ -106,33 +130,63 @@ function AuditLogRow({ log }: { log: AuditLog }) {
   const resourceLabel = RESOURCE_LABELS[log.resource] || log.resource;
   const actionLabel = ACTION_LABELS[log.action] || log.action;
   const actionColor = ACTION_COLORS[log.action] || 'text-gray-300';
+  const fieldChanges = getFieldChanges(log);
   const detailsText = formatAuditDetails(log);
 
   return (
     <tr className="hover:bg-gray-800/40 transition-colors">
-      <td className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">
+      <td className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap align-top">
         {new Date(log.createdAt).toLocaleDateString()}{' '}
         <span className="text-gray-600">{new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
       </td>
-      <td className="px-3 py-2">
+      <td className="px-3 py-2 align-top">
         <span className="text-xs font-medium text-gray-200">{log.userId?.name || 'System'}</span>
         <span className="ml-1 text-[11px] text-gray-500">({log.userId?.role || '—'})</span>
       </td>
-      <td className="px-3 py-2">
+      <td className="px-3 py-2 align-top">
         <span className={`text-xs font-semibold ${actionColor}`}>{actionLabel}</span>
       </td>
-      <td className="px-3 py-2">
+      <td className="px-3 py-2 align-top">
         <span className="text-xs text-gray-500">{resourceIcon} {resourceLabel}</span>
         {log.resourceName && (
           <span className="ml-1 text-xs text-gray-400 font-medium">&ldquo;{log.resourceName}&rdquo;</span>
         )}
       </td>
-      <td className="px-3 py-2 text-xs text-gray-500 max-w-md">
-        <span className="line-clamp-2" title={detailsText}>
-          {detailsText}
-        </span>
+      <td className="px-3 py-2 text-xs text-gray-500 max-w-lg align-top">
+        {fieldChanges.length > 0 ? (
+          <ul className="space-y-1" title={detailsText}>
+            {fieldChanges.map((c, idx) => {
+              const oldValue = c.oldValue ?? c.from;
+              const newValue = c.newValue ?? c.to ?? '—';
+              const showArrow = !isBlankAuditValue(oldValue);
+              return (
+                <li key={`${c.field}-${idx}`} className="leading-snug">
+                  <span className="text-gray-400">{c.label}</span>
+                  {c.field === 'password' ? (
+                    <span className="text-gray-300"> changed</span>
+                  ) : (
+                    <>
+                      <span className="text-gray-600">: </span>
+                      {showArrow && (
+                        <>
+                          <span className="text-gray-400 break-all">{oldValue}</span>
+                          <span className="text-gray-600"> → </span>
+                        </>
+                      )}
+                      <span className="text-gray-200 break-all">{newValue}</span>
+                    </>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <span className="line-clamp-3" title={detailsText}>
+            {detailsText}
+          </span>
+        )}
       </td>
-      <td className="px-3 py-2">
+      <td className="px-3 py-2 align-top">
         <span className={`inline-flex px-2 py-0.5 text-[11px] font-medium rounded-md border ${SEVERITY_BADGE[log.severity] || SEVERITY_BADGE.low}`}>
           {log.severity}
         </span>

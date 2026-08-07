@@ -23,9 +23,10 @@ function canAccessDashboard(dashboard, user) {
 
 function filtersFromQuery(query) {
   const keys = [
-    'departmentId', 'locationId', 'groupId', 'templateId', 'vendorId', 'status',
+    'departmentId', 'locationId', 'groupId', 'templateId', 'vendorId', 'partnerId', 'status',
     'category', 'purchaseYear', 'warrantyStatus', 'condition', 'assignedUserId',
     'dateFrom', 'dateTo',
+    'partnerStatus', 'partnerTypeKey', 'partnerCategoryKey', 'partnerTag', 'partnerSearch',
   ];
   const filters = {};
   for (const k of keys) {

@@ -57,7 +57,6 @@ export default function PartnerSettingsPage() {
         addressTypes: config.addressTypes,
         assetRelationshipTypes: config.assetRelationshipTypes,
         customFields: config.customFields,
-        performanceKpis: config.performanceKpis,
         settings: config.settings,
       });
       setConfig(updated);
@@ -78,7 +77,7 @@ export default function PartnerSettingsPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-gray-100">Partner settings</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Configure types, sections, relationships, KPIs, and defaults</p>
+          <p className="text-xs text-gray-500 mt-0.5">Configure types, sections, relationships, and defaults</p>
         </div>
         {canEdit && (
           <button type="button" className={btnPrimary} disabled={saving} onClick={handleSave}>
@@ -555,31 +554,6 @@ export default function PartnerSettingsPage() {
             </button>
           </div>
         )}
-      </section>
-
-      <section className={sectionClass}>
-        <h3 className="text-sm font-semibold text-gray-100">Performance KPIs</h3>
-        <div className="grid md:grid-cols-2 gap-2">
-          {config.performanceKpis.map((kpi) => (
-            <label key={kpi.key} className="flex items-center gap-2 text-xs text-gray-300">
-              <input
-                type="checkbox"
-                disabled={!canEdit}
-                checked={kpi.enabled !== false}
-                onChange={(e) =>
-                  setConfig({
-                    ...config,
-                    performanceKpis: config.performanceKpis.map((x) =>
-                      x.key === kpi.key ? { ...x, enabled: e.target.checked } : x
-                    ),
-                  })
-                }
-              />
-              {kpi.label}
-              {kpi.unit ? <span className="text-gray-500">({kpi.unit})</span> : null}
-            </label>
-          ))}
-        </div>
       </section>
 
       {canEdit && (

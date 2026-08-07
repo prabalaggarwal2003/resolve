@@ -80,10 +80,12 @@ export function useBudgetDashboard() {
       if (!activeDashboard) return;
       setActiveDashboard((prev) => {
         if (!prev) return prev;
-        const nextLayout = typeof patch === 'function' ? patch(mergeBudgetLayout(prev.layout)) : mergeBudgetLayout(patch);
-        const next = { ...prev, layout: nextLayout };
+        const currentLayout = mergeBudgetLayout(prev.layout);
+        const nextLayout =
+          typeof patch === 'function' ? patch(currentLayout) : mergeBudgetLayout(patch);
+        if (JSON.stringify(currentLayout) === JSON.stringify(nextLayout)) return prev;
         persistLayout(prev._id, nextLayout);
-        return next;
+        return { ...prev, layout: nextLayout };
       });
     },
     [activeDashboard, persistLayout]

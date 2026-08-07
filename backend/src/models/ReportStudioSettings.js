@@ -1,5 +1,16 @@
 import mongoose from 'mongoose';
-import { DEFAULT_REPORT_STUDIO_SETTINGS } from '../constants/reportStudioDefaults.js';
+import { DEFAULT_REPORT_FORMATTING, DEFAULT_REPORT_STUDIO_SETTINGS } from '../constants/reportStudioDefaults.js';
+
+const defaultFormattingSchema = new mongoose.Schema(
+  {
+    header: { type: String, default: '' },
+    footer: { type: String, default: '' },
+    watermark: { type: String, default: '' },
+    orientation: { type: String, default: 'landscape' },
+    paperSize: { type: String, default: 'a4' },
+  },
+  { _id: false }
+);
 
 const reportStudioSettingsSchema = new mongoose.Schema(
   {
@@ -9,21 +20,18 @@ const reportStudioSettingsSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
-    defaultExportFormat: {
-      type: String,
-      default: DEFAULT_REPORT_STUDIO_SETTINGS.defaultExportFormat,
-    },
-    timezone: { type: String, default: DEFAULT_REPORT_STUDIO_SETTINGS.timezone },
-    currency: { type: String, default: DEFAULT_REPORT_STUDIO_SETTINGS.currency },
     defaultFilenameFormat: {
       type: String,
       default: DEFAULT_REPORT_STUDIO_SETTINGS.defaultFilenameFormat,
     },
-    retentionDays: { type: Number, default: DEFAULT_REPORT_STUDIO_SETTINGS.retentionDays },
+    defaultFormatting: {
+      type: defaultFormattingSchema,
+      default: () => ({ ...DEFAULT_REPORT_FORMATTING }),
+    },
     branding: {
-      logoUrl: { type: String, default: '' },
-      primaryColor: { type: String, default: '#f59e0b' },
       companyName: { type: String, default: '' },
+      /** Base64 data URL for the report logo (uploaded file). */
+      logoData: { type: String, default: '' },
     },
   },
   { timestamps: true }

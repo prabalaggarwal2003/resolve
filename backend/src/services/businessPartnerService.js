@@ -128,10 +128,64 @@ export function diffPartnerFields(prev = {}, next = {}) {
 export function formatPartnerFieldChangesSummary(partnerName, changes = []) {
   const name = partnerName || 'Partner';
   if (!changes.length) return `${name}: updated`;
-  const parts = changes.map((c) => `${c.label}: ${c.from} → ${c.to}`);
+  const parts = changes.map((c) => `${c.label}: ${c.from ?? c.oldValue} → ${c.to ?? c.newValue}`);
   const joined = parts.join('; ');
   if (joined.length <= 280) return `${name}: ${joined}`;
   return `${name}: ${changes.map((c) => c.label).join(', ')} updated`;
+}
+
+/** Convert partner activity-style changes ({ from, to }) into audit fieldChanges ({ oldValue, newValue }). */
+export function toAuditFieldChanges(changes = []) {
+  return (Array.isArray(changes) ? changes : []).map((c) => ({
+    field: c.field || '',
+    label: c.label || humanizeKey(c.field || 'field'),
+    oldValue: String(c.oldValue ?? c.from ?? '—'),
+    newValue: String(c.newValue ?? c.to ?? '—'),
+    from: String(c.from ?? c.oldValue ?? '—'),
+    to: String(c.to ?? c.newValue ?? '—'),
+  }));
+}
+
+/** Canonical org-audit details payload for partner-related mutations. */
+export function partnerAuditDetails(partner, changes = [], extra = {}) {
+  const fieldChanges = toAuditFieldChanges(changes);
+  return {
+    partnerId: partner?._id ? String(partner._id) : undefined,
+    partnerCode: partner?.partnerCode || '',
+    partnerName: partner?.name || '',
+    changes: fieldChanges,
+    fieldChanges,
+    summary: formatPartnerFieldChangesSummary(partner?.name, fieldChanges),
+    ...extra,
+  };
+}
+
+/** Diff plain objects / subdocuments for contacts, addresses, contracts, etc. */
+export function diffPlainObjectFields(prev = {}, next = {}, { fieldPrefix = '', labelPrefix = '' } = {}) {
+  const changes = [];
+  const prevObj = toPlain(prev) || {};
+  const nextObj = toPlain(next) || {};
+  const keys = new Set([...Object.keys(prevObj), ...Object.keys(nextObj)]);
+
+  for (const key of keys) {
+    if (
+      ['_id', '__v', 'id', 'createdAt', 'updatedAt', 'organizationId', 'partnerId', 'createdBy', 'updatedBy'].includes(
+        key
+      )
+    ) {
+      continue;
+    }
+    const before = normalizeValue(prevObj[key]);
+    const after = normalizeValue(nextObj[key]);
+    if (before === after) continue;
+    changes.push({
+      field: fieldPrefix ? `${fieldPrefix}.${key}` : key,
+      label: labelPrefix ? `${labelPrefix} · ${humanizeKey(key)}` : humanizeKey(key),
+      from: displayValue(prevObj[key]),
+      to: displayValue(nextObj[key]),
+    });
+  }
+  return changes;
 }
 
 export function partnerActivityDetails(req, partner, extra = {}) {
@@ -173,4 +227,187 @@ export async function enrichPartnerStats(partner, organizationId) {
     totalPaid,
     pendingPayment: totalPurchased - totalPaid,
   };
+}
+
+const PARTNER_SETTINGS_LABELS = {
+  partnerCodePrefix: 'Partner code prefix',
+  defaultCurrency: 'Default currency',
+  defaultPaymentTerms: 'Default payment terms',
+};
+
+const PARTNER_CONFIG_LIST_SPECS = {
+  partnerTypes: {
+    label: 'Partner type',
+    idKey: 'id',
+    nameKey: 'name',
+    fields: ['name', 'description', 'color', 'isDefault'],
+  },
+  categories: {
+    label: 'Category',
+    idKey: 'id',
+    nameKey: 'name',
+    fields: ['name', 'description', 'color', 'isDefault'],
+  },
+  statuses: {
+    label: 'Status',
+    idKey: 'id',
+    nameKey: 'name',
+    fields: ['name', 'color', 'isDefault'],
+  },
+  addressTypes: {
+    label: 'Address type',
+    idKey: 'id',
+    nameKey: 'name',
+    fields: ['name', 'description', 'isDefault'],
+  },
+  profileSections: {
+    label: 'Profile section',
+    idKey: 'key',
+    nameKey: 'label',
+    fields: ['label', 'enabled'],
+  },
+  assetRelationshipTypes: {
+    label: 'Asset relationship',
+    idKey: 'key',
+    nameKey: 'label',
+    fields: ['label', 'resourceType'],
+  },
+  serviceRelationshipTypes: {
+    label: 'Service relationship',
+    idKey: 'key',
+    nameKey: 'label',
+    fields: ['label', 'resourceType'],
+  },
+  customFields: {
+    label: 'Custom field',
+    idKey: 'key',
+    nameKey: 'label',
+    fields: ['label', 'type', 'required', 'section', 'options'],
+  },
+  performanceKpis: {
+    label: 'Performance KPI',
+    idKey: 'key',
+    nameKey: 'label',
+    fields: ['label', 'enabled', 'unit', 'description', 'higherIsBetter'],
+  },
+  dashboardWidgetCatalog: {
+    label: 'Dashboard widget',
+    idKey: 'key',
+    nameKey: 'label',
+    fields: ['label', 'kind'],
+  },
+};
+
+function listItemId(item, idKey) {
+  if (!item || typeof item !== 'object') return '';
+  return String(item[idKey] ?? item.id ?? item.key ?? '');
+}
+
+function listItemName(item, nameKey) {
+  if (!item || typeof item !== 'object') return '(unnamed)';
+  const name = item[nameKey] ?? item.name ?? item.label ?? listItemId(item, 'id');
+  return String(name || '(unnamed)');
+}
+
+function diffConfigList(prevList = [], nextList = [], { field, label, idKey, nameKey, fields }) {
+  const changes = [];
+  const prevMap = new Map(
+    (Array.isArray(prevList) ? prevList : []).map((item) => [listItemId(item, idKey), toPlain(item)])
+  );
+  const nextMap = new Map(
+    (Array.isArray(nextList) ? nextList : []).map((item) => [listItemId(item, idKey), toPlain(item)])
+  );
+  const ids = new Set([...prevMap.keys(), ...nextMap.keys()]);
+
+  for (const id of ids) {
+    if (!id) continue;
+    const before = prevMap.get(id);
+    const after = nextMap.get(id);
+    const itemLabel = listItemName(after || before, nameKey);
+
+    if (!before && after) {
+      changes.push({
+        field: `${field}.${id}`,
+        label: `${label} added`,
+        from: '(empty)',
+        to: itemLabel,
+      });
+      continue;
+    }
+    if (before && !after) {
+      changes.push({
+        field: `${field}.${id}`,
+        label: `${label} removed`,
+        from: itemLabel,
+        to: '(empty)',
+      });
+      continue;
+    }
+
+    for (const key of fields) {
+      const beforeVal = before?.[key];
+      const afterVal = after?.[key];
+      if (normalizeValue(beforeVal) === normalizeValue(afterVal)) continue;
+      changes.push({
+        field: `${field}.${id}.${key}`,
+        label: `${label} “${itemLabel}” · ${humanizeKey(key)}`,
+        from: displayValue(beforeVal),
+        to: displayValue(afterVal),
+      });
+    }
+  }
+
+  return changes;
+}
+
+/** Field-level diff for partner organization settings / config. */
+export function diffPartnerOrgConfig(prev = {}, next = {}, payloadKeys = null) {
+  const before = toPlain(prev) || {};
+  const after = toPlain(next) || {};
+  const keys =
+    Array.isArray(payloadKeys) && payloadKeys.length
+      ? payloadKeys
+      : Object.keys({ ...before, ...after });
+  const changes = [];
+
+  for (const key of keys) {
+    if (['_id', '__v', 'organizationId', 'createdAt', 'updatedAt', 'updatedBy'].includes(key)) continue;
+
+    if (key === 'settings') {
+      const prevSettings = toPlain(before.settings) || {};
+      const nextSettings = toPlain(after.settings) || {};
+      const settingKeys = new Set([...Object.keys(prevSettings), ...Object.keys(nextSettings)]);
+      for (const settingKey of settingKeys) {
+        if (normalizeValue(prevSettings[settingKey]) === normalizeValue(nextSettings[settingKey])) continue;
+        changes.push({
+          field: `settings.${settingKey}`,
+          label: PARTNER_SETTINGS_LABELS[settingKey] || humanizeKey(settingKey),
+          from: displayValue(prevSettings[settingKey]),
+          to: displayValue(nextSettings[settingKey]),
+        });
+      }
+      continue;
+    }
+
+    const spec = PARTNER_CONFIG_LIST_SPECS[key];
+    if (spec) {
+      changes.push(
+        ...diffConfigList(before[key], after[key], {
+          field: key,
+          ...spec,
+        })
+      );
+      continue;
+    }
+
+    if (normalizeValue(before[key]) === normalizeValue(after[key])) continue;
+    changes.push({
+      field: key,
+      label: humanizeKey(key),
+      from: displayValue(before[key]),
+      to: displayValue(after[key]),
+    });
+  }
+
+  return changes;
 }

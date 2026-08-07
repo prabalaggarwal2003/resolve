@@ -19,13 +19,15 @@ import type { KpiDataContext, KpiWidget, KpiWidgetResult } from './kpiWidgets';
 export const BUDGET_METRIC_IDS = new Set(BUDGET_METRIC_OPTIONS.map((m) => m.id));
 export const BUDGET_QUICK_IDS = new Set(BUDGET_QUICK_OPTIONS.map((q) => q.id));
 
-export function isBudgetWidget(widget: Pick<KpiWidget, 'metric' | 'quickType'>): boolean {
+export function isBudgetWidget(widget: Pick<KpiWidget, 'metric' | 'quickType' | 'dataSource'>): boolean {
+  if (widget.dataSource === 'budget') return true;
+  if (widget.dataSource === 'asset' || widget.dataSource === 'partner') return false;
   if (widget.metric && BUDGET_METRIC_IDS.has(widget.metric as BudgetMetric)) return true;
   if (widget.quickType && BUDGET_QUICK_IDS.has(widget.quickType as BudgetQuickType)) return true;
   return false;
 }
 
-export function withBudgetFilterDefaults<T extends Pick<KpiWidget, 'metric' | 'quickType' | 'budgetFilters' | 'budgetFilterFields'>>(widget: T): T {
+export function withBudgetFilterDefaults<T extends Pick<KpiWidget, 'metric' | 'quickType' | 'dataSource' | 'budgetFilters' | 'budgetFilterFields'>>(widget: T): T {
   if (!isBudgetWidget(widget)) return widget;
   return {
     ...widget,

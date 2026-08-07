@@ -288,6 +288,12 @@ function buildAssetMetrics(asset, issueCount, openIssueCount, ctx, healthCtx = n
     departmentId: asset.departmentId?._id ? String(asset.departmentId._id) : null,
     vendorId: asset.vendorId?._id ? String(asset.vendorId._id) : null,
     vendorName: asset.vendorId?.name || null,
+    partnerId: asset.partnerId?._id
+      ? String(asset.partnerId._id)
+      : asset.partnerId
+        ? String(asset.partnerId)
+        : null,
+    partnerName: asset.partnerId?.name || null,
     purchaseDate: asset.purchaseDate,
     purchaseYear: asset.purchaseDate ? new Date(asset.purchaseDate).getFullYear() : null,
     warrantyExpiry: asset.warrantyExpiry,
@@ -331,6 +337,13 @@ function matchesFilters(metrics, filters) {
   if (filters.departmentId && metrics.departmentId !== filters.departmentId) return false;
   if (filters.locationId && metrics.locationId !== filters.locationId) return false;
   if (filters.vendorId && metrics.vendorId !== filters.vendorId) return false;
+  if (filters.partnerId) {
+    const pid = String(filters.partnerId);
+    const linked =
+      (metrics.partnerId && String(metrics.partnerId) === pid) ||
+      (metrics.vendorId && String(metrics.vendorId) === pid);
+    if (!linked) return false;
+  }
 
   if (filters.warrantyStatus === 'active' && !metrics.operational.warrantyActive) return false;
   if (filters.warrantyStatus === 'expired' && metrics.operational.warrantyActive) return false;
@@ -441,6 +454,7 @@ export async function calculateOrganizationMetrics(organizationId, userId, filte
     .populate('groupId', 'name')
     .populate('templateId', 'name')
     .populate('vendorId', 'name vendorId')
+    .populate('partnerId', 'name partnerCode')
     .populate('depreciationPolicyId', 'name method rate')
     .lean();
 
@@ -506,6 +520,7 @@ export async function calculateAssetMetrics(assetId, organizationId, userId) {
     .populate('groupId', 'name')
     .populate('templateId', 'name')
     .populate('vendorId', 'name vendorId')
+    .populate('partnerId', 'name partnerCode')
     .lean();
   if (!asset) throw new Error('Asset not found');
   const issueStats = await fetchIssueCountsByAsset([asset._id]);

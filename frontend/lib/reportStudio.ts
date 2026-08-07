@@ -274,7 +274,9 @@ export async function fetchDefinition(id: string) {
   return parse<ReportDefinition>(res);
 }
 
-export async function saveDefinition(body: Partial<ReportDefinition> & { config: ReportConfig }) {
+export async function saveDefinition(
+  body: Partial<ReportDefinition> & { config: ReportConfig; autosave?: boolean }
+) {
   const res = await fetch(api('/api/report-studio/definitions'), {
     method: 'POST',
     headers: authHeaders(),
@@ -283,7 +285,10 @@ export async function saveDefinition(body: Partial<ReportDefinition> & { config:
   return parse<ReportDefinition>(res);
 }
 
-export async function updateDefinition(id: string, body: Partial<ReportDefinition>) {
+export async function updateDefinition(
+  id: string,
+  body: Partial<ReportDefinition> & { autosave?: boolean }
+) {
   const res = await fetch(api(`/api/report-studio/definitions/${id}`), {
     method: 'PATCH',
     headers: authHeaders(),

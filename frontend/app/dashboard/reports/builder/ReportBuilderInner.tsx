@@ -165,6 +165,7 @@ export default function ReportBuilderInner() {
             description,
             config: configWithUi,
             kind: kindToSave,
+            autosave: true,
           });
           setDraftNote(kindToSave === 'draft' ? 'Draft saved' : 'Progress saved');
         } else {
@@ -173,6 +174,7 @@ export default function ReportBuilderInner() {
             description,
             config: configWithUi,
             kind: 'draft',
+            autosave: true,
           });
           setDefinitionId(created._id);
           setDefinitionKind('draft');
@@ -317,16 +319,44 @@ export default function ReportBuilderInner() {
     setBusy(`export-${format}`);
     setError('');
     try {
-      if (format === 'print') {
-        window.print();
-        return;
-      }
       const out = await exportReport({
         config,
         format,
         reportName: name || 'Report',
         reportId: definitionId || undefined,
       });
+      if (format === 'print') {
+        // Open printable PDF in a new window (also records the export audit)
+        const blob =
+          out.download.encoding === 'base64'
+            ? (() => {
+                const binary = atob(out.download.content);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+                return new Blob([bytes], { type: out.download.contentType || 'application/pdf' });
+              })()
+            : new Blob([out.download.content], { type: out.download.contentType || 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const win = window.open(url, '_blank');
+        if (win) {
+          win.addEventListener('load', () => {
+            try {
+              win.print();
+            } catch {
+              /* ignore */
+            }
+          });
+        } else {
+          downloadTextFile(
+            out.download.fileName,
+            out.download.content,
+            out.download.contentType,
+            out.download.encoding
+          );
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        return;
+      }
       downloadTextFile(
         out.download.fileName,
         out.download.content,
@@ -1026,6 +1056,9 @@ export default function ReportBuilderInner() {
 
         {step === 7 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
+            <p className="sm:col-span-2 text-[11px] text-gray-500">
+              Prefills from Report Studio settings. Change any field here for this report only.
+            </p>
             <div>
               <label className="block text-xs font-medium text-gray-400 mb-1">Header</label>
               <input

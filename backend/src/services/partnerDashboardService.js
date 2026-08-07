@@ -7,6 +7,7 @@ const EXPIRY_WINDOW_DAYS = 30;
 
 function buildPartnerQuery(organizationId, filters = {}) {
   const query = { organizationId };
+  if (filters.partnerId) query._id = filters.partnerId;
   if (filters.status) query.status = String(filters.status);
   if (filters.partnerTypeKey) query.partnerTypeKey = String(filters.partnerTypeKey);
   if (filters.categoryKey) query.categoryKey = String(filters.categoryKey);

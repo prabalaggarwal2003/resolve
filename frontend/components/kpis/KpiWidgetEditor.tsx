@@ -16,6 +16,12 @@ import {
   withBudgetFilterDefaults,
 } from '@/lib/kpiBudgetBridge';
 import {
+  PARTNER_KPI_METRIC_OPTIONS,
+  PARTNER_QUICK_OPTIONS,
+  isPartnerWidget,
+  withPartnerFilterDefaults,
+} from '@/lib/kpiPartnerBridge';
+import {
   COMBINED_GROUP_BY_OPTIONS,
   COMBINED_WIDGET_LIBRARY,
 } from '@/lib/kpiWidgetCatalog';
@@ -27,6 +33,10 @@ import {
 
 const inputClass = 'w-full px-2.5 py-1.5 text-sm border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200';
 const labelClass = 'text-[10px] text-gray-500 uppercase block mb-0.5';
+
+function withDomainDefaults(widget: KpiWidget): KpiWidget {
+  return withPartnerFilterDefaults(withBudgetFilterDefaults(widget));
+}
 
 export default function KpiWidgetEditor({
   widget,
@@ -43,9 +53,10 @@ export default function KpiWidgetEditor({
   useEffect(() => setForm(widget), [widget]);
 
   const usesBudget = isBudgetWidget(form);
+  const usesPartner = isPartnerWidget(form);
   const groupOptions = usesBudget ? COMBINED_GROUP_BY_OPTIONS : GROUP_BY_OPTIONS;
   const chartMeta = CHART_TYPE_OPTIONS.find((c) => c.id === form.chartType);
-  const needsGroupBy = form.kind === 'metric' && chartMeta?.needsGroupBy !== false && form.chartType !== 'kpi';
+  const needsGroupBy = form.kind === 'metric' && chartMeta?.needsGroupBy !== false && form.chartType !== 'kpi' && !usesPartner;
 
   const applyLibraryItem = (partial: Partial<KpiWidget>, title: string) => {
     const draft = newKpiWidget({
@@ -56,12 +67,12 @@ export default function KpiWidgetEditor({
       colSpan: form.colSpan,
       rowSpan: form.rowSpan,
     });
-    setForm(withBudgetFilterDefaults(draft));
+    setForm(withDomainDefaults(draft));
     setTab('config');
   };
 
   const patchForm = (patch: Partial<KpiWidget>) => {
-    setForm((prev) => withBudgetFilterDefaults({ ...prev, ...patch }));
+    setForm((prev) => withDomainDefaults({ ...prev, ...patch }));
   };
 
   return (
@@ -108,13 +119,29 @@ export default function KpiWidgetEditor({
             {form.kind === 'quick' ? (
               <div>
                 <label className={labelClass}>Quick widget</label>
-                <select className={inputClass} value={form.quickType || ''} onChange={(e) => patchForm({ quickType: e.target.value })}>
+                <select
+                  className={inputClass}
+                  value={form.quickType || ''}
+                  onChange={(e) => {
+                    const quickType = e.target.value;
+                    const isPartner = PARTNER_QUICK_OPTIONS.some((q) => q.id === quickType);
+                    const isBudget = BUDGET_QUICK_OPTIONS.some((q) => q.id === quickType);
+                    patchForm({
+                      quickType,
+                      dataSource: isPartner ? 'partner' : isBudget ? 'budget' : 'asset',
+                      metric: undefined,
+                    });
+                  }}
+                >
                   <option value="">Select…</option>
                   <optgroup label="Assets">
                     {QUICK_WIDGET_OPTIONS.map((q) => <option key={q.id} value={q.id}>{q.label}</option>)}
                   </optgroup>
                   <optgroup label="Budget & procurement">
                     {BUDGET_QUICK_OPTIONS.map((q) => <option key={q.id} value={q.id}>{q.label}</option>)}
+                  </optgroup>
+                  <optgroup label="Partners">
+                    {PARTNER_QUICK_OPTIONS.map((q) => <option key={q.id} value={q.id}>{q.label}</option>)}
                   </optgroup>
                 </select>
               </div>
@@ -123,7 +150,21 @@ export default function KpiWidgetEditor({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={labelClass}>Metric</label>
-                    <select className={inputClass} value={form.metric || ''} onChange={(e) => patchForm({ metric: e.target.value })}>
+                    <select
+                      className={inputClass}
+                      value={form.metric || ''}
+                      onChange={(e) => {
+                        const metric = e.target.value;
+                        const isPartner = PARTNER_KPI_METRIC_OPTIONS.some((m) => m.id === metric);
+                        const isBudget = BUDGET_METRIC_OPTIONS.some((m) => m.id === metric);
+                        patchForm({
+                          metric,
+                          dataSource: isPartner ? 'partner' : isBudget ? 'budget' : 'asset',
+                          quickType: undefined,
+                          chartType: isPartner ? 'kpi' : form.chartType || 'kpi',
+                        });
+                      }}
+                    >
                       <option value="">Select…</option>
                       <optgroup label="Assets">
                         {METRIC_OPTIONS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
@@ -131,11 +172,19 @@ export default function KpiWidgetEditor({
                       <optgroup label="Budget & procurement">
                         {BUDGET_METRIC_OPTIONS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
                       </optgroup>
+                      <optgroup label="Partners">
+                        {PARTNER_KPI_METRIC_OPTIONS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                      </optgroup>
                     </select>
                   </div>
                   <div>
                     <label className={labelClass}>Chart type</label>
-                    <select className={inputClass} value={form.chartType || 'kpi'} onChange={(e) => patchForm({ chartType: e.target.value as KpiChartType })}>
+                    <select
+                      className={inputClass}
+                      value={form.chartType || 'kpi'}
+                      disabled={usesPartner}
+                      onChange={(e) => patchForm({ chartType: e.target.value as KpiChartType })}
+                    >
                       {CHART_TYPE_OPTIONS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
                     </select>
                   </div>
@@ -182,16 +231,18 @@ export default function KpiWidgetEditor({
               </div>
             </div>
             <p className="text-[11px] text-gray-600">
-              {usesBudget
-                ? 'Budget widgets support budget/procurement filters on the widget card after saving.'
-                : 'Add filters on the widget card after saving.'}
+              {usesPartner
+                ? 'Partner widgets support partner filters on the widget card after saving.'
+                : usesBudget
+                  ? 'Budget widgets support budget/procurement filters on the widget card after saving.'
+                  : 'Add filters on the widget card after saving. Asset widgets can filter by partner.'}
             </p>
           </div>
         )}
 
         <div className="flex justify-end gap-2 mt-5">
           <button type="button" onClick={onCancel} className="px-3 py-1.5 text-xs rounded-lg border border-gray-700/60 text-gray-400">Cancel</button>
-          <button type="button" onClick={() => onSave(withBudgetFilterDefaults(form))} className="px-3 py-1.5 text-xs rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300">Save widget</button>
+          <button type="button" onClick={() => onSave(withDomainDefaults(form))} className="px-3 py-1.5 text-xs rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300">Save widget</button>
         </div>
       </div>
     </div>

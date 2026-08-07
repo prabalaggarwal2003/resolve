@@ -13,7 +13,6 @@ const tabs = [
   { href: '/dashboard/reports/templates', label: 'Templates', match: (p: string) => p.startsWith('/dashboard/reports/templates') },
   { href: '/dashboard/reports/history', label: 'Export History', match: (p: string) => p.startsWith('/dashboard/reports/history') },
   { href: '/dashboard/reports/settings', label: 'Settings', match: (p: string) => p.startsWith('/dashboard/reports/settings') },
-  { href: '/dashboard/reports/period', label: 'Issue Periods', match: (p: string) => p.startsWith('/dashboard/reports/period') },
 ];
 
 export default function ReportsModuleNav() {
