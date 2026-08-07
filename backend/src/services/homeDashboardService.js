@@ -21,9 +21,10 @@ const OVERDUE_MS = 2 * 24 * 60 * 60 * 1000;
 
 function filtersFromQuery(query) {
   const keys = [
-    'departmentId', 'locationId', 'groupId', 'templateId', 'vendorId', 'status',
+    'departmentId', 'locationId', 'groupId', 'templateId', 'vendorId', 'partnerId', 'status',
     'category', 'purchaseYear', 'warrantyStatus', 'condition', 'assignedUserId',
     'dateFrom', 'dateTo',
+    'partnerStatus', 'partnerTypeKey', 'partnerCategoryKey', 'partnerTag', 'partnerSearch',
   ];
   const filters = {};
   for (const k of keys) {
@@ -40,6 +41,13 @@ function applyWidgetFilters(assets, filters = {}) {
     if (f.groupId && String(a.groupId) !== String(f.groupId)) return false;
     if (f.templateId && String(a.templateId) !== String(f.templateId)) return false;
     if (f.vendorId && String(a.vendorId) !== String(f.vendorId)) return false;
+    if (f.partnerId) {
+      const pid = String(f.partnerId);
+      const linked =
+        (a.partnerId && String(a.partnerId) === pid) ||
+        (a.vendorId && String(a.vendorId) === pid);
+      if (!linked) return false;
+    }
     if (f.status && a.status !== f.status) return false;
     if (f.category && a.category !== f.category) return false;
     if (f.condition && a.condition !== f.condition) return false;
@@ -303,6 +311,15 @@ export async function getHomeDashboardData(user, query = {}) {
     kpiTotals: kpi.totals,
     quick: kpi.quick,
     budget: kpi.budget ?? null,
+    partners: kpi.partners
+      ? {
+          partners: kpi.partners.partners || [],
+          contracts: kpi.partners.contracts || [],
+          recentActivity: kpi.partners.recentActivity || [],
+          topPartners: kpi.partners.topPartners || [],
+          expiryWindowDays: kpi.partners.expiryWindowDays,
+        }
+      : null,
     pageFilters,
   };
 }

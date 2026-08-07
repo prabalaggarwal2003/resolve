@@ -183,19 +183,21 @@ router.put('/:id', requireBudgetWrite, async (req, res) => {
   try {
     const { budget, changes } = await updateBudget(req.user.organizationId, req.user, req.params.id, req.body);
     const auditPayload = changes?.length ? changesToAuditPayload(changes) : null;
-    await logAudit(
-      req.user._id,
-      AUDIT_ACTIONS.BUDGET_UPDATED,
-      AUDIT_RESOURCES.BUDGET,
-      budget._id,
-      {
-        resourceName: budget.name,
-        description: auditPayload?.summary || `Updated budget "${budget.name}"`,
-        details: auditPayload || undefined,
-        severity: 'medium',
-        ...getRequestMetadata(req),
-      }
-    );
+    if (auditPayload) {
+      await logAudit(
+        req.user._id,
+        AUDIT_ACTIONS.BUDGET_UPDATED,
+        AUDIT_RESOURCES.BUDGET,
+        budget._id,
+        {
+          resourceName: budget.name,
+          description: auditPayload.summary || `Updated budget "${budget.name}"`,
+          details: auditPayload,
+          severity: 'medium',
+          ...getRequestMetadata(req),
+        }
+      );
+    }
     res.json({ budget, changes: changes || [] });
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });

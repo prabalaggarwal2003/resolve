@@ -15,7 +15,9 @@ import KpiWidgetContent from '@/components/kpis/KpiWidgetContent';
 import KpiWidgetEditor from '@/components/kpis/KpiWidgetEditor';
 import KpiWidgetFilters from '@/components/kpis/KpiWidgetFilters';
 import BudgetWidgetFilters from '@/components/budgets/BudgetWidgetFilters';
+import PartnerWidgetFilters from '@/components/partners/PartnerWidgetFilters';
 import { isBudgetWidget, kpiWidgetToBudgetWidget } from '@/lib/kpiBudgetBridge';
+import { isPartnerWidget, kpiWidgetToPartnerWidget } from '@/lib/kpiPartnerBridge';
 import KpiWidgetResizeHandle from '@/components/kpis/KpiWidgetResizeHandle';
 
 const buttonClass = 'px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors';
@@ -34,6 +36,9 @@ export default function KpiWidgetBoard({
   users,
   saving,
   statusOptions,
+  partnerStatuses = [],
+  partnerTypes = [],
+  partnerCategories = [],
 }: {
   ctx: KpiDataContext;
   layout: KpiDashboardLayout;
@@ -48,6 +53,9 @@ export default function KpiWidgetBoard({
   users: { _id: string; name: string }[];
   saving?: boolean;
   statusOptions: string[];
+  partnerStatuses?: { id: string; name: string }[];
+  partnerTypes?: { id: string; name: string }[];
+  partnerCategories?: { id: string; name: string }[];
 }) {
   const [editing, setEditing] = useState<KpiWidget | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -82,7 +90,7 @@ export default function KpiWidgetBoard({
       widgets: [...prev.widgets].sort((a, b) => a.order - b.order).map((w) => {
         if (w.id !== id) return w;
         const next = { ...w, ...patch };
-        return { ...next, filters: next.filters ?? {}, filterFields: next.filterFields ?? [], budgetFilters: next.budgetFilters ?? {}, budgetFilterFields: next.budgetFilterFields ?? [] };
+        return { ...next, filters: next.filters ?? {}, filterFields: next.filterFields ?? [], budgetFilters: next.budgetFilters ?? {}, budgetFilterFields: next.budgetFilterFields ?? [], partnerFilters: next.partnerFilters ?? {}, partnerFilterFields: next.partnerFilterFields ?? [] };
       }).map((w, i) => ({ ...w, order: i })),
     }));
   };
@@ -161,7 +169,23 @@ export default function KpiWidgetBoard({
                   </div>
                 )}
               </div>
-              {isBudgetWidget(widget) ? (
+              {isPartnerWidget(widget) ? (
+                <PartnerWidgetFilters
+                  widget={kpiWidgetToPartnerWidget(widget)}
+                  onChange={(p) =>
+                    updateWidget(widget.id, {
+                      partnerFilters: p.filters,
+                      partnerFilterFields: p.filterFields,
+                    })
+                  }
+                  statuses={partnerStatuses}
+                  partnerTypes={partnerTypes}
+                  categories={partnerCategories}
+                  tags={Array.from(
+                    new Set((ctx.partners?.partners || []).flatMap((p) => p.tags || []).filter(Boolean))
+                  ).sort()}
+                />
+              ) : isBudgetWidget(widget) ? (
                 <BudgetWidgetFilters
                   widget={kpiWidgetToBudgetWidget(widget)}
                   onChange={(p) => updateWidget(widget.id, { budgetFilters: p.filters, budgetFilterFields: p.filterFields })}

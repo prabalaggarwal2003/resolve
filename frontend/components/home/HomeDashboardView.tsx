@@ -45,6 +45,9 @@ export default function HomeDashboardView({
   vendors,
   users,
   statusOptions,
+  partnerStatuses = [],
+  partnerTypes = [],
+  partnerCategories = [],
 }: {
   groups: { _id: string; name: string }[];
   templates: { _id: string; name: string }[];
@@ -53,6 +56,9 @@ export default function HomeDashboardView({
   vendors: { _id: string; name: string }[];
   users: { _id: string; name: string }[];
   statusOptions: string[];
+  partnerStatuses?: { id: string; name: string }[];
+  partnerTypes?: { id: string; name: string }[];
+  partnerCategories?: { id: string; name: string }[];
 }) {
   const [ctx, setCtx] = useState<HomeDataContext | null>(null);
   const [loading, setLoading] = useState(true);
@@ -205,6 +211,42 @@ export default function HomeDashboardView({
             </select>
           </div>
           <div>
+            <label className="text-[9px] text-gray-600 block mb-0.5">Partner status</label>
+            <select className={inputClass} value={pageFilters.partnerStatus || ''} onChange={(e) => setPageFilter('partnerStatus', e.target.value)}>
+              <option value="">All</option>
+              {partnerStatuses.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-[9px] text-gray-600 block mb-0.5">Partner type</label>
+            <select className={inputClass} value={pageFilters.partnerTypeKey || ''} onChange={(e) => setPageFilter('partnerTypeKey', e.target.value)}>
+              <option value="">All</option>
+              {partnerTypes.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-[9px] text-gray-600 block mb-0.5">Partner category</label>
+            <select className={inputClass} value={pageFilters.partnerCategoryKey || ''} onChange={(e) => setPageFilter('partnerCategoryKey', e.target.value)}>
+              <option value="">All</option>
+              {partnerCategories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-[9px] text-gray-600 block mb-0.5">Partner search</label>
+            <input
+              className={inputClass}
+              placeholder="Name / code"
+              value={pageFilters.partnerSearch || ''}
+              onChange={(e) => setPageFilter('partnerSearch', e.target.value)}
+            />
+          </div>
+          <div>
             <label className="text-[9px] text-gray-600 block mb-0.5">From</label>
             <input type="date" className={inputClass} value={pageFilters.dateFrom || ''} onChange={(e) => setPageFilter('dateFrom', e.target.value)} />
           </div>
@@ -314,6 +356,9 @@ export default function HomeDashboardView({
           users={users}
           saving={saving}
           statusOptions={statusOptions}
+          partnerStatuses={partnerStatuses}
+          partnerTypes={partnerTypes}
+          partnerCategories={partnerCategories}
         />
       )}
     </div>

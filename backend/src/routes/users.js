@@ -155,14 +155,37 @@ router.get('/', async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
     const filter = { isActive: true, organizationId: req.user.organizationId };
-    const users = await User.find(filter)
-      .select('_id name email role customRoleId departmentId assignedLocationIds isActive organizationId')
-      .populate('departmentId', 'name')
-      .populate('customRoleId', 'name')
-      .populate('assignedLocationIds', 'name type code')
-      .sort({ name: 1 })
-      .lean();
-    res.json({ users });
+    const [users, org] = await Promise.all([
+      User.find(filter)
+        .select(
+          '_id name email role customRoleId departmentId assignedLocationIds organizationAddressId isActive organizationId'
+        )
+        .populate('departmentId', 'name')
+        .populate('customRoleId', 'name')
+        .populate('assignedLocationIds', 'name type code')
+        .sort({ name: 1 })
+        .lean(),
+      Organization.findById(req.user.organizationId).select('addresses').lean(),
+    ]);
+
+    const addressMap = new Map((org?.addresses || []).map((a) => [String(a._id), a]));
+    const enriched = users.map((u) => {
+      const addr = u.organizationAddressId ? addressMap.get(String(u.organizationAddressId)) : null;
+      return {
+        ...u,
+        organizationAddress: addr
+          ? {
+              _id: addr._id,
+              typeKey: addr.typeKey,
+              label: addr.label,
+              city: addr.city,
+              street: addr.street,
+            }
+          : null,
+      };
+    });
+
+    res.json({ users: enriched });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -201,7 +224,8 @@ router.post('/', async (req, res) => {
       return res.status(403).json({ message });
     }
 
-    const { email, name, password, customRoleId, departmentId, assignedLocationIds } = req.body;
+    const { email, name, password, customRoleId, departmentId, assignedLocationIds, organizationAddressId } =
+      req.body;
     if (!email || !name || !password || !customRoleId) {
       return res.status(400).json({ message: 'Email, name, password, and role are required' });
     }
@@ -217,6 +241,13 @@ router.post('/', async (req, res) => {
     });
     if (!orgRole) return res.status(400).json({ message: 'Invalid role selected' });
 
+    let resolvedAddressId;
+    if (organizationAddressId) {
+      const match = (org.addresses || []).some((a) => String(a._id) === String(organizationAddressId));
+      if (!match) return res.status(400).json({ message: 'Invalid organization address' });
+      resolvedAddressId = organizationAddressId;
+    }
+
     const existing = await User.findOne({ email: email.toLowerCase() });
     if (existing) return res.status(400).json({ message: 'Email already registered' });
 
@@ -230,10 +261,13 @@ router.post('/', async (req, res) => {
       organizationId: req.user.organizationId,
       departmentId: departmentId || undefined,
       assignedLocationIds: Array.isArray(assignedLocationIds) ? assignedLocationIds : undefined,
+      organizationAddressId: resolvedAddressId || undefined,
       emailVerified: true,
     });
     const populated = await User.findById(user._id)
-      .select('_id name email role customRoleId departmentId assignedLocationIds isActive organizationId')
+      .select(
+        '_id name email role customRoleId departmentId assignedLocationIds organizationAddressId isActive organizationId'
+      )
       .populate('departmentId', 'name')
       .populate('customRoleId', 'name')
       .populate('assignedLocationIds', 'name type code')
@@ -256,7 +290,8 @@ router.patch('/:id', async (req, res) => {
     if (!canManageUsers(req.user, req)) {
       return res.status(403).json({ message: 'Only Super Admin can update users' });
     }
-    const { name, customRoleId, departmentId, assignedLocationIds, isActive } = req.body;
+    const { name, customRoleId, departmentId, assignedLocationIds, organizationAddressId, isActive } =
+      req.body;
     const update = {};
     if (name !== undefined) update.name = name.trim();
     if (customRoleId !== undefined) {
@@ -274,6 +309,16 @@ router.patch('/:id', async (req, res) => {
     if (assignedLocationIds !== undefined) {
       update.assignedLocationIds = Array.isArray(assignedLocationIds) ? assignedLocationIds : [];
     }
+    if (organizationAddressId !== undefined) {
+      if (!organizationAddressId) {
+        update.organizationAddressId = null;
+      } else {
+        const org = await Organization.findById(req.user.organizationId).select('addresses').lean();
+        const match = (org?.addresses || []).some((a) => String(a._id) === String(organizationAddressId));
+        if (!match) return res.status(400).json({ message: 'Invalid organization address' });
+        update.organizationAddressId = organizationAddressId;
+      }
+    }
     if (isActive !== undefined) update.isActive = !!isActive;
 
     const existing = await User.findById(req.params.id).lean();
@@ -283,7 +328,9 @@ router.patch('/:id', async (req, res) => {
     }
 
     const user = await User.findByIdAndUpdate(req.params.id, update, { new: true })
-      .select('_id name email role customRoleId departmentId assignedLocationIds isActive organizationId')
+      .select(
+        '_id name email role customRoleId departmentId assignedLocationIds organizationAddressId isActive organizationId'
+      )
       .populate('departmentId', 'name')
       .populate('customRoleId', 'name')
       .populate('assignedLocationIds', 'name type code')

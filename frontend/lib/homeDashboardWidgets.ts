@@ -1,5 +1,6 @@
 import { isActiveAssetStatus } from '@/lib/assetStatuses';
 import type { BudgetDataContext, BudgetFilterFieldKey, BudgetWidgetFilters } from './budgetWidgets';
+import type { PartnerDataContext, PartnerFilterFieldKey, PartnerWidgetFilters } from './partnerDashboardWidgets';
 import type {
   KpiAssetMetrics,
   KpiChartType,
@@ -21,8 +22,9 @@ import {
 
 export type HomeFilterFieldKey =
   | 'dateFrom' | 'dateTo' | 'departmentId' | 'locationId' | 'groupId' | 'templateId'
-  | 'vendorId' | 'status' | 'category' | 'purchaseYear' | 'warrantyStatus' | 'condition' | 'assignedUserId'
-  | 'auditResource';
+  | 'vendorId' | 'partnerId' | 'status' | 'category' | 'purchaseYear' | 'warrantyStatus' | 'condition' | 'assignedUserId'
+  | 'auditResource'
+  | 'partnerStatus' | 'partnerTypeKey' | 'partnerCategoryKey' | 'partnerTag' | 'partnerSearch';
 
 export type HomeWidgetFilters = Partial<Record<HomeFilterFieldKey, string>>;
 
@@ -54,7 +56,7 @@ export type HomeWidget = {
   id: string;
   title: string;
   kind: HomeWidgetKind;
-  dataSource?: 'asset' | 'budget';
+  dataSource?: 'asset' | 'budget' | 'partner';
   metric?: HomeKpiMetric | HomeChartMetric | KpiMetric | string;
   groupBy?: KpiGroupBy | string;
   chartType?: KpiChartType | 'donut' | 'horizontal_bar';
@@ -67,6 +69,8 @@ export type HomeWidget = {
   filterFields: HomeFilterFieldKey[];
   budgetFilters?: BudgetWidgetFilters;
   budgetFilterFields?: BudgetFilterFieldKey[];
+  partnerFilters?: PartnerWidgetFilters;
+  partnerFilterFields?: PartnerFilterFieldKey[];
   order: number;
   visible?: boolean;
   sizeLocked?: boolean;
@@ -150,6 +154,7 @@ export type HomeDataContext = {
   kpiTotals: KpiTotals;
   quick: KpiQuickData;
   budget?: BudgetDataContext | null;
+  partners?: PartnerDataContext | null;
 };
 
 export type HomeWidgetResult = {
@@ -194,6 +199,7 @@ export const WIDGET_FILTER_CATALOG: { key: HomeFilterFieldKey; label: string }[]
   { key: 'groupId', label: 'Asset group' },
   { key: 'templateId', label: 'Template' },
   { key: 'vendorId', label: 'Vendor' },
+  { key: 'partnerId', label: 'Partner' },
   { key: 'status', label: 'Status' },
   { key: 'category', label: 'Category' },
   { key: 'purchaseYear', label: 'Purchase year' },
@@ -344,6 +350,7 @@ export function homeDataAsKpiContext(ctx: HomeDataContext): KpiDataContext {
       replacementRecommendations: [],
     },
     budget: ctx.budget ?? null,
+    partners: ctx.partners ?? null,
   };
 }
 
@@ -361,6 +368,8 @@ export function homeWidgetAsKpi(widget: HomeWidget): KpiWidget {
     filterFields: widget.filterFields as KpiFilterFieldKey[],
     budgetFilters: widget.budgetFilters,
     budgetFilterFields: widget.budgetFilterFields,
+    partnerFilters: widget.partnerFilters,
+    partnerFilterFields: widget.partnerFilterFields,
     timeRange: widget.timeRange,
     sortOrder: widget.sortOrder,
     limit: widget.limit,

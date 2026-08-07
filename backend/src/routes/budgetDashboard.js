@@ -113,6 +113,15 @@ router.put('/dashboards/:id', requireTabRead('budgets'), async (req, res) => {
     if (!canAccessDashboard(dashboard, req.user)) {
       return res.status(404).json({ message: 'Dashboard not found' });
     }
+    const before = {
+      name: dashboard.name,
+      description: dashboard.description || '',
+      autoRefresh: dashboard.autoRefresh,
+      scope: dashboard.scope,
+      templateId: dashboard.templateId ? String(dashboard.templateId) : null,
+      allowedRoleIds: (dashboard.allowedRoleIds || []).map(String).sort().join(','),
+    };
+
     const { name, description, layout, autoRefresh, allowedRoleIds, scope } = req.body;
     if (name != null) dashboard.name = name.trim();
     if (description != null) dashboard.description = description;
@@ -124,19 +133,55 @@ router.put('/dashboards/:id', requireTabRead('budgets'), async (req, res) => {
       dashboard.scope = scope === 'organization' ? 'organization' : 'personal';
     }
     await dashboard.save();
-    await logAudit(
-      req.user._id,
-      AUDIT_ACTIONS.BUDGET_UPDATED,
-      AUDIT_RESOURCES.BUDGET,
-      dashboard._id,
-      {
-        resourceName: dashboard.name,
-        description: `Updated budget dashboard "${dashboard.name}"`,
-        details: { entityType: 'dashboard' },
-        severity: 'low',
-        ...getRequestMetadata(req),
-      }
-    );
+
+    const after = {
+      name: dashboard.name,
+      description: dashboard.description || '',
+      autoRefresh: dashboard.autoRefresh,
+      scope: dashboard.scope,
+      templateId: dashboard.templateId ? String(dashboard.templateId) : null,
+      allowedRoleIds: (dashboard.allowedRoleIds || []).map(String).sort().join(','),
+    };
+
+    // Layout autosaves on open/resize should not create org audit noise.
+    const auditedChanges = [];
+    for (const [field, label] of [
+      ['name', 'Name'],
+      ['description', 'Description'],
+      ['autoRefresh', 'Auto refresh'],
+      ['scope', 'Scope'],
+      ['templateId', 'Template'],
+      ['allowedRoleIds', 'Allowed roles'],
+    ]) {
+      if (before[field] === after[field]) continue;
+      auditedChanges.push({
+        field,
+        label,
+        oldValue: before[field] == null || before[field] === '' ? '—' : String(before[field]),
+        newValue: after[field] == null || after[field] === '' ? '—' : String(after[field]),
+      });
+    }
+
+    if (auditedChanges.length) {
+      await logAudit(
+        req.user._id,
+        AUDIT_ACTIONS.BUDGET_UPDATED,
+        AUDIT_RESOURCES.BUDGET,
+        dashboard._id,
+        {
+          resourceName: dashboard.name,
+          description: `Updated budget dashboard "${dashboard.name}"`,
+          details: {
+            entityType: 'dashboard',
+            fieldChanges: auditedChanges,
+            changes: auditedChanges,
+          },
+          severity: 'low',
+          ...getRequestMetadata(req),
+        }
+      );
+    }
+
     res.json({ dashboard });
   } catch (error) {
     res.status(500).json({ message: error.message });

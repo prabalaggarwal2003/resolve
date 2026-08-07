@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { downloadExport, downloadTextFile, fetchExports } from '@/lib/reportStudio';
 
@@ -13,23 +13,34 @@ export default function ExportHistoryPage() {
   const [format, setFormat] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const data = await fetchExports({ search: search || undefined, format: format || undefined });
-      setItems(data.exports || []);
-      setError('');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const requestId = useRef(0);
 
   useEffect(() => {
-    load();
-  }, []);
+    const timer = setTimeout(
+      async () => {
+        const id = ++requestId.current;
+        setLoading(true);
+        try {
+          const data = await fetchExports({
+            search: search.trim() || undefined,
+            format: format || undefined,
+          });
+          if (id !== requestId.current) return;
+          setItems(data.exports || []);
+          setError('');
+        } catch (e) {
+          if (id !== requestId.current) return;
+          setError(e instanceof Error ? e.message : 'Failed to load');
+        } finally {
+          if (id === requestId.current) setLoading(false);
+        }
+      },
+      // Debounce typing; apply format filter immediately
+      search ? 250 : 0
+    );
+
+    return () => clearTimeout(timer);
+  }, [search, format]);
 
   return (
     <div className="space-y-4">
@@ -50,9 +61,6 @@ export default function ExportHistoryPage() {
             </option>
           ))}
         </select>
-        <button type="button" onClick={load} className={`${buttonClass} border-amber-500/40 text-amber-300`}>
-          Search
-        </button>
       </div>
 
       {loading ? (

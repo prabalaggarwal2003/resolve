@@ -22,10 +22,14 @@ import {
 } from '../services/partnerActivityService.js';
 import {
   diffPartnerFields,
+  diffPartnerOrgConfig,
+  diffPlainObjectFields,
   enrichPartnerStats,
   formatPartnerFieldChangesSummary,
   partnerActivityDetails,
+  partnerAuditDetails,
   partnerLinkQuery,
+  toAuditFieldChanges,
 } from '../services/businessPartnerService.js';
 import { computePartnerPerformance } from '../services/partnerPerformanceService.js';
 import { getPartnerDashboardSummary } from '../services/partnerDashboardService.js';
@@ -108,6 +112,22 @@ function audit(req, action, resource, resourceId, options = {}) {
   });
 }
 
+/** Log a partner-related mutation with field-level audit details. */
+function auditPartnerMutation(req, action, resource, resourceId, partner, changes = [], options = {}) {
+  const fieldChanges = toAuditFieldChanges(changes);
+  const summary =
+    options.description ||
+    formatPartnerFieldChangesSummary(partner?.name || options.resourceName || 'Partner', fieldChanges);
+  return audit(req, action, resource, resourceId, {
+    resourceName:
+      options.resourceName ||
+      (partner ? `${partner.partnerCode || ''} - ${partner.name || ''}`.trim() : undefined),
+    description: summary,
+    details: partnerAuditDetails(partner, fieldChanges, options.extra || {}),
+    severity: options.severity || 'low',
+  });
+}
+
 async function loadPartner(req) {
   return BusinessPartner.findOne({
     _id: req.params.id,
@@ -141,16 +161,29 @@ router.get('/config', requirePartnerRead, async (req, res) => {
 
 router.put('/config', requirePartnerWrite, async (req, res) => {
   try {
+    const beforeDoc = await getBusinessPartnerOrgConfig(req.user.organizationId);
+    const before = beforeDoc?.toObject ? beforeDoc.toObject() : { ...beforeDoc };
+    const payload = req.body || {};
     const config = await updateBusinessPartnerOrgConfig(
       req.user.organizationId,
       req.user._id,
-      req.body || {}
+      payload
     );
-    await audit(req, AUDIT_ACTIONS.BUSINESS_PARTNER_CONFIG_UPDATED, AUDIT_RESOURCES.BUSINESS_PARTNER, config._id, {
-      resourceName: 'Business partner settings',
-      description: 'Updated business partner configuration',
-      details: { keys: Object.keys(req.body || {}) },
-    });
+    const after = config?.toObject ? config.toObject() : config;
+
+    const configChanges = diffPartnerOrgConfig(before, after, Object.keys(payload));
+
+    if (configChanges.length) {
+      await audit(req, AUDIT_ACTIONS.ORG_SETTINGS_CHANGED, AUDIT_RESOURCES.BUSINESS_PARTNER, config._id, {
+        resourceName: 'Business partner settings',
+        description: formatPartnerFieldChangesSummary('Partner settings', configChanges),
+        details: partnerAuditDetails(null, configChanges, {
+          keys: Object.keys(payload),
+        }),
+        severity: 'medium',
+      });
+    }
+
     res.json({ config });
   } catch (error) {
     console.error('Update partner config error:', error);
@@ -497,11 +530,18 @@ router.post('/', requirePartnerWrite, async (req, res) => {
     await audit(req, AUDIT_ACTIONS.BUSINESS_PARTNER_CREATED, AUDIT_RESOURCES.BUSINESS_PARTNER, partner._id, {
       resourceName: `${partner.partnerCode} - ${partner.name}`,
       description: `Created business partner: ${partner.name}`,
-      details: {
-        partnerCode: partner.partnerCode,
-        partnerTypeKey: partner.partnerTypeKey,
-        status: partner.status,
-      },
+      details: partnerAuditDetails(partner, [
+        { field: 'name', label: 'Name', from: '(empty)', to: partner.name || '(empty)' },
+        { field: 'partnerCode', label: 'Partner Code', from: '(empty)', to: partner.partnerCode || '(empty)' },
+        { field: 'partnerTypeKey', label: 'Partner Type', from: '(empty)', to: partner.partnerTypeKey || '(empty)' },
+        { field: 'status', label: 'Status', from: '(empty)', to: partner.status || '(empty)' },
+        ...(partner.email
+          ? [{ field: 'email', label: 'Email', from: '(empty)', to: partner.email }]
+          : []),
+        ...(partner.phone
+          ? [{ field: 'phone', label: 'Phone', from: '(empty)', to: partner.phone }]
+          : []),
+      ]),
     });
 
     res.status(201).json({
@@ -603,13 +643,16 @@ router.put('/:id', requirePartnerWrite, async (req, res) => {
         summary: formatPartnerFieldChangesSummary(partner.name, changes),
         details: partnerActivityDetails(req, partner, { changes }),
       });
-    }
 
-    await audit(req, AUDIT_ACTIONS.BUSINESS_PARTNER_UPDATED, AUDIT_RESOURCES.BUSINESS_PARTNER, partner._id, {
-      resourceName: `${partner.partnerCode} - ${partner.name}`,
-      description: `Updated business partner: ${partner.name}`,
-      details: { changes },
-    });
+      await auditPartnerMutation(
+        req,
+        AUDIT_ACTIONS.BUSINESS_PARTNER_UPDATED,
+        AUDIT_RESOURCES.BUSINESS_PARTNER,
+        partner._id,
+        partner,
+        changes
+      );
+    }
 
     res.json({
       message: 'Business partner updated successfully',
@@ -645,12 +688,32 @@ router.delete('/:id', requirePartnerWrite, async (req, res) => {
       PartnerActivity.deleteMany({ partnerId: partner._id, organizationId: req.user.organizationId }),
     ]);
 
-    await audit(req, AUDIT_ACTIONS.BUSINESS_PARTNER_DELETED, AUDIT_RESOURCES.BUSINESS_PARTNER, partner._id, {
-      resourceName: `${partner.partnerCode} - ${partner.name}`,
-      description: `Deleted business partner: ${partner.name}`,
-      details: { partnerCode: partner.partnerCode, name: partner.name },
-      severity: 'medium',
-    });
+    await auditPartnerMutation(
+      req,
+      AUDIT_ACTIONS.BUSINESS_PARTNER_DELETED,
+      AUDIT_RESOURCES.BUSINESS_PARTNER,
+      partner._id,
+      partner,
+      [
+        { field: 'name', label: 'Name', from: partner.name || '(empty)', to: '(deleted)' },
+        {
+          field: 'partnerCode',
+          label: 'Partner Code',
+          from: partner.partnerCode || '(empty)',
+          to: '(deleted)',
+        },
+        {
+          field: 'status',
+          label: 'Status',
+          from: partner.status || '(empty)',
+          to: '(deleted)',
+        },
+      ],
+      {
+        description: `Deleted business partner: ${partner.name}`,
+        severity: 'medium',
+      }
+    );
 
     res.json({ message: 'Business partner deleted successfully' });
   } catch (error) {
@@ -675,8 +738,21 @@ router.post('/:id/notes', requirePartnerWrite, async (req, res) => {
       userId: req.user._id,
       type: 'note',
       summary: `${partner.name}: note added — ${text.slice(0, 160)}`,
-      details: partnerActivityDetails(req, partner, { text }),
+      details: partnerActivityDetails(req, partner, {
+        text,
+        changes: [{ field: 'notes', label: 'Note', from: '(empty)', to: text }],
+      }),
     });
+
+    await auditPartnerMutation(
+      req,
+      AUDIT_ACTIONS.BUSINESS_PARTNER_UPDATED,
+      AUDIT_RESOURCES.BUSINESS_PARTNER,
+      partner._id,
+      partner,
+      [{ field: 'notes', label: 'Note', from: '(empty)', to: text }],
+      { description: `${partner.name}: note added` }
+    );
 
     res.status(201).json({ activity });
   } catch (error) {
@@ -699,17 +775,27 @@ router.put('/:id/tags', requirePartnerWrite, async (req, res) => {
 
     const from = previousTags.join(', ') || '(empty)';
     const to = partner.tags.join(', ') || '(empty)';
+    const tagChanges = [{ field: 'tags', label: 'Tags', from, to }];
     const activity = await recordPartnerActivity({
       organizationId: req.user.organizationId,
       partnerId: partner._id,
       userId: req.user._id,
       type: 'tag',
-      summary: formatPartnerFieldChangesSummary(partner.name, [{ label: 'Tags', from, to }]),
+      summary: formatPartnerFieldChangesSummary(partner.name, tagChanges),
       details: partnerActivityDetails(req, partner, {
-        changes: [{ field: 'tags', label: 'Tags', from, to }],
+        changes: tagChanges,
         tags: partner.tags,
       }),
     });
+
+    await auditPartnerMutation(
+      req,
+      AUDIT_ACTIONS.BUSINESS_PARTNER_UPDATED,
+      AUDIT_RESOURCES.BUSINESS_PARTNER,
+      partner._id,
+      partner,
+      tagChanges
+    );
 
     res.json({ partner, activity });
   } catch (error) {
@@ -745,6 +831,14 @@ router.post('/:id/contacts', requirePartnerWrite, async (req, res) => {
     }
     await partner.save();
 
+    const contactChanges = [
+      {
+        field: 'contacts',
+        label: 'Contact',
+        from: '(empty)',
+        to: [contact.name, contact.email, contact.phone].filter(Boolean).join(' · ') || contact.name,
+      },
+    ];
     const activity = await recordPartnerActivity({
       organizationId: req.user.organizationId,
       partnerId: partner._id,
@@ -752,10 +846,20 @@ router.post('/:id/contacts', requirePartnerWrite, async (req, res) => {
       type: 'contact',
       summary: `${partner.name}: contact ${contact.name} added`,
       details: partnerActivityDetails(req, partner, {
-        changes: [{ field: 'contacts', label: 'Contact', from: '(empty)', to: contact.name }],
+        changes: contactChanges,
         contactId: String(contact._id),
       }),
     });
+
+    await auditPartnerMutation(
+      req,
+      AUDIT_ACTIONS.BUSINESS_PARTNER_UPDATED,
+      AUDIT_RESOURCES.BUSINESS_PARTNER,
+      partner._id,
+      partner,
+      contactChanges,
+      { description: `${partner.name}: contact ${contact.name} added` }
+    );
 
     res.status(201).json({ contact, partner, activity });
   } catch (error) {
@@ -772,6 +876,7 @@ router.put('/:id/contacts/:contactId', requirePartnerWrite, async (req, res) => 
     const contact = partner.contacts.id(req.params.contactId);
     if (!contact) return res.status(404).json({ message: 'Contact not found' });
 
+    const before = contact.toObject();
     contact.set(req.body || {});
     if (contact.isPrimary) {
       partner.contacts.forEach((c) => {
@@ -780,17 +885,37 @@ router.put('/:id/contacts/:contactId', requirePartnerWrite, async (req, res) => 
     }
     await partner.save();
 
+    const contactChanges = diffPlainObjectFields(before, contact.toObject(), {
+      fieldPrefix: 'contacts',
+      labelPrefix: `Contact (${contact.name || before.name || 'Contact'})`,
+    });
     const activity = await recordPartnerActivity({
       organizationId: req.user.organizationId,
       partnerId: partner._id,
       userId: req.user._id,
       type: 'contact',
-      summary: `${partner.name}: contact ${contact.name} updated`,
+      summary: contactChanges.length
+        ? formatPartnerFieldChangesSummary(partner.name, contactChanges)
+        : `${partner.name}: contact ${contact.name} updated`,
       details: partnerActivityDetails(req, partner, {
-        changes: [{ field: 'contacts', label: 'Contact', from: contact.name, to: contact.name }],
+        changes: contactChanges.length
+          ? contactChanges
+          : [{ field: 'contacts', label: 'Contact', from: contact.name, to: contact.name }],
         contactId: String(contact._id),
       }),
     });
+
+    if (contactChanges.length) {
+      await auditPartnerMutation(
+        req,
+        AUDIT_ACTIONS.BUSINESS_PARTNER_UPDATED,
+        AUDIT_RESOURCES.BUSINESS_PARTNER,
+        partner._id,
+        partner,
+        contactChanges,
+        { description: `${partner.name}: contact ${contact.name} updated` }
+      );
+    }
 
     res.json({ contact, partner, activity });
   } catch (error) {
@@ -807,20 +932,34 @@ router.delete('/:id/contacts/:contactId', requirePartnerWrite, async (req, res) 
     const contact = partner.contacts.id(req.params.contactId);
     if (!contact) return res.status(404).json({ message: 'Contact not found' });
 
+    const contactName = contact.name;
+    const contactSummary =
+      [contact.name, contact.email, contact.phone].filter(Boolean).join(' · ') || contact.name;
     contact.deleteOne();
     await partner.save();
 
+    const contactChanges = [{ field: 'contacts', label: 'Contact', from: contactSummary, to: '(empty)' }];
     const activity = await recordPartnerActivity({
       organizationId: req.user.organizationId,
       partnerId: partner._id,
       userId: req.user._id,
       type: 'contact',
-      summary: `${partner.name}: contact ${contact.name} removed`,
+      summary: `${partner.name}: contact ${contactName} removed`,
       details: partnerActivityDetails(req, partner, {
-        changes: [{ field: 'contacts', label: 'Contact', from: contact.name, to: '(empty)' }],
-        contactId: String(contact._id),
+        changes: contactChanges,
+        contactId: req.params.contactId,
       }),
     });
+
+    await auditPartnerMutation(
+      req,
+      AUDIT_ACTIONS.BUSINESS_PARTNER_UPDATED,
+      AUDIT_RESOURCES.BUSINESS_PARTNER,
+      partner._id,
+      partner,
+      contactChanges,
+      { description: `${partner.name}: contact ${contactName} removed` }
+    );
 
     res.json({ message: 'Contact removed', partner, activity });
   } catch (error) {
@@ -845,24 +984,32 @@ router.post('/:id/addresses', requirePartnerWrite, async (req, res) => {
     }
     await partner.save();
 
+    const addressSummary =
+      [address.label, address.city, address.typeKey].filter(Boolean).join(', ') || address.typeKey || 'Address';
+    const addressChanges = [
+      { field: 'addresses', label: 'Address', from: '(empty)', to: addressSummary },
+    ];
     const activity = await recordPartnerActivity({
       organizationId: req.user.organizationId,
       partnerId: partner._id,
       userId: req.user._id,
       type: 'address',
-      summary: `${partner.name}: address added (${address.typeKey})`,
+      summary: `${partner.name}: address added (${address.typeKey || 'Address'})`,
       details: partnerActivityDetails(req, partner, {
-        changes: [
-          {
-            field: 'addresses',
-            label: 'Address',
-            from: '(empty)',
-            to: [address.label, address.city, address.typeKey].filter(Boolean).join(', ') || address.typeKey,
-          },
-        ],
+        changes: addressChanges,
         addressId: String(address._id),
       }),
     });
+
+    await auditPartnerMutation(
+      req,
+      AUDIT_ACTIONS.BUSINESS_PARTNER_UPDATED,
+      AUDIT_RESOURCES.BUSINESS_PARTNER,
+      partner._id,
+      partner,
+      addressChanges,
+      { description: `${partner.name}: address added (${address.typeKey || 'Address'})` }
+    );
 
     res.status(201).json({ address, partner, activity });
   } catch (error) {
@@ -879,6 +1026,7 @@ router.put('/:id/addresses/:addressId', requirePartnerWrite, async (req, res) =>
     const address = partner.addresses.id(req.params.addressId);
     if (!address) return res.status(404).json({ message: 'Address not found' });
 
+    const before = address.toObject();
     address.set(req.body || {});
     if (address.isPrimary) {
       partner.addresses.forEach((a) => {
@@ -887,24 +1035,45 @@ router.put('/:id/addresses/:addressId', requirePartnerWrite, async (req, res) =>
     }
     await partner.save();
 
+    const addressLabel = address.label || before.label || address.typeKey || 'Address';
+    const addressChanges = diffPlainObjectFields(before, address.toObject(), {
+      fieldPrefix: 'addresses',
+      labelPrefix: `Address (${addressLabel})`,
+    });
     const activity = await recordPartnerActivity({
       organizationId: req.user.organizationId,
       partnerId: partner._id,
       userId: req.user._id,
       type: 'address',
-      summary: `${partner.name}: address updated (${address.typeKey})`,
+      summary: addressChanges.length
+        ? formatPartnerFieldChangesSummary(partner.name, addressChanges)
+        : `${partner.name}: address updated (${address.typeKey || 'Address'})`,
       details: partnerActivityDetails(req, partner, {
-        changes: [
-          {
-            field: 'addresses',
-            label: 'Address',
-            from: address.typeKey,
-            to: [address.label, address.city, address.typeKey].filter(Boolean).join(', ') || address.typeKey,
-          },
-        ],
+        changes: addressChanges.length
+          ? addressChanges
+          : [
+              {
+                field: 'addresses',
+                label: 'Address',
+                from: addressLabel,
+                to: [address.label, address.city, address.typeKey].filter(Boolean).join(', ') || addressLabel,
+              },
+            ],
         addressId: String(address._id),
       }),
     });
+
+    if (addressChanges.length) {
+      await auditPartnerMutation(
+        req,
+        AUDIT_ACTIONS.BUSINESS_PARTNER_UPDATED,
+        AUDIT_RESOURCES.BUSINESS_PARTNER,
+        partner._id,
+        partner,
+        addressChanges,
+        { description: `${partner.name}: address updated (${address.typeKey || 'Address'})` }
+      );
+    }
 
     res.json({ address, partner, activity });
   } catch (error) {
@@ -921,9 +1090,16 @@ router.delete('/:id/addresses/:addressId', requirePartnerWrite, async (req, res)
     const address = partner.addresses.id(req.params.addressId);
     if (!address) return res.status(404).json({ message: 'Address not found' });
 
+    const addressSummary =
+      [address.label, address.city, address.typeKey].filter(Boolean).join(', ') ||
+      address.typeKey ||
+      req.params.addressId;
     address.deleteOne();
     await partner.save();
 
+    const addressChanges = [
+      { field: 'addresses', label: 'Address', from: addressSummary, to: '(empty)' },
+    ];
     const activity = await recordPartnerActivity({
       organizationId: req.user.organizationId,
       partnerId: partner._id,
@@ -931,10 +1107,20 @@ router.delete('/:id/addresses/:addressId', requirePartnerWrite, async (req, res)
       type: 'address',
       summary: `${partner.name}: address removed`,
       details: partnerActivityDetails(req, partner, {
-        changes: [{ field: 'addresses', label: 'Address', from: req.params.addressId, to: '(empty)' }],
+        changes: addressChanges,
         addressId: req.params.addressId,
       }),
     });
+
+    await auditPartnerMutation(
+      req,
+      AUDIT_ACTIONS.BUSINESS_PARTNER_UPDATED,
+      AUDIT_RESOURCES.BUSINESS_PARTNER,
+      partner._id,
+      partner,
+      addressChanges,
+      { description: `${partner.name}: address removed` }
+    );
 
     res.json({ message: 'Address removed', partner, activity });
   } catch (error) {
@@ -975,30 +1161,61 @@ router.post('/:id/contracts', requirePartnerWrite, async (req, res) => {
       createdBy: req.user._id,
     });
 
+    const contractLabel = contract.contractNumber || contract.title || String(contract._id);
+    const contractChanges = [
+      { field: 'contracts', label: 'Contract', from: '(empty)', to: contractLabel },
+      ...(contract.title
+        ? [{ field: 'contracts.title', label: 'Contract · Title', from: '(empty)', to: contract.title }]
+        : []),
+      ...(contract.status
+        ? [{ field: 'contracts.status', label: 'Contract · Status', from: '(empty)', to: contract.status }]
+        : []),
+      ...(contract.startDate
+        ? [
+            {
+              field: 'contracts.startDate',
+              label: 'Contract · Start Date',
+              from: '(empty)',
+              to: new Date(contract.startDate).toISOString().slice(0, 10),
+            },
+          ]
+        : []),
+      ...(contract.endDate
+        ? [
+            {
+              field: 'contracts.endDate',
+              label: 'Contract · End Date',
+              from: '(empty)',
+              to: new Date(contract.endDate).toISOString().slice(0, 10),
+            },
+          ]
+        : []),
+    ];
     const activity = await recordPartnerActivity({
       organizationId: req.user.organizationId,
       partnerId: partner._id,
       userId: req.user._id,
       type: 'contract',
-      summary: `${partner.name}: contract ${contract.contractNumber || contract.title} added`,
+      summary: `${partner.name}: contract ${contractLabel} added`,
       details: partnerActivityDetails(req, partner, {
-        changes: [
-          {
-            field: 'contracts',
-            label: 'Contract',
-            from: '(empty)',
-            to: contract.contractNumber || contract.title || String(contract._id),
-          },
-        ],
+        changes: contractChanges,
         contractId: String(contract._id),
       }),
     });
 
-    await audit(req, AUDIT_ACTIONS.PARTNER_CONTRACT_CREATED, AUDIT_RESOURCES.PARTNER_CONTRACT, contract._id, {
-      resourceName: contract.contractNumber,
-      description: `Created contract ${contract.contractNumber} for ${partner.name}`,
-      details: { partnerId: String(partner._id) },
-    });
+    await auditPartnerMutation(
+      req,
+      AUDIT_ACTIONS.PARTNER_CONTRACT_CREATED,
+      AUDIT_RESOURCES.PARTNER_CONTRACT,
+      contract._id,
+      partner,
+      contractChanges,
+      {
+        resourceName: contract.contractNumber,
+        description: `Created contract ${contractLabel} for ${partner.name}`,
+        extra: { contractId: String(contract._id) },
+      }
+    );
 
     res.status(201).json({ contract, activity });
   } catch (error) {
@@ -1009,24 +1226,59 @@ router.post('/:id/contracts', requirePartnerWrite, async (req, res) => {
 
 router.put('/:id/contracts/:contractId', requirePartnerWrite, async (req, res) => {
   try {
-    const contract = await PartnerContract.findOneAndUpdate(
-      {
-        _id: req.params.contractId,
-        partnerId: req.params.id,
-        organizationId: req.user.organizationId,
-      },
-      { ...req.body, partnerId: req.params.id },
-      { new: true, runValidators: true }
-    );
-    if (!contract) return res.status(404).json({ message: 'Contract not found' });
+    const partner = await loadPartner(req);
+    if (!partner) return res.status(404).json({ message: 'Business partner not found' });
 
-    await audit(req, AUDIT_ACTIONS.PARTNER_CONTRACT_UPDATED, AUDIT_RESOURCES.PARTNER_CONTRACT, contract._id, {
-      resourceName: contract.contractNumber,
-      description: `Updated contract ${contract.contractNumber}`,
-      details: { partnerId: req.params.id },
+    const existing = await PartnerContract.findOne({
+      _id: req.params.contractId,
+      partnerId: req.params.id,
+      organizationId: req.user.organizationId,
+    });
+    if (!existing) return res.status(404).json({ message: 'Contract not found' });
+
+    const before = existing.toObject();
+    existing.set({ ...req.body, partnerId: req.params.id });
+    await existing.save();
+    const contract = existing;
+
+    const contractLabel = contract.contractNumber || contract.title || String(contract._id);
+    const contractChanges = diffPlainObjectFields(before, contract.toObject(), {
+      fieldPrefix: 'contracts',
+      labelPrefix: `Contract (${contractLabel})`,
     });
 
-    res.json({ contract });
+    let activity = null;
+    if (contractChanges.length) {
+      activity = await recordPartnerActivity({
+        organizationId: req.user.organizationId,
+        partnerId: partner._id,
+        userId: req.user._id,
+        type: 'contract',
+        summary: formatPartnerFieldChangesSummary(partner.name, contractChanges),
+        details: partnerActivityDetails(req, partner, {
+          changes: contractChanges,
+          contractId: String(contract._id),
+        }),
+      });
+    }
+
+    await auditPartnerMutation(
+      req,
+      AUDIT_ACTIONS.PARTNER_CONTRACT_UPDATED,
+      AUDIT_RESOURCES.PARTNER_CONTRACT,
+      contract._id,
+      partner,
+      contractChanges,
+      {
+        resourceName: contract.contractNumber,
+        description: contractChanges.length
+          ? formatPartnerFieldChangesSummary(partner.name, contractChanges)
+          : `Updated contract ${contractLabel}`,
+        extra: { contractId: String(contract._id) },
+      }
+    );
+
+    res.json({ contract, activity });
   } catch (error) {
     console.error('Update partner contract error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -1035,6 +1287,9 @@ router.put('/:id/contracts/:contractId', requirePartnerWrite, async (req, res) =
 
 router.delete('/:id/contracts/:contractId', requirePartnerWrite, async (req, res) => {
   try {
+    const partner = await loadPartner(req);
+    if (!partner) return res.status(404).json({ message: 'Business partner not found' });
+
     const contract = await PartnerContract.findOneAndDelete({
       _id: req.params.contractId,
       partnerId: req.params.id,
@@ -1042,14 +1297,39 @@ router.delete('/:id/contracts/:contractId', requirePartnerWrite, async (req, res
     });
     if (!contract) return res.status(404).json({ message: 'Contract not found' });
 
-    await audit(req, AUDIT_ACTIONS.PARTNER_CONTRACT_DELETED, AUDIT_RESOURCES.PARTNER_CONTRACT, contract._id, {
-      resourceName: contract.contractNumber,
-      description: `Deleted contract ${contract.contractNumber}`,
-      details: { partnerId: req.params.id },
-      severity: 'medium',
+    const contractLabel = contract.contractNumber || contract.title || String(contract._id);
+    const contractChanges = [
+      { field: 'contracts', label: 'Contract', from: contractLabel, to: '(empty)' },
+    ];
+
+    const activity = await recordPartnerActivity({
+      organizationId: req.user.organizationId,
+      partnerId: partner._id,
+      userId: req.user._id,
+      type: 'contract',
+      summary: `${partner.name}: contract ${contractLabel} removed`,
+      details: partnerActivityDetails(req, partner, {
+        changes: contractChanges,
+        contractId: String(contract._id),
+      }),
     });
 
-    res.json({ message: 'Contract deleted' });
+    await auditPartnerMutation(
+      req,
+      AUDIT_ACTIONS.PARTNER_CONTRACT_DELETED,
+      AUDIT_RESOURCES.PARTNER_CONTRACT,
+      contract._id,
+      partner,
+      contractChanges,
+      {
+        resourceName: contract.contractNumber,
+        description: `Deleted contract ${contractLabel}`,
+        severity: 'medium',
+        extra: { contractId: String(contract._id) },
+      }
+    );
+
+    res.json({ message: 'Contract deleted', activity });
   } catch (error) {
     console.error('Delete partner contract error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -1088,6 +1368,23 @@ router.post('/:id/documents', requirePartnerWrite, async (req, res) => {
       createdBy: req.user._id,
     });
 
+    const documentChanges = [
+      { field: 'documents', label: 'Document', from: '(empty)', to: document.name },
+      ...(document.url
+        ? [{ field: 'documents.url', label: 'Document · URL', from: '(empty)', to: document.url }]
+        : []),
+      ...(document.category
+        ? [
+            {
+              field: 'documents.category',
+              label: 'Document · Category',
+              from: '(empty)',
+              to: document.category,
+            },
+          ]
+        : []),
+    ];
+
     await recordPartnerActivity({
       organizationId: req.user.organizationId,
       partnerId: partner._id,
@@ -1095,16 +1392,24 @@ router.post('/:id/documents', requirePartnerWrite, async (req, res) => {
       type: 'document',
       summary: `${partner.name}: document ${document.name} uploaded`,
       details: partnerActivityDetails(req, partner, {
-        changes: [{ field: 'documents', label: 'Document', from: '(empty)', to: document.name }],
+        changes: documentChanges,
         documentId: String(document._id),
       }),
     });
 
-    await audit(req, AUDIT_ACTIONS.PARTNER_DOCUMENT_CREATED, AUDIT_RESOURCES.PARTNER_DOCUMENT, document._id, {
-      resourceName: document.name,
-      description: `Added document ${document.name} for ${partner.name}`,
-      details: { partnerId: String(partner._id) },
-    });
+    await auditPartnerMutation(
+      req,
+      AUDIT_ACTIONS.PARTNER_DOCUMENT_CREATED,
+      AUDIT_RESOURCES.PARTNER_DOCUMENT,
+      document._id,
+      partner,
+      documentChanges,
+      {
+        resourceName: document.name,
+        description: `Added document ${document.name} for ${partner.name}`,
+        extra: { documentId: String(document._id) },
+      }
+    );
 
     res.status(201).json({ document });
   } catch (error) {
@@ -1115,22 +1420,41 @@ router.post('/:id/documents', requirePartnerWrite, async (req, res) => {
 
 router.put('/:id/documents/:documentId', requirePartnerWrite, async (req, res) => {
   try {
-    const document = await PartnerDocument.findOneAndUpdate(
-      {
-        _id: req.params.documentId,
-        partnerId: req.params.id,
-        organizationId: req.user.organizationId,
-      },
-      { ...req.body, partnerId: req.params.id },
-      { new: true, runValidators: true }
-    );
-    if (!document) return res.status(404).json({ message: 'Document not found' });
+    const partner = await loadPartner(req);
+    if (!partner) return res.status(404).json({ message: 'Business partner not found' });
 
-    await audit(req, AUDIT_ACTIONS.PARTNER_DOCUMENT_UPDATED, AUDIT_RESOURCES.PARTNER_DOCUMENT, document._id, {
-      resourceName: document.name,
-      description: `Updated document ${document.name}`,
-      details: { partnerId: req.params.id },
+    const existing = await PartnerDocument.findOne({
+      _id: req.params.documentId,
+      partnerId: req.params.id,
+      organizationId: req.user.organizationId,
     });
+    if (!existing) return res.status(404).json({ message: 'Document not found' });
+
+    const before = existing.toObject();
+    existing.set({ ...req.body, partnerId: req.params.id });
+    await existing.save();
+    const document = existing;
+
+    const documentChanges = diffPlainObjectFields(before, document.toObject(), {
+      fieldPrefix: 'documents',
+      labelPrefix: `Document (${document.name || before.name || 'Document'})`,
+    });
+
+    await auditPartnerMutation(
+      req,
+      AUDIT_ACTIONS.PARTNER_DOCUMENT_UPDATED,
+      AUDIT_RESOURCES.PARTNER_DOCUMENT,
+      document._id,
+      partner,
+      documentChanges,
+      {
+        resourceName: document.name,
+        description: documentChanges.length
+          ? formatPartnerFieldChangesSummary(partner.name, documentChanges)
+          : `Updated document ${document.name}`,
+        extra: { documentId: String(document._id) },
+      }
+    );
 
     res.json({ document });
   } catch (error) {
@@ -1141,6 +1465,9 @@ router.put('/:id/documents/:documentId', requirePartnerWrite, async (req, res) =
 
 router.delete('/:id/documents/:documentId', requirePartnerWrite, async (req, res) => {
   try {
+    const partner = await loadPartner(req);
+    if (!partner) return res.status(404).json({ message: 'Business partner not found' });
+
     const document = await PartnerDocument.findOneAndDelete({
       _id: req.params.documentId,
       partnerId: req.params.id,
@@ -1148,12 +1475,24 @@ router.delete('/:id/documents/:documentId', requirePartnerWrite, async (req, res
     });
     if (!document) return res.status(404).json({ message: 'Document not found' });
 
-    await audit(req, AUDIT_ACTIONS.PARTNER_DOCUMENT_DELETED, AUDIT_RESOURCES.PARTNER_DOCUMENT, document._id, {
-      resourceName: document.name,
-      description: `Deleted document ${document.name}`,
-      details: { partnerId: req.params.id },
-      severity: 'medium',
-    });
+    const documentChanges = [
+      { field: 'documents', label: 'Document', from: document.name, to: '(empty)' },
+    ];
+
+    await auditPartnerMutation(
+      req,
+      AUDIT_ACTIONS.PARTNER_DOCUMENT_DELETED,
+      AUDIT_RESOURCES.PARTNER_DOCUMENT,
+      document._id,
+      partner,
+      documentChanges,
+      {
+        resourceName: document.name,
+        description: `Deleted document ${document.name}`,
+        severity: 'medium',
+        extra: { documentId: String(document._id) },
+      }
+    );
 
     res.json({ message: 'Document deleted' });
   } catch (error) {
@@ -1198,6 +1537,16 @@ router.post('/:id/links', requirePartnerWrite, async (req, res) => {
       createdBy: req.user._id,
     });
 
+    const linkLabel = `${relationshipTypeKey} → ${resourceType}`;
+    const linkChanges = [
+      { field: 'links', label: 'Link', from: '(empty)', to: linkLabel },
+      {
+        field: 'links.resourceId',
+        label: 'Link · Resource',
+        from: '(empty)',
+        to: String(resourceId),
+      },
+    ];
     const activity = await recordPartnerActivity({
       organizationId: req.user.organizationId,
       partnerId: partner._id,
@@ -1205,24 +1554,25 @@ router.post('/:id/links', requirePartnerWrite, async (req, res) => {
       type: 'link',
       summary: `${partner.name}: linked ${resourceType} (${relationshipTypeKey})`,
       details: partnerActivityDetails(req, partner, {
-        changes: [
-          {
-            field: 'links',
-            label: 'Link',
-            from: '(empty)',
-            to: `${relationshipTypeKey} → ${resourceType}`,
-          },
-        ],
+        changes: linkChanges,
         linkId: String(link._id),
         resourceId: String(resourceId),
       }),
     });
 
-    await audit(req, AUDIT_ACTIONS.PARTNER_LINK_CREATED, AUDIT_RESOURCES.BUSINESS_PARTNER, link._id, {
-      resourceName: `${partner.name} → ${resourceType}`,
-      description: `Linked ${resourceType} to ${partner.name}`,
-      details: { relationshipTypeKey, resourceId: String(resourceId) },
-    });
+    await auditPartnerMutation(
+      req,
+      AUDIT_ACTIONS.PARTNER_LINK_CREATED,
+      AUDIT_RESOURCES.BUSINESS_PARTNER,
+      link._id,
+      partner,
+      linkChanges,
+      {
+        resourceName: `${partner.name} → ${resourceType}`,
+        description: `Linked ${resourceType} to ${partner.name}`,
+        extra: { relationshipTypeKey, resourceId: String(resourceId), linkId: String(link._id) },
+      }
+    );
 
     res.status(201).json({ link, activity });
   } catch (error) {
@@ -1234,22 +1584,41 @@ router.post('/:id/links', requirePartnerWrite, async (req, res) => {
 
 router.put('/:id/links/:linkId', requirePartnerWrite, async (req, res) => {
   try {
-    const link = await PartnerLink.findOneAndUpdate(
-      {
-        _id: req.params.linkId,
-        partnerId: req.params.id,
-        organizationId: req.user.organizationId,
-      },
-      { ...req.body, partnerId: req.params.id },
-      { new: true, runValidators: true }
-    );
-    if (!link) return res.status(404).json({ message: 'Link not found' });
+    const partner = await loadPartner(req);
+    if (!partner) return res.status(404).json({ message: 'Business partner not found' });
 
-    await audit(req, AUDIT_ACTIONS.PARTNER_LINK_UPDATED, AUDIT_RESOURCES.BUSINESS_PARTNER, link._id, {
-      resourceName: `${link.resourceType} link`,
-      description: `Updated partner link (${link.relationshipTypeKey})`,
-      details: { partnerId: req.params.id },
+    const existing = await PartnerLink.findOne({
+      _id: req.params.linkId,
+      partnerId: req.params.id,
+      organizationId: req.user.organizationId,
     });
+    if (!existing) return res.status(404).json({ message: 'Link not found' });
+
+    const before = existing.toObject();
+    existing.set({ ...req.body, partnerId: req.params.id });
+    await existing.save();
+    const link = existing;
+
+    const linkChanges = diffPlainObjectFields(before, link.toObject(), {
+      fieldPrefix: 'links',
+      labelPrefix: `Link (${link.relationshipTypeKey || 'Link'})`,
+    });
+
+    await auditPartnerMutation(
+      req,
+      AUDIT_ACTIONS.PARTNER_LINK_UPDATED,
+      AUDIT_RESOURCES.BUSINESS_PARTNER,
+      link._id,
+      partner,
+      linkChanges,
+      {
+        resourceName: `${link.resourceType} link`,
+        description: linkChanges.length
+          ? formatPartnerFieldChangesSummary(partner.name, linkChanges)
+          : `Updated partner link (${link.relationshipTypeKey})`,
+        extra: { linkId: String(link._id) },
+      }
+    );
 
     res.json({ link });
   } catch (error) {
@@ -1260,6 +1629,9 @@ router.put('/:id/links/:linkId', requirePartnerWrite, async (req, res) => {
 
 router.delete('/:id/links/:linkId', requirePartnerWrite, async (req, res) => {
   try {
+    const partner = await loadPartner(req);
+    if (!partner) return res.status(404).json({ message: 'Business partner not found' });
+
     const link = await PartnerLink.findOneAndDelete({
       _id: req.params.linkId,
       partnerId: req.params.id,
@@ -1267,12 +1639,23 @@ router.delete('/:id/links/:linkId', requirePartnerWrite, async (req, res) => {
     });
     if (!link) return res.status(404).json({ message: 'Link not found' });
 
-    await audit(req, AUDIT_ACTIONS.PARTNER_LINK_DELETED, AUDIT_RESOURCES.BUSINESS_PARTNER, link._id, {
-      resourceName: `${link.resourceType} link`,
-      description: `Removed partner link (${link.relationshipTypeKey})`,
-      details: { partnerId: req.params.id },
-      severity: 'medium',
-    });
+    const linkLabel = `${link.relationshipTypeKey} → ${link.resourceType}`;
+    const linkChanges = [{ field: 'links', label: 'Link', from: linkLabel, to: '(empty)' }];
+
+    await auditPartnerMutation(
+      req,
+      AUDIT_ACTIONS.PARTNER_LINK_DELETED,
+      AUDIT_RESOURCES.BUSINESS_PARTNER,
+      link._id,
+      partner,
+      linkChanges,
+      {
+        resourceName: `${link.resourceType} link`,
+        description: `Removed partner link (${link.relationshipTypeKey})`,
+        severity: 'medium',
+        extra: { linkId: String(link._id) },
+      }
+    );
 
     res.json({ message: 'Link removed' });
   } catch (error) {

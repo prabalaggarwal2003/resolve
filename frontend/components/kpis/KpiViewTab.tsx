@@ -19,6 +19,9 @@ export default function KpiViewTab({
   vendors,
   users,
   statusOptions,
+  partnerStatuses = [],
+  partnerTypes = [],
+  partnerCategories = [],
 }: {
   groups: { _id: string; name: string }[];
   templates: { _id: string; name: string }[];
@@ -27,6 +30,9 @@ export default function KpiViewTab({
   vendors: { _id: string; name: string }[];
   users: { _id: string; name: string }[];
   statusOptions: string[];
+  partnerStatuses?: { id: string; name: string }[];
+  partnerTypes?: { id: string; name: string }[];
+  partnerCategories?: { id: string; name: string }[];
 }) {
   const [ctx, setCtx] = useState<KpiDataContext | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,7 +65,21 @@ export default function KpiViewTab({
     setLoading(true);
     try {
       const data = await fetchKpiSummary(pageFilters);
-      setCtx({ assets: data.assets, totals: data.totals, quick: data.quick, budget: data.budget ?? null });
+      setCtx({
+        assets: data.assets,
+        totals: data.totals,
+        quick: data.quick,
+        budget: data.budget ?? null,
+        partners: data.partners
+          ? {
+              partners: data.partners.partners || [],
+              contracts: data.partners.contracts || [],
+              recentActivity: data.partners.recentActivity || [],
+              topPartners: data.partners.topPartners || [],
+              expiryWindowDays: data.partners.expiryWindowDays,
+            }
+          : null,
+      });
     } finally {
       setLoading(false);
     }
@@ -187,7 +207,7 @@ export default function KpiViewTab({
             </select>
           </div>
           <div>
-            <label className="text-[9px] text-gray-600 block mb-0.5">Vendor</label>
+            <label className="text-[9px] text-gray-600 block mb-0.5">Vendor / Partner</label>
             <select className={inputClass} value={pageFilters.vendorId || ''} onChange={(e) => setPageFilter('vendorId', e.target.value)}>
               <option value="">All</option>
               {vendors.map((v) => <option key={v._id} value={v._id}>{v.name}</option>)}
@@ -246,6 +266,42 @@ export default function KpiViewTab({
             <div>
               <label className="text-[9px] text-gray-600 block mb-0.5">Purchase year</label>
               <input type="number" className={inputClass} placeholder="Year" value={pageFilters.purchaseYear || ''} onChange={(e) => setPageFilter('purchaseYear', e.target.value)} />
+            </div>
+            <div>
+              <label className="text-[9px] text-gray-600 block mb-0.5">Partner status</label>
+              <select className={inputClass} value={pageFilters.partnerStatus || ''} onChange={(e) => setPageFilter('partnerStatus', e.target.value)}>
+                <option value="">All</option>
+                {partnerStatuses.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[9px] text-gray-600 block mb-0.5">Partner type</label>
+              <select className={inputClass} value={pageFilters.partnerTypeKey || ''} onChange={(e) => setPageFilter('partnerTypeKey', e.target.value)}>
+                <option value="">All</option>
+                {partnerTypes.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[9px] text-gray-600 block mb-0.5">Partner category</label>
+              <select className={inputClass} value={pageFilters.partnerCategoryKey || ''} onChange={(e) => setPageFilter('partnerCategoryKey', e.target.value)}>
+                <option value="">All</option>
+                {partnerCategories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[9px] text-gray-600 block mb-0.5">Partner search</label>
+              <input
+                className={inputClass}
+                placeholder="Name / code"
+                value={pageFilters.partnerSearch || ''}
+                onChange={(e) => setPageFilter('partnerSearch', e.target.value)}
+              />
             </div>
           </div>
         )}
@@ -349,6 +405,9 @@ export default function KpiViewTab({
           users={users}
           saving={saving}
           statusOptions={statusOptions}
+          partnerStatuses={partnerStatuses}
+          partnerTypes={partnerTypes}
+          partnerCategories={partnerCategories}
         />
       )}
     </div>

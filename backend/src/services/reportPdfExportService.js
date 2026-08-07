@@ -15,7 +15,33 @@ const CHART_COLORS = [
 
 function pageSize(formatting = {}) {
   const paper = String(formatting.paperSize || 'a4').toLowerCase();
-  return paper === 'letter' ? 'LETTER' : 'A4';
+  if (paper === 'letter') return 'LETTER';
+  if (paper === 'legal') return 'LEGAL';
+  if (paper === 'a3') return 'A3';
+  return 'A4';
+}
+
+function normalizeBranding(branding = {}) {
+  const plain =
+    branding && typeof branding.toObject === 'function' ? branding.toObject() : branding || {};
+  return {
+    companyName: String(plain.companyName || '').trim(),
+    logoData: String(plain.logoData || '').trim(),
+  };
+}
+
+function logoBufferFromDataUrl(logoData) {
+  if (!logoData || typeof logoData !== 'string') return null;
+  // PDFKit natively supports PNG and JPEG only
+  const match = logoData.match(/^data:image\/(png|jpe?g);base64,([\s\S]+)$/i);
+  if (!match) return null;
+  try {
+    const b64 = match[2].replace(/\s/g, '');
+    const buf = Buffer.from(b64, 'base64');
+    return buf.length ? buf : null;
+  } catch {
+    return null;
+  }
 }
 
 function drawWatermark(doc, text) {
@@ -37,30 +63,65 @@ function drawHeaderFooter(doc, { header, footer, reportName, branding, pageNumbe
   const { width, height } = doc.page;
   const left = doc.page.margins.left;
   const right = width - doc.page.margins.right;
+  const brand = normalizeBranding(branding);
+  const logoBuf = logoBufferFromDataUrl(brand.logoData);
+  const companyName = brand.companyName;
+  const headerText = String(header || '').trim();
+  const hasChrome = Boolean(headerText || companyName || logoBuf);
 
-  if (header || branding?.companyName) {
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#111827');
-    doc.text(String(header || branding?.companyName || ''), left, 24, {
-      width: right - left,
+  if (hasChrome) {
+    const textRight = logoBuf ? right - 72 : right;
+    const title = companyName || headerText;
+    const subtitle = companyName && headerText && headerText !== companyName ? headerText : reportName || '';
+
+    doc.fillColor('#111827').font('Helvetica-Bold').fontSize(11);
+    doc.text(title, left, 20, {
+      width: Math.max(40, textRight - left),
       align: 'left',
       lineBreak: false,
     });
-    doc.font('Helvetica').fontSize(8).fillColor('#6b7280');
-    doc.text(reportName || '', left, 38, {
-      width: right - left,
-      align: 'left',
-      lineBreak: false,
-    });
-    doc.moveTo(left, 50).lineTo(right, 50).strokeColor('#e5e7eb').lineWidth(0.5).stroke();
+
+    if (subtitle) {
+      doc.fillColor('#6b7280').font('Helvetica').fontSize(8);
+      doc.text(subtitle, left, 36, {
+        width: Math.max(40, textRight - left),
+        align: 'left',
+        lineBreak: false,
+      });
+    } else if (companyName && reportName) {
+      doc.fillColor('#6b7280').font('Helvetica').fontSize(8);
+      doc.text(reportName, left, 36, {
+        width: Math.max(40, textRight - left),
+        align: 'left',
+        lineBreak: false,
+      });
+    }
+
+    if (logoBuf) {
+      try {
+        doc.image(logoBuf, right - 64, 14, { fit: [56, 36] });
+      } catch (err) {
+        console.warn('Report PDF logo render failed:', err?.message || err);
+      }
+    }
+
+    doc
+      .moveTo(left, 52)
+      .lineTo(right, 52)
+      .strokeColor('#e5e7eb')
+      .lineWidth(0.5)
+      .stroke();
   }
 
-  const foot = footer || '';
-  doc.font('Helvetica').fontSize(8).fillColor('#6b7280');
-  doc.text(foot, left, height - 36, {
-    width: (right - left) * 0.7,
-    align: 'left',
-    lineBreak: false,
-  });
+  const foot = String(footer || '').trim();
+  doc.fillColor('#6b7280').font('Helvetica').fontSize(8);
+  if (foot) {
+    doc.text(foot, left, height - 36, {
+      width: (right - left) * 0.7,
+      align: 'left',
+      lineBreak: false,
+    });
+  }
   doc.text(`Page ${pageNumber}`, left, height - 36, {
     width: right - left,
     align: 'right',
@@ -222,6 +283,7 @@ export function buildReportPdfBuffer({
   branding = {},
 }) {
   return new Promise((resolve, reject) => {
+    const brand = normalizeBranding(branding);
     const orientation = formatting.orientation === 'portrait' ? 'portrait' : 'landscape';
     const doc = new PDFDocument({
       size: pageSize(formatting),
@@ -230,7 +292,7 @@ export function buildReportPdfBuffer({
       bufferPages: true,
       info: {
         Title: reportName || 'Report',
-        Author: branding.companyName || 'Report Studio',
+        Author: brand.companyName || 'Report Studio',
       },
     });
 
@@ -242,7 +304,10 @@ export function buildReportPdfBuffer({
     const columns = result.columns || [];
     const rows = result.rows || [];
     const aggregates = result.aggregates || [];
-    const contentTop = formatting.header || branding.companyName ? 60 : 48;
+    const hasBrandChrome = Boolean(
+      formatting.header || brand.companyName || logoBufferFromDataUrl(brand.logoData)
+    );
+    const contentTop = hasBrandChrome ? 64 : 48;
     const usableWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
     const colWidth = columns.length ? usableWidth / columns.length : usableWidth;
     const left = doc.page.margins.left;
@@ -350,7 +415,7 @@ export function buildReportPdfBuffer({
         header: formatting.header,
         footer: formatting.footer,
         reportName,
-        branding,
+        branding: brand,
         pageNumber: i + 1,
       });
     }

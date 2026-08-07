@@ -15,6 +15,12 @@ import {
   isBudgetWidget,
   withBudgetFilterDefaults,
 } from '@/lib/kpiBudgetBridge';
+import {
+  PARTNER_KPI_METRIC_OPTIONS,
+  PARTNER_QUICK_OPTIONS,
+  isPartnerWidget,
+  withPartnerFilterDefaults,
+} from '@/lib/kpiPartnerBridge';
 import { COMBINED_GROUP_BY_OPTIONS } from '@/lib/kpiWidgetCatalog';
 import {
   CHART_TYPE_OPTIONS,
@@ -23,12 +29,14 @@ import {
   QUICK_WIDGET_OPTIONS,
   type KpiChartType,
   type KpiGroupBy,
-  type KpiMetric,
-  type KpiQuickType,
 } from '@/lib/kpiWidgets';
 
 const inputClass = 'w-full px-2.5 py-1.5 text-sm border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200';
 const labelClass = 'text-[10px] text-gray-500 uppercase block mb-0.5';
+
+function withDomainDefaults(widget: HomeWidget): HomeWidget {
+  return withPartnerFilterDefaults(withBudgetFilterDefaults(widget));
+}
 
 function CustomWidgetForm({
   form,
@@ -37,13 +45,14 @@ function CustomWidgetForm({
   form: HomeWidget;
   setForm: React.Dispatch<React.SetStateAction<HomeWidget>>;
 }) {
-  const usesBudget = isBudgetWidget({ metric: form.metric, quickType: form.quickType });
+  const usesBudget = isBudgetWidget({ metric: form.metric, quickType: form.quickType, dataSource: form.dataSource });
+  const usesPartner = isPartnerWidget({ metric: form.metric, quickType: form.quickType, dataSource: form.dataSource });
   const groupOptions = usesBudget ? COMBINED_GROUP_BY_OPTIONS : GROUP_BY_OPTIONS;
   const chartMeta = CHART_TYPE_OPTIONS.find((c) => c.id === form.chartType);
-  const needsGroupBy = form.kind === 'metric' && chartMeta?.needsGroupBy !== false && form.chartType !== 'kpi';
+  const needsGroupBy = form.kind === 'metric' && chartMeta?.needsGroupBy !== false && form.chartType !== 'kpi' && !usesPartner;
 
   const patchForm = (patch: Partial<HomeWidget>) => {
-    setForm((prev) => withBudgetFilterDefaults({ ...prev, ...patch }));
+    setForm((prev) => withDomainDefaults({ ...prev, ...patch }));
   };
 
   return (
@@ -69,7 +78,16 @@ function CustomWidgetForm({
           <select
             className={inputClass}
             value={form.quickType || ''}
-            onChange={(e) => patchForm({ quickType: e.target.value })}
+            onChange={(e) => {
+              const quickType = e.target.value;
+              const isPartner = PARTNER_QUICK_OPTIONS.some((q) => q.id === quickType);
+              const isBudget = BUDGET_QUICK_OPTIONS.some((q) => q.id === quickType);
+              patchForm({
+                quickType,
+                dataSource: isPartner ? 'partner' : isBudget ? 'budget' : 'asset',
+                metric: undefined,
+              });
+            }}
           >
             <option value="">Select…</option>
             <optgroup label="Assets">
@@ -79,6 +97,11 @@ function CustomWidgetForm({
             </optgroup>
             <optgroup label="Budget & procurement">
               {BUDGET_QUICK_OPTIONS.map((q) => (
+                <option key={q.id} value={q.id}>{q.label}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Partners">
+              {PARTNER_QUICK_OPTIONS.map((q) => (
                 <option key={q.id} value={q.id}>{q.label}</option>
               ))}
             </optgroup>
@@ -92,7 +115,17 @@ function CustomWidgetForm({
               <select
                 className={inputClass}
                 value={form.metric || ''}
-                onChange={(e) => patchForm({ metric: e.target.value })}
+                onChange={(e) => {
+                  const metric = e.target.value;
+                  const isPartner = PARTNER_KPI_METRIC_OPTIONS.some((m) => m.id === metric);
+                  const isBudget = BUDGET_METRIC_OPTIONS.some((m) => m.id === metric);
+                  patchForm({
+                    metric,
+                    dataSource: isPartner ? 'partner' : isBudget ? 'budget' : 'asset',
+                    quickType: undefined,
+                    chartType: isPartner ? 'kpi' : form.chartType || 'kpi',
+                  });
+                }}
               >
                 <option value="">Select…</option>
                 <optgroup label="Assets">
@@ -105,6 +138,11 @@ function CustomWidgetForm({
                     <option key={m.id} value={m.id}>{m.label}</option>
                   ))}
                 </optgroup>
+                <optgroup label="Partners">
+                  {PARTNER_KPI_METRIC_OPTIONS.map((m) => (
+                    <option key={m.id} value={m.id}>{m.label}</option>
+                  ))}
+                </optgroup>
               </select>
             </div>
             <div>
@@ -112,6 +150,7 @@ function CustomWidgetForm({
               <select
                 className={inputClass}
                 value={form.chartType || 'kpi'}
+                disabled={usesPartner}
                 onChange={(e) => patchForm({ chartType: e.target.value as KpiChartType })}
               >
                 {CHART_TYPE_OPTIONS.map((c) => (
@@ -179,7 +218,11 @@ function CustomWidgetForm({
           </select>
         </div>
       </div>
-      <p className="text-[11px] text-gray-600">Add filters on the widget card after saving.</p>
+      <p className="text-[11px] text-gray-600">
+        {usesPartner
+          ? 'Partner widgets support partner filters on the widget card after saving.'
+          : 'Add filters on the widget card after saving. Asset widgets can filter by partner.'}
+      </p>
     </div>
   );
 }
@@ -271,7 +314,7 @@ export default function HomeWidgetEditor({
           <button type="button" onClick={onCancel} className="px-3 py-1.5 text-xs rounded-lg border border-gray-700/60 text-gray-400">Cancel</button>
           <button
             type="button"
-            onClick={() => onSave(withBudgetFilterDefaults(form))}
+            onClick={() => onSave(withDomainDefaults(form))}
             className="px-3 py-1.5 text-xs rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
           >
             Save widget

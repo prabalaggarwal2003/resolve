@@ -5,6 +5,7 @@ import { getOrganizationKPIs } from './kpiService.js';
 import { isActiveAssetStatus } from '../constants/assetStatuses.js';
 import { canRead } from './permissions.js';
 import { getBudgetAnalyticsSummary } from './budgetSummaryService.js';
+import { getPartnerDashboardSummary } from './partnerDashboardService.js';
 import { getWarrantyStatus, isUnderWarranty, isWarrantyExpiringSoon, WARRANTY_EXPIRING_DAYS } from '../utils/warrantyStatus.js';
 
 function mapAssetFiltersToBudget(filters = {}) {
@@ -13,6 +14,18 @@ function mapAssetFiltersToBudget(filters = {}) {
   for (const k of keys) {
     if (filters[k]) mapped[k] = filters[k];
   }
+  return mapped;
+}
+
+function mapPageFiltersToPartner(filters = {}) {
+  const mapped = {};
+  if (filters.partnerStatus) mapped.status = filters.partnerStatus;
+  if (filters.partnerTypeKey) mapped.partnerTypeKey = filters.partnerTypeKey;
+  if (filters.partnerCategoryKey) mapped.categoryKey = filters.partnerCategoryKey;
+  if (filters.partnerTag) mapped.tag = filters.partnerTag;
+  if (filters.partnerSearch) mapped.search = filters.partnerSearch;
+  if (filters.partnerId) mapped.partnerId = filters.partnerId;
+  else if (filters.vendorId) mapped.partnerId = filters.vendorId;
   return mapped;
 }
 
@@ -38,6 +51,8 @@ function mapAssetToKpi(metrics, raw) {
     location: metrics.location,
     vendorId: metrics.vendorId,
     vendorName: metrics.vendorName,
+    partnerId: metrics.partnerId || null,
+    partnerName: metrics.partnerName || null,
     assignedToId: raw?.assignedTo ? String(raw.assignedTo) : null,
     assignedToName: raw?.assignedToName || null,
     purchaseDate: metrics.purchaseDate,
@@ -262,6 +277,9 @@ export async function getKpiSummary(organizationId, userId, filters = {}, user =
     },
     budget: user && canRead(user, 'budgets')
       ? await getBudgetAnalyticsSummary(organizationId, mapAssetFiltersToBudget(filters)).catch(() => null)
+      : null,
+    partners: user && canRead(user, 'businessPartners')
+      ? await getPartnerDashboardSummary(organizationId, mapPageFiltersToPartner(filters)).catch(() => null)
       : null,
   };
 }

@@ -66,6 +66,8 @@ export default function KpiWidgetFilters({
           return <select className={inputClass} value={filters.templateId || ''} onChange={(e) => setFilter('templateId', e.target.value)}><option value="">All</option>{templates.map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}</select>;
         case 'vendorId':
           return <select className={inputClass} value={filters.vendorId || ''} onChange={(e) => setFilter('vendorId', e.target.value)}><option value="">All</option>{vendors.map((v) => <option key={v._id} value={v._id}>{v.name}</option>)}</select>;
+        case 'partnerId':
+          return <select className={inputClass} value={filters.partnerId || ''} onChange={(e) => setFilter('partnerId', e.target.value)}><option value="">All</option>{vendors.map((v) => <option key={v._id} value={v._id}>{v.name}</option>)}</select>;
         case 'status':
           return <select className={inputClass} value={filters.status || ''} onChange={(e) => setFilter('status', e.target.value)}><option value="">All</option>{statusOptions.map((s) => <option key={s} value={s}>{formatAssetStatusLabel(s)}</option>)}</select>;
         case 'category':

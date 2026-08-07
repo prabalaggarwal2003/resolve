@@ -12,6 +12,7 @@ import {
 	type PermissionsMap,
 	type PermissionTabMode,
 } from '@/lib/permissions';
+import { formatOrgAddressLabel } from '@/lib/orgProfile';
 
 function api(path: string) {
 	const base = process.env.NEXT_PUBLIC_API_URL || '';
@@ -32,6 +33,22 @@ type User = {
 	role: string;
 	customRoleId?: { _id: string; name: string } | string | null;
 	departmentId?: { _id: string; name: string };
+	organizationAddressId?: string | null;
+	organizationAddress?: {
+		_id: string;
+		typeKey?: string;
+		label?: string;
+		city?: string;
+		street?: string;
+	} | null;
+};
+
+type OrgAddressOption = {
+	_id: string;
+	typeKey?: string;
+	label?: string;
+	city?: string;
+	street?: string;
 };
 
 const inputClass =
@@ -167,6 +184,7 @@ export default function RolesPage() {
 	const [users, setUsers] = useState<User[]>([]);
 	const [roles, setRoles] = useState<OrgRole[]>([]);
 	const [departments, setDepartments] = useState<{ _id: string; name: string }[]>([]);
+	const [orgAddresses, setOrgAddresses] = useState<OrgAddressOption[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState('');
 	const [showRoleForm, setShowRoleForm] = useState(false);
@@ -182,6 +200,7 @@ export default function RolesPage() {
 		password: '',
 		customRoleId: '',
 		departmentId: '',
+		organizationAddressId: '',
 	});
 	const [submitLoading, setSubmitLoading] = useState(false);
 	const [storedPasswords, setStoredPasswords] = useState<Record<string, string>>({});
@@ -211,11 +230,13 @@ export default function RolesPage() {
 			fetch(api('/api/users'), { headers }).then((r) => r.json()),
 			fetch(api('/api/org-roles'), { headers }).then((r) => r.json()),
 			fetch(api('/api/departments'), { headers }).then((r) => r.json()),
+			fetch(api('/api/organization'), { headers }).then((r) => r.json()),
 		])
-			.then(([usersData, rolesData, depsData]) => {
+			.then(([usersData, rolesData, depsData, orgData]) => {
 				if (usersData.users) setUsers(usersData.users);
 				if (rolesData.roles) setRoles(rolesData.roles);
 				if (depsData.departments) setDepartments(depsData.departments);
+				setOrgAddresses(orgData?.organization?.addresses || []);
 			})
 			.catch(() => setError('Failed to load data'))
 			.finally(() => setLoading(false));
@@ -269,6 +290,7 @@ export default function RolesPage() {
 						name: userForm.name.trim(),
 						customRoleId: userForm.customRoleId,
 						departmentId: userForm.departmentId || undefined,
+						organizationAddressId: userForm.organizationAddressId || null,
 					}),
 				});
 				const data = await res.json();
@@ -287,6 +309,7 @@ export default function RolesPage() {
 						password: userForm.password,
 						customRoleId: userForm.customRoleId,
 						departmentId: userForm.departmentId || undefined,
+						organizationAddressId: userForm.organizationAddressId || undefined,
 					}),
 				});
 				const data = await res.json();
@@ -299,7 +322,14 @@ export default function RolesPage() {
 			}
 			setShowUserForm(false);
 			setEditingUser(null);
-			setUserForm({ email: '', name: '', password: '', customRoleId: '', departmentId: '' });
+			setUserForm({
+				email: '',
+				name: '',
+				password: '',
+				customRoleId: '',
+				departmentId: '',
+				organizationAddressId: '',
+			});
 			fetchData();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'Request failed');
@@ -369,6 +399,11 @@ export default function RolesPage() {
 			password: '',
 			customRoleId: roleId,
 			departmentId: user.departmentId?._id ?? '',
+			organizationAddressId: user.organizationAddressId
+				? String(user.organizationAddressId)
+				: user.organizationAddress?._id
+					? String(user.organizationAddress._id)
+					: '',
 		});
 		setShowUserForm(true);
 		setError('');
@@ -424,7 +459,14 @@ export default function RolesPage() {
 							type="button"
 							onClick={() => {
 								setEditingUser(null);
-								setUserForm({ email: '', name: '', password: '', customRoleId: roles[0]?._id || '', departmentId: '' });
+								setUserForm({
+									email: '',
+									name: '',
+									password: '',
+									customRoleId: roles[0]?._id || '',
+									departmentId: '',
+									organizationAddressId: '',
+								});
 								setShowUserForm(true);
 								setError('');
 							}}
@@ -577,6 +619,29 @@ export default function RolesPage() {
 								))}
 							</select>
 						</div>
+						<div>
+							<label className={labelClass}>Organization address (optional)</label>
+							<p className="text-[10px] text-gray-500 mb-1">
+								Assign a workplace from Organization addresses (head office, warehouse, etc.).
+							</p>
+							<select
+								value={userForm.organizationAddressId}
+								onChange={(e) => setUserForm({ ...userForm, organizationAddressId: e.target.value })}
+								className={inputClass}
+							>
+								<option value="">No address</option>
+								{orgAddresses.map((a) => (
+									<option key={a._id} value={a._id}>
+										{formatOrgAddressLabel(a)}
+									</option>
+								))}
+							</select>
+							{orgAddresses.length === 0 && (
+								<p className="text-[10px] text-amber-500/80 mt-1">
+									No addresses yet — add them in Organization settings first.
+								</p>
+							)}
+						</div>
 						{!editingUser && (
 							<div>
 								<label className={labelClass}>Temporary password *</label>
@@ -703,6 +768,7 @@ export default function RolesPage() {
 									<th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Email</th>
 									<th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Role</th>
 									<th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Department</th>
+									<th className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500">Address</th>
 									{canEditRoles && (
 										<th className="px-3 py-2 text-center text-[10px] uppercase tracking-wide text-gray-500">Actions</th>
 									)}
@@ -731,6 +797,11 @@ export default function RolesPage() {
 										</td>
 										<td className="px-3 py-2 text-xs text-gray-300">{getUserRoleLabel(u)}</td>
 										<td className="px-3 py-2 text-xs text-gray-500">{u.departmentId?.name ?? '—'}</td>
+										<td className="px-3 py-2 text-xs text-gray-500">
+											{u.organizationAddress
+												? formatOrgAddressLabel(u.organizationAddress)
+												: '—'}
+										</td>
 										{canEditRoles && u.role !== 'super_admin' && (
 											<td className="px-3 py-2">
 												<div className="flex items-center justify-center gap-1.5">

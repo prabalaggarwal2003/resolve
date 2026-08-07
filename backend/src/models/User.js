@@ -15,6 +15,8 @@ const userSchema = new mongoose.Schema(
     organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
     departmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
     assignedLocationIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Location' }],
+    /** Organization address subdocument `_id` (workplace / office assignment). */
+    organizationAddressId: { type: mongoose.Schema.Types.ObjectId, default: null },
     phone: String,
     jobTitle: String,
     timeZone: { type: String, default: 'Asia/Kolkata' },

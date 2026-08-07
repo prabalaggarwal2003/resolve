@@ -15,8 +15,22 @@ import {
   getDistinctFieldValues,
 } from '../services/reportQueryService.js';
 import { buildReportPdfBuffer } from '../services/reportPdfExportService.js';
-import { DEFAULT_REPORT_STUDIO_SETTINGS } from '../constants/reportStudioDefaults.js';
+import {
+  DEFAULT_REPORT_FORMATTING,
+  DEFAULT_REPORT_STUDIO_SETTINGS,
+  REPORT_EXPORT_HISTORY_LIMIT,
+  REPORT_LOGO_MAX_CHARS,
+} from '../constants/reportStudioDefaults.js';
 import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
+import {
+  diffReportDefinition,
+  diffReportSchedule,
+  diffReportSettings,
+  formatReportFieldChangesSummary,
+  reportAuditDetails,
+  snapshotDefinitionFields,
+  snapshotScheduleFields,
+} from '../services/reportStudioAudit.js';
 
 const router = express.Router();
 router.use(protect);
@@ -24,6 +38,18 @@ router.use(requireTabRead('reports'));
 
 function orgId(req) {
   return req.user.organizationId;
+}
+
+function auditReport(req, action, resourceId, resourceName, changes = [], options = {}) {
+  const fieldChanges = changes;
+  return logAudit(req.user._id, action, AUDIT_RESOURCES.REPORT, resourceId, {
+    resourceName,
+    description:
+      options.description || formatReportFieldChangesSummary(resourceName, fieldChanges),
+    details: reportAuditDetails(resourceName, fieldChanges, options.extra || {}),
+    severity: options.severity || 'low',
+    ...getRequestMetadata(req),
+  });
 }
 
 function canAccessDefinition(doc, user) {
@@ -43,8 +69,39 @@ async function getSettings(organizationId) {
       organizationId,
       ...DEFAULT_REPORT_STUDIO_SETTINGS,
     });
+    return settings;
   }
+
+  let dirty = false;
+  if (!settings.defaultFormatting) {
+    settings.defaultFormatting = { ...DEFAULT_REPORT_FORMATTING };
+    dirty = true;
+  }
+  const branding = settings.branding?.toObject?.() || settings.branding || {};
+  if (
+    branding.logoUrl !== undefined ||
+    branding.primaryColor !== undefined ||
+    branding.logoData === undefined
+  ) {
+    settings.branding = {
+      companyName: branding.companyName || '',
+      logoData: branding.logoData || '',
+    };
+    dirty = true;
+  }
+  if (dirty) await settings.save();
   return settings;
+}
+
+/** Keep only the newest N export history rows for an organization. */
+async function pruneExportHistory(organizationId, keep = REPORT_EXPORT_HISTORY_LIMIT) {
+  const stale = await ReportExport.find({ organizationId })
+    .sort({ createdAt: -1 })
+    .skip(keep)
+    .select('_id')
+    .lean();
+  if (!stale.length) return;
+  await ReportExport.deleteMany({ _id: { $in: stale.map((d) => d._id) } });
 }
 
 function parseMaybeJson(value, fallback) {
@@ -223,8 +280,11 @@ router.post('/export', async (req, res) => {
     const reportName = req.body.reportName || 'Report';
     const config = normalizeConfig(req.body.config || {});
     const settings = await getSettings(orgId(req));
+    const settingsFormatting =
+      settings.defaultFormatting?.toObject?.() || settings.defaultFormatting || {};
     const formatting = {
-      ...(settings.branding ? {} : {}),
+      ...DEFAULT_REPORT_FORMATTING,
+      ...settingsFormatting,
       ...(config.formatting || {}),
     };
 
@@ -244,6 +304,7 @@ router.post('/export', async (req, res) => {
       payload = JSON.stringify(
         {
           name: reportName,
+          companyName: String(settings.branding?.companyName || '').trim(),
           header: formatting.header || settings.branding?.companyName || '',
           footer: formatting.footer || '',
           watermark: formatting.watermark || '',
@@ -259,11 +320,15 @@ router.post('/export', async (req, res) => {
       );
       contentType = 'application/json';
     } else if (format === 'pdf' || format === 'print') {
+      const branding = {
+        companyName: String(settings.branding?.companyName || '').trim(),
+        logoData: String(settings.branding?.logoData || ''),
+      };
       const buffer = await buildReportPdfBuffer({
         reportName,
         result,
         formatting,
-        branding: settings.branding || {},
+        branding,
       });
       payload = buffer.toString('base64');
       contentType = 'application/pdf';
@@ -294,13 +359,30 @@ router.post('/export', async (req, res) => {
       configSnapshot: config,
     });
 
-    await logAudit(req.user._id, AUDIT_ACTIONS.REPORT_GENERATED, AUDIT_RESOURCES.REPORT, exportDoc._id, {
-      resourceName: reportName,
-      description: `Exported report as ${format}`,
-      details: { format, recordCount: result.total, fileName },
-      severity: 'low',
-      ...getRequestMetadata(req),
-    });
+    await pruneExportHistory(orgId(req));
+
+    await auditReport(
+      req,
+      AUDIT_ACTIONS.REPORT_GENERATED,
+      exportDoc._id,
+      reportName,
+      [
+        { field: 'format', label: 'Export format', to: format },
+        { field: 'fileName', label: 'File name', to: fileName },
+        {
+          field: 'recordCount',
+          label: 'Records',
+          to: String(result.total ?? 0),
+        },
+        ...(req.body.reportId
+          ? [{ field: 'reportId', label: 'Report ID', to: String(req.body.reportId) }]
+          : []),
+      ],
+      {
+        description: `Exported “${reportName}” as ${format.toUpperCase()}`,
+        extra: { format, recordCount: result.total, fileName, exportType: format },
+      }
+    );
 
     res.json({
       export: {
@@ -398,12 +480,15 @@ router.post('/definitions', requireTabWrite('reports'), async (req, res) => {
       config: normalizeConfig(body.config),
     });
 
-    await logAudit(req.user._id, 'created', AUDIT_RESOURCES.REPORT, doc._id, {
-      resourceName: doc.name,
-      description: `Created report definition (${doc.kind})`,
-      severity: 'low',
-      ...getRequestMetadata(req),
-    });
+    const kindLabel =
+      doc.kind === 'template' ? 'template' : doc.kind === 'draft' ? 'draft' : 'saved report';
+    const skipAudit = body.autosave === true || body.skipAudit === true || doc.kind === 'draft';
+    if (!skipAudit) {
+      await auditReport(req, 'created', doc._id, doc.name, snapshotDefinitionFields(doc), {
+        description: `Saved ${kindLabel}: ${doc.name}`,
+        extra: { kind: doc.kind, scope: doc.scope },
+      });
+    }
 
     res.status(201).json(doc);
   } catch (error) {
@@ -416,6 +501,7 @@ router.patch('/definitions/:id', requireTabWrite('reports'), async (req, res) =>
     const doc = await ReportDefinition.findById(req.params.id);
     if (!canAccessDefinition(doc, req.user)) return res.status(404).json({ message: 'Not found' });
 
+    const before = doc.toObject();
     const body = req.body || {};
     if (body.name !== undefined) doc.name = body.name;
     if (body.description !== undefined) doc.description = body.description;
@@ -430,12 +516,16 @@ router.patch('/definitions/:id', requireTabWrite('reports'), async (req, res) =>
     }
     await doc.save();
 
-    await logAudit(req.user._id, 'updated', AUDIT_RESOURCES.REPORT, doc._id, {
-      resourceName: doc.name,
-      description: 'Updated report definition',
-      severity: 'low',
-      ...getRequestMetadata(req),
-    });
+    const skipAudit = body.autosave === true || body.skipAudit === true || doc.kind === 'draft';
+    const changes = diffReportDefinition(before, doc.toObject());
+    if (!skipAudit && changes.length) {
+      const kindLabel =
+        doc.kind === 'template' ? 'template' : doc.kind === 'draft' ? 'draft' : 'saved report';
+      await auditReport(req, 'updated', doc._id, doc.name, changes, {
+        description: formatReportFieldChangesSummary(`${kindLabel} “${doc.name}”`, changes),
+        extra: { kind: doc.kind },
+      });
+    }
 
     res.json(doc.toObject());
   } catch (error) {
@@ -459,6 +549,22 @@ router.post('/definitions/:id/duplicate', requireTabWrite('reports'), async (req
       config: doc.config,
       published: false,
     });
+
+    await auditReport(
+      req,
+      'duplicated',
+      copy._id,
+      copy.name,
+      [
+        { field: 'source', label: 'Duplicated from', from: '(empty)', to: doc.name },
+        { field: 'kind', label: 'Kind', from: '(empty)', to: copy.kind },
+        ...snapshotDefinitionFields(copy).filter((c) => c.field !== 'kind'),
+      ],
+      {
+        description: `Duplicated report “${doc.name}” → “${copy.name}”`,
+        extra: { sourceId: String(doc._id), kind: copy.kind },
+      }
+    );
 
     res.status(201).json(copy);
   } catch (error) {
@@ -487,12 +593,21 @@ router.delete('/definitions/:id', requireTabWrite('reports'), async (req, res) =
     const doc = await ReportDefinition.findById(req.params.id);
     if (!canAccessDefinition(doc, req.user)) return res.status(404).json({ message: 'Not found' });
     await doc.deleteOne();
-    await logAudit(req.user._id, 'deleted', AUDIT_RESOURCES.REPORT, doc._id, {
-      resourceName: doc.name,
-      description: 'Deleted report definition',
-      severity: 'medium',
-      ...getRequestMetadata(req),
-    });
+    await auditReport(
+      req,
+      'deleted',
+      doc._id,
+      doc.name,
+      [
+        { field: 'name', label: 'Name', from: doc.name, to: '(deleted)' },
+        { field: 'kind', label: 'Kind', from: doc.kind, to: '(deleted)' },
+      ],
+      {
+        description: `Deleted ${doc.kind}: ${doc.name}`,
+        severity: 'medium',
+        extra: { kind: doc.kind },
+      }
+    );
     res.json({ ok: true });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -516,6 +631,30 @@ router.post('/quick/:key/save', requireTabWrite('reports'), async (req, res) => 
       published: kind === 'template',
       config: normalizeConfig(preset.config),
     });
+
+    await auditReport(
+      req,
+      'created',
+      doc._id,
+      doc.name,
+      [
+        {
+          field: 'quickKey',
+          label: 'Saved from quick report',
+          from: '(empty)',
+          to: preset.key,
+        },
+        ...snapshotDefinitionFields(doc),
+      ],
+      {
+        description:
+          kind === 'template'
+            ? `Saved template from quick report “${preset.name}”`
+            : `Saved report from quick report “${preset.name}”`,
+        extra: { kind, quickKey: preset.key },
+      }
+    );
+
     res.status(201).json(doc);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -558,6 +697,27 @@ router.post('/schedules', requireTabWrite('reports'), async (req, res) => {
       recipients: body.recipients || [],
       lastStatus: 'pending',
     });
+
+    await auditReport(
+      req,
+      'created',
+      doc._id,
+      doc.name,
+      snapshotScheduleFields({
+        ...doc.toObject(),
+        reportId: report.name || String(doc.reportId),
+      }),
+      {
+        description: `Scheduled report “${report.name}” (${doc.frequency}, ${doc.exportFormat})`,
+        extra: {
+          scheduleId: String(doc._id),
+          reportId: String(doc.reportId),
+          frequency: doc.frequency,
+          exportFormat: doc.exportFormat,
+        },
+      }
+    );
+
     res.status(201).json(doc);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -568,6 +728,7 @@ router.patch('/schedules/:id', requireTabWrite('reports'), async (req, res) => {
   try {
     const doc = await ReportSchedule.findOne({ _id: req.params.id, organizationId: orgId(req) });
     if (!doc) return res.status(404).json({ message: 'Not found' });
+    const before = doc.toObject();
     const fields = [
       'name',
       'enabled',
@@ -583,6 +744,15 @@ router.patch('/schedules/:id', requireTabWrite('reports'), async (req, res) => {
       if (req.body[f] !== undefined) doc[f] = req.body[f];
     }
     await doc.save();
+
+    const changes = diffReportSchedule(before, doc.toObject());
+    if (changes.length) {
+      await auditReport(req, 'updated', doc._id, doc.name, changes, {
+        description: formatReportFieldChangesSummary(`schedule “${doc.name}”`, changes),
+        extra: { scheduleId: String(doc._id), reportId: String(doc.reportId) },
+      });
+    }
+
     res.json(doc);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -593,6 +763,24 @@ router.delete('/schedules/:id', requireTabWrite('reports'), async (req, res) => 
   try {
     const doc = await ReportSchedule.findOneAndDelete({ _id: req.params.id, organizationId: orgId(req) });
     if (!doc) return res.status(404).json({ message: 'Not found' });
+
+    await auditReport(
+      req,
+      'deleted',
+      doc._id,
+      doc.name,
+      [
+        { field: 'name', label: 'Name', from: doc.name, to: '(deleted)' },
+        { field: 'frequency', label: 'Frequency', from: doc.frequency, to: '(deleted)' },
+        { field: 'exportFormat', label: 'Export format', from: doc.exportFormat, to: '(deleted)' },
+      ],
+      {
+        description: `Deleted schedule “${doc.name}”`,
+        severity: 'medium',
+        extra: { scheduleId: String(doc._id), reportId: String(doc.reportId) },
+      }
+    );
+
     res.json({ ok: true });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -607,9 +795,11 @@ router.get('/exports', async (req, res) => {
     if (req.query.status) q.status = req.query.status;
     if (req.query.search) q.reportName = { $regex: String(req.query.search), $options: 'i' };
 
+    await pruneExportHistory(orgId(req));
+
     const items = await ReportExport.find(q)
       .sort({ createdAt: -1 })
-      .limit(Math.min(200, Number(req.query.limit) || 50))
+      .limit(REPORT_EXPORT_HISTORY_LIMIT)
       .populate('generatedBy', 'name email')
       .select('-payload')
       .lean();
@@ -625,13 +815,20 @@ router.get('/exports/:id/download', async (req, res) => {
     if (!doc) return res.status(404).json({ message: 'Not found' });
     if (!doc.payload) return res.status(410).json({ message: 'Export payload expired' });
 
-    await logAudit(req.user._id, AUDIT_ACTIONS.REPORT_DOWNLOADED, AUDIT_RESOURCES.REPORT, doc._id, {
-      resourceName: doc.reportName,
-      description: `Re-downloaded export ${doc.fileName}`,
-      details: { format: doc.format, fileName: doc.fileName },
-      severity: 'low',
-      ...getRequestMetadata(req),
-    });
+    await auditReport(
+      req,
+      AUDIT_ACTIONS.REPORT_DOWNLOADED,
+      doc._id,
+      doc.reportName,
+      [
+        { field: 'format', label: 'Export format', to: doc.format },
+        { field: 'fileName', label: 'File name', to: doc.fileName || '' },
+      ],
+      {
+        description: `Re-downloaded export “${doc.fileName}” (${String(doc.format || '').toUpperCase()})`,
+        extra: { format: doc.format, fileName: doc.fileName, exportType: doc.format },
+      }
+    );
 
     res.json({
       fileName: doc.fileName,
@@ -658,23 +855,46 @@ router.get('/settings', async (req, res) => {
 router.patch('/settings', requireTabWrite('reports'), async (req, res) => {
   try {
     const settings = await getSettings(orgId(req));
+    const before = settings.toObject();
     const body = req.body || {};
-    if (body.defaultExportFormat !== undefined) settings.defaultExportFormat = body.defaultExportFormat;
-    if (body.timezone !== undefined) settings.timezone = body.timezone;
-    if (body.currency !== undefined) settings.currency = body.currency;
     if (body.defaultFilenameFormat !== undefined) settings.defaultFilenameFormat = body.defaultFilenameFormat;
-    if (body.retentionDays !== undefined) settings.retentionDays = body.retentionDays;
-    if (body.branding !== undefined) {
-      settings.branding = { ...settings.branding?.toObject?.() || settings.branding || {}, ...body.branding };
+    if (body.defaultFormatting !== undefined && typeof body.defaultFormatting === 'object') {
+      const prevFmt = settings.defaultFormatting?.toObject?.() || settings.defaultFormatting || {};
+      const nextFmt = { ...prevFmt, ...body.defaultFormatting };
+      settings.defaultFormatting = {
+        header: String(nextFmt.header ?? ''),
+        footer: String(nextFmt.footer ?? ''),
+        watermark: String(nextFmt.watermark ?? ''),
+        orientation: nextFmt.orientation === 'portrait' ? 'portrait' : 'landscape',
+        paperSize: ['a4', 'letter', 'legal', 'a3'].includes(String(nextFmt.paperSize || '').toLowerCase())
+          ? String(nextFmt.paperSize).toLowerCase()
+          : 'a4',
+      };
+    }
+    if (body.branding !== undefined && typeof body.branding === 'object') {
+      const prevBranding = settings.branding?.toObject?.() || settings.branding || {};
+      const nextBranding = { ...prevBranding, ...body.branding };
+      const logoData = nextBranding.logoData != null ? String(nextBranding.logoData) : '';
+      if (logoData && logoData.length > REPORT_LOGO_MAX_CHARS) {
+        return res.status(400).json({ message: 'Logo file is too large. Use an image under ~500KB.' });
+      }
+      if (logoData && !/^data:image\/(png|jpe?g);base64,/i.test(logoData)) {
+        return res.status(400).json({ message: 'Logo must be a PNG or JPEG image (PDF export does not support WebP/GIF).' });
+      }
+      settings.branding = {
+        companyName: String(nextBranding.companyName ?? ''),
+        logoData,
+      };
     }
     await settings.save();
 
-    await logAudit(req.user._id, 'settings_changed', AUDIT_RESOURCES.REPORT, settings._id, {
-      resourceName: 'Report Studio settings',
-      description: 'Updated Report Studio settings',
-      severity: 'medium',
-      ...getRequestMetadata(req),
-    });
+    const changes = diffReportSettings(before, settings.toObject());
+    if (changes.length) {
+      await auditReport(req, 'settings_changed', settings._id, 'Report Studio settings', changes, {
+        description: formatReportFieldChangesSummary('Report Studio settings', changes),
+        severity: 'medium',
+      });
+    }
 
     res.json(settings);
   } catch (error) {

@@ -672,25 +672,22 @@ export const SYSTEM_QUICK_REPORTS = [
 export const DEFAULT_REPORT_FORMATTING = {
   orientation: 'landscape',
   paperSize: 'a4',
-  theme: 'default',
-  dateFormat: 'dd MMM yyyy',
-  currencyFormat: 'INR',
-  decimalPrecision: 2,
-  showLogo: true,
   header: '',
   footer: '',
   watermark: '',
 };
 
 export const DEFAULT_REPORT_STUDIO_SETTINGS = {
-  defaultExportFormat: 'csv',
-  timezone: 'Asia/Kolkata',
-  currency: 'INR',
   defaultFilenameFormat: '{reportName}_{date}',
-  retentionDays: 90,
+  defaultFormatting: { ...DEFAULT_REPORT_FORMATTING },
   branding: {
-    logoUrl: '',
-    primaryColor: '#f59e0b',
     companyName: '',
+    logoData: '',
   },
 };
+
+/** Max export history records kept per organization. */
+export const REPORT_EXPORT_HISTORY_LIMIT = 15;
+
+/** Max uploaded logo size (raw base64 string length roughly). */
+export const REPORT_LOGO_MAX_CHARS = 700_000;
