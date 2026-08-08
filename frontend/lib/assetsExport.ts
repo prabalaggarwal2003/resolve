@@ -6,6 +6,8 @@ import {
   type AdvancedFilter,
 } from '@/lib/assetsTableConfig';
 import { breadcrumbForNode } from '@/lib/locations';
+import { formatOrgMoney } from '@/lib/orgCurrency';
+import { formatOrgDate } from '@/lib/orgTimezone';
 
 export type AssetExportRow = {
   assetId?: string;
@@ -37,12 +39,12 @@ export type AssetExportRow = {
 
 function formatDate(d?: string) {
   if (!d) return '';
-  return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  return formatOrgDate(d);
 }
 
 function formatCurrency(n?: number) {
   if (n == null) return '';
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
+  return formatOrgMoney(n);
 }
 
 function partnerExportLabel(asset: AssetExportRow) {

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   api,
   authHeaders,
+  POLICY_SOURCE_LABELS,
+  type AssetRateOverride,
   type DepreciationPolicy,
   type PolicyAssignment,
   type YearRate,
@@ -47,17 +49,34 @@ export default function DepreciationEditTab({
   const [overrideAssetId, setOverrideAssetId] = useState('');
   const [overrideRate, setOverrideRate] = useState('');
   const [overrideReason, setOverrideReason] = useState('');
+  const [overrides, setOverrides] = useState<AssetRateOverride[]>([]);
+  const [removingOverrideId, setRemovingOverrideId] = useState<string | null>(null);
+
+  const yearRatesTotal = form.yearRates.reduce((sum, row) => {
+    const n = Number(row.rate);
+    return sum + (Number.isFinite(n) ? n : 0);
+  }, 0);
+  const yearRatesRemaining = Math.max(0, Math.round((100 - yearRatesTotal) * 10) / 10);
+  const yearRatesOverLimit = yearRatesTotal > 100.0001;
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(api('/api/depreciation/policies'), { headers: authHeaders() });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to load');
+      const [policiesRes, overridesRes] = await Promise.all([
+        fetch(api('/api/depreciation/policies'), { headers: authHeaders() }),
+        fetch(api('/api/depreciation/overrides'), { headers: authHeaders() }),
+      ]);
+      const data = await policiesRes.json();
+      if (!policiesRes.ok) throw new Error(data.message || 'Failed to load');
       setPolicies(data.policies || []);
       setAssignments(data.assignments || []);
       setCategories(data.categories || []);
+
+      const overridesData = await overridesRes.json();
+      if (overridesRes.ok) {
+        setOverrides(overridesData.overrides || []);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load');
     } finally {
@@ -83,10 +102,20 @@ export default function DepreciationEditTab({
 
   const addYearRow = () => {
     setForm((f) => {
+      const total = f.yearRates.reduce((sum, row) => {
+        const n = Number(row.rate);
+        return sum + (Number.isFinite(n) ? n : 0);
+      }, 0);
+      const remaining = Math.max(0, 100 - total);
+      if (remaining <= 0) return f;
       const nextYear = f.yearRates.length
         ? String(Math.max(...f.yearRates.map((r) => Number(r.year) || 0)) + 1)
         : '1';
-      return { ...f, yearRates: [...f.yearRates, { year: nextYear, rate: f.rate }] };
+      const suggested = Math.min(Number(f.rate) || 0, remaining);
+      return {
+        ...f,
+        yearRates: [...f.yearRates, { year: nextYear, rate: String(suggested || remaining) }],
+      };
     });
   };
 
@@ -98,10 +127,29 @@ export default function DepreciationEditTab({
   };
 
   const updateYearRow = (index: number, field: 'year' | 'rate', value: string) => {
-    setForm((f) => ({
-      ...f,
-      yearRates: f.yearRates.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
-    }));
+    setForm((f) => {
+      if (field !== 'rate') {
+        return {
+          ...f,
+          yearRates: f.yearRates.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
+        };
+      }
+      const others = f.yearRates.reduce((sum, row, i) => {
+        if (i === index) return sum;
+        const n = Number(row.rate);
+        return sum + (Number.isFinite(n) ? n : 0);
+      }, 0);
+      const maxForRow = Math.max(0, 100 - others);
+      let next = value;
+      const parsed = Number(value);
+      if (value !== '' && Number.isFinite(parsed) && parsed > maxForRow) {
+        next = String(Math.round(maxForRow * 100) / 100);
+      }
+      return {
+        ...f,
+        yearRates: f.yearRates.map((row, i) => (i === index ? { ...row, rate: next } : row)),
+      };
+    });
   };
 
   const savePolicy = async () => {
@@ -110,6 +158,11 @@ export default function DepreciationEditTab({
     const yearRates: YearRate[] = form.yearRates
       .map((r) => ({ year: Number(r.year), rate: Number(r.rate) }))
       .filter((r) => r.year >= 1 && !Number.isNaN(r.rate));
+    const total = yearRates.reduce((sum, r) => sum + r.rate, 0);
+    if (total > 100.0001) {
+      setError(`Year-wise rates total ${total}% — must not exceed 100%.`);
+      return;
+    }
     const body = {
       name: form.name.trim(),
       method: form.method,
@@ -190,6 +243,10 @@ export default function DepreciationEditTab({
   const applyOverride = async (clear = false) => {
     const key = overrideAssetId.trim();
     if (!key) { setError('Asset ID required (e.g. AST-001)'); return; }
+    if (!clear && !String(overrideReason || '').trim()) {
+      setError('Reason is required for manual override');
+      return;
+    }
     setError('');
     const res = await fetch(api(`/api/depreciation/assets/${encodeURIComponent(key)}/override`), {
       method: 'PATCH',
@@ -198,9 +255,30 @@ export default function DepreciationEditTab({
     });
     const data = await res.json();
     if (!res.ok) { setError(data.message); return; }
+    setOverrideAssetId('');
     setOverrideRate('');
     setOverrideReason('');
-    alert(clear ? 'Override cleared' : 'Override saved (logged to audit)');
+    await load();
+  };
+
+  const removeOverride = async (row: AssetRateOverride) => {
+    if (!confirm(`Remove rate override for ${row.assetId} (${row.name})?`)) return;
+    setRemovingOverrideId(row._id);
+    setError('');
+    try {
+      const res = await fetch(api(`/api/depreciation/assets/${encodeURIComponent(row.assetId)}/override`), {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ clear: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to remove override');
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to remove override');
+    } finally {
+      setRemovingOverrideId(null);
+    }
   };
 
   const startEdit = (p: DepreciationPolicy) => {
@@ -258,10 +336,26 @@ export default function DepreciationEditTab({
         </div>
 
         <div className="mt-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] text-gray-500 uppercase">Year-wise depreciation rates</p>
+          <div className="flex items-center justify-between mb-2 gap-2">
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase">Year-wise depreciation rates</p>
+              <p
+                className={`text-[11px] mt-0.5 tabular-nums ${
+                  yearRatesOverLimit ? 'text-red-300' : yearRatesTotal >= 100 ? 'text-emerald-300' : 'text-gray-500'
+                }`}
+              >
+                Total {Math.round(yearRatesTotal * 10) / 10}% / 100%
+                {!yearRatesOverLimit && yearRatesRemaining > 0 ? ` · ${yearRatesRemaining}% remaining` : ''}
+              </p>
+            </div>
             {canEdit && (
-              <button type="button" onClick={addYearRow} className={`${buttonClass} border-violet-500/40 text-violet-300`}>
+              <button
+                type="button"
+                onClick={addYearRow}
+                disabled={yearRatesRemaining <= 0}
+                className={`${buttonClass} border-violet-500/40 text-violet-300 disabled:opacity-40 disabled:cursor-not-allowed`}
+                title={yearRatesRemaining <= 0 ? 'Year-wise rates already total 100%' : 'Add another year'}
+              >
                 + Add year
               </button>
             )}
@@ -287,7 +381,12 @@ export default function DepreciationEditTab({
 
         {canEdit && (
           <div className="flex gap-2 mt-3">
-            <button type="button" onClick={savePolicy} className={`${buttonClass} border-emerald-500/40 text-emerald-300`}>
+            <button
+              type="button"
+              onClick={savePolicy}
+              disabled={yearRatesOverLimit}
+              className={`${buttonClass} border-emerald-500/40 text-emerald-300 disabled:opacity-40`}
+            >
               {editingId ? 'Update policy' : 'Create policy'}
             </button>
             {editingId && (
@@ -373,6 +472,70 @@ export default function DepreciationEditTab({
           <div className="flex gap-2 mt-3">
             <button type="button" onClick={() => applyOverride(false)} className={`${buttonClass} border-rose-500/40 text-rose-300`}>Save override</button>
             <button type="button" onClick={() => applyOverride(true)} className={`${buttonClass} border-gray-700/60 text-gray-400`}>Clear override</button>
+          </div>
+
+          <div className="mt-5 pt-4 border-t border-gray-700/50">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider">
+                Active overrides{overrides.length ? ` · ${overrides.length}` : ''}
+              </p>
+            </div>
+            {overrides.length === 0 ? (
+              <p className="text-xs text-gray-600">No assets currently have a manual rate override.</p>
+            ) : (
+              <div className="space-y-2 max-h-72 overflow-y-auto">
+                {overrides.map((row) => (
+                  <div
+                    key={row._id}
+                    className="rounded-lg border border-rose-500/20 bg-gray-900/40 px-3 py-2.5"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-100">
+                          <span className="text-rose-300/90">{row.assetId}</span>
+                          <span className="text-gray-500 mx-1.5">·</span>
+                          {row.name}
+                        </p>
+                        <p className="text-[11px] text-gray-500 mt-0.5">
+                          {[
+                            row.category,
+                            row.groupName,
+                            row.status,
+                          ].filter(Boolean).join(' · ')}
+                        </p>
+                        <p className="text-xs text-gray-300 mt-1.5">
+                          Override <span className="text-rose-300 font-medium tabular-nums">{row.overrideRate}%</span>
+                          {row.policy ? (
+                            <>
+                              <span className="text-gray-600 mx-1.5">·</span>
+                              Policy {row.policy.name} ({row.policy.method} {row.policy.rate}%
+                              {POLICY_SOURCE_LABELS[row.policy.source]
+                                ? ` · ${POLICY_SOURCE_LABELS[row.policy.source]}`
+                                : ''}
+                              )
+                            </>
+                          ) : (
+                            <span className="text-gray-600"> · no policy</span>
+                          )}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          <span className="text-gray-500">Reason:</span>{' '}
+                          {row.reason || <span className="italic text-gray-600">None recorded</span>}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeOverride(row)}
+                        disabled={removingOverrideId === row._id}
+                        className={`${buttonClass} border-red-500/40 text-red-300 disabled:opacity-40 shrink-0`}
+                      >
+                        {removingOverrideId === row._id ? 'Removing…' : 'Remove'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       )}

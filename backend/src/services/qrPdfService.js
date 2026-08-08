@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit';
 import { Asset } from '../models/index.js';
+import { formatOrgDateTime, getOrganizationTimezone } from '../utils/orgTimezone.js';
 
 /**
  * Helper function to draw a single asset card
@@ -97,6 +98,8 @@ export async function generateAssetQRCodesPDF(organizationId, res, options = {})
       throw new Error('No assets found');
     }
 
+    const timezone = await getOrganizationTimezone(organizationId);
+
     // Group assets by category
     const assetsByCategory = {};
     assets.forEach(asset => {
@@ -133,7 +136,7 @@ export async function generateAssetQRCodesPDF(organizationId, res, options = {})
     doc.moveDown(0.5);
     doc.fontSize(12)
        .font('Helvetica')
-       .text(`Generated on: ${new Date().toLocaleDateString()}`, { align: 'center' });
+       .text(`Generated on: ${formatOrgDateTime(new Date(), timezone)}`, { align: 'center' });
 
     doc.moveDown(0.3);
     doc.fontSize(10)

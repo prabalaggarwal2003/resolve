@@ -1,3 +1,5 @@
+import { formatOrgMoney } from './orgCurrency';
+
 export function api(path: string) {
   const base = process.env.NEXT_PUBLIC_API_URL || '';
   return base ? `${base}${path}` : path;
@@ -289,7 +291,7 @@ export function describeConditionPlain(
   } else if (cond.metric === 'departmentId' && departmentName) {
     val = departmentName;
   } else if (cond.metric === 'assetCost' || cond.metric === 'maintenanceCost') {
-    val = `₹${Number(cond.value || 0).toLocaleString('en-IN')}`;
+    val = formatOrgMoney(Number(cond.value || 0));
   } else {
     val = String(cond.value ?? '');
   }
@@ -331,7 +333,7 @@ export const THRESHOLD_FIELDS: { key: string; label: string; hint?: string }[] =
   { key: 'warrantyAlertDaysTertiary', label: 'Warranty alert — early (days)' },
   { key: 'repairCountThreshold', label: 'Repair count threshold' },
   { key: 'ageYearsThreshold', label: 'Asset age threshold (years)' },
-  { key: 'maintenanceCostThreshold', label: 'Maintenance cost threshold (₹)' },
+  { key: 'maintenanceCostThreshold', label: 'Maintenance cost threshold' },
   { key: 'openCriticalIssuesThreshold', label: 'Open critical issues' },
   { key: 'auditDueDays', label: 'Audit due period (days)' },
   { key: 'scanStaleDays', label: 'Scan stale period (days)' },

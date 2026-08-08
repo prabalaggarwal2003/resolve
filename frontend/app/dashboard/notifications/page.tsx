@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useNotifications } from '@/contexts/NotificationContext';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { formatOrgDate, orgCalendarYmd, orgTodayYmd } from '@/lib/orgTimezone';
 
 type Notification = {
   _id: string;
@@ -58,21 +59,22 @@ function api(path: string) {
 }
 
 function groupNotificationsByTime(notifications: Notification[]): GroupedNotifications {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayYmd = orgTodayYmd();
+  const today = new Date(`${todayYmd}T12:00:00`);
   const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+  const yesterdayYmd = orgCalendarYmd(yesterday);
   const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const weekAgoYmd = orgCalendarYmd(weekAgo);
 
   return notifications.reduce(
     (groups: GroupedNotifications, notification) => {
-      const notifDate = new Date(notification.createdAt);
-      const notifDay = new Date(notifDate.getFullYear(), notifDate.getMonth(), notifDate.getDate());
+      const notifYmd = orgCalendarYmd(notification.createdAt);
 
-      if (notifDay.getTime() === today.getTime()) {
+      if (notifYmd === todayYmd) {
         groups.today.push(notification);
-      } else if (notifDay.getTime() === yesterday.getTime()) {
+      } else if (notifYmd === yesterdayYmd) {
         groups.yesterday.push(notification);
-      } else if (notifDay.getTime() >= weekAgo.getTime()) {
+      } else if (notifYmd >= weekAgoYmd) {
         groups.thisWeek.push(notification);
       } else {
         groups.older.push(notification);
@@ -93,7 +95,7 @@ function formatTime(dateString: string): string {
   if (diffMinutes < 1) return 'Just now';
   if (diffMinutes < 60) return `${diffMinutes}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
-  return date.toLocaleDateString();
+  return formatOrgDate(dateString);
 }
 
 function NotificationCard({ notification, onMarkRead }: {

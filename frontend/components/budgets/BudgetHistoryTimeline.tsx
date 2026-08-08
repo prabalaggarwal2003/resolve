@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import type { BudgetHistoryEntry } from '@/lib/budgets';
+import { formatOrgMoney } from '@/lib/orgCurrency';
+import { formatOrgDateTime } from '@/lib/orgTimezone';
 
 const EVENT_META: Record<
   string,
@@ -43,11 +45,7 @@ export type OrgBudgetHistoryEntry = BudgetHistoryEntry & {
 function formatMoney(value: unknown) {
   const n = typeof value === 'number' ? value : Number(value);
   if (Number.isNaN(n)) return String(value ?? '—');
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(n);
+  return formatOrgMoney(n);
 }
 
 function budgetLabel(entry: OrgBudgetHistoryEntry) {
@@ -267,7 +265,7 @@ export default function BudgetHistoryTimeline({
                 {detail ? <p className="text-[11px] text-gray-500 mt-1.5">{detail}</p> : null}
 
                 <p className="text-[10px] text-gray-600 mt-2">
-                  {new Date(entry.createdAt).toLocaleString()}
+                  {formatOrgDateTime(entry.createdAt)}
                   {entry.userName ? ` · ${entry.userName}` : ''}
                 </p>
               </div>

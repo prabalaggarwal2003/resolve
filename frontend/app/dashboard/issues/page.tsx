@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import Link from 'next/link';
 import { canWrite } from '@/lib/permissions';
+import { formatOrgDate } from '@/lib/orgTimezone';
 
 type Issue = {
   _id: string;
@@ -189,11 +190,7 @@ function IssueCard({
         <div className="text-right shrink-0">
           <p className="text-[10px] text-gray-500 uppercase tracking-wide">Reported</p>
           <p className="text-xs text-gray-400 tabular-nums">
-            {new Date(issue.createdAt).toLocaleDateString('en-IN', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            })}
+            {formatOrgDate(issue.createdAt)}
           </p>
         </div>
       </div>

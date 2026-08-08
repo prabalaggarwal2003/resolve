@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { formatOrgDateTime } from '@/lib/orgTimezone';
 
 type ActivityChange = {
   field?: string;
@@ -65,7 +66,7 @@ export default function PartnerActivityList({
         return (
           <li key={activityKey(a, index)} className="text-xs text-gray-300 border-b border-gray-800/80 pb-3 last:border-0">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-gray-500">
-              <span>{a.createdAt ? new Date(a.createdAt).toLocaleString() : '—'}</span>
+              <span>{a.createdAt ? formatOrgDateTime(a.createdAt) : '—'}</span>
               <span>·</span>
               <span className="uppercase tracking-wide text-[10px]">{a.type || 'event'}</span>
               <span>·</span>

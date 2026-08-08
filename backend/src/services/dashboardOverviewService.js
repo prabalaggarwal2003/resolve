@@ -7,7 +7,7 @@ import {
   getDepartmentScopeId,
   resolveScopedAssetIds,
 } from './permissions.js';
-import { calculateSLM, getCategoryConfig, calculateAssetAge } from './depreciationService.js';
+import { formatOrgDate, normalizeOrgTimezone, orgCalendarYmd, orgStartOfDay, orgTodayYmd } from '../utils/orgTimezone.js';
 
 const OVERDUE_MS = 2 * 24 * 60 * 60 * 1000;
 
@@ -46,19 +46,20 @@ function sumFinancials(assets) {
   };
 }
 
-function buildIssueTrend(issuesCreated, issuesResolved) {
+function buildIssueTrend(issuesCreated, issuesResolved, timezone) {
   const days = 30;
   const labels = [];
   const reported = [];
   const resolved = [];
   const createdMap = new Map(issuesCreated.map((r) => [r._id, r.count]));
   const resolvedMap = new Map(issuesResolved.map((r) => [r._id, r.count]));
+  const todayYmd = orgTodayYmd(timezone);
 
   for (let i = days - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
-    labels.push(d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }));
+    const anchor = new Date(`${todayYmd}T12:00:00Z`);
+    anchor.setUTCDate(anchor.getUTCDate() - i);
+    const key = orgCalendarYmd(anchor, timezone);
+    labels.push(formatOrgDate(anchor, timezone, { year: undefined, day: 'numeric', month: 'short' }));
     reported.push(createdMap.get(key) || 0);
     resolved.push(resolvedMap.get(key) || 0);
   }
@@ -134,15 +135,16 @@ async function resolveFilters(user) {
 }
 
 export async function getDashboardOverview(user) {
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  const org = await Organization.findById(user.organizationId).lean();
+  const timezone = normalizeOrgTimezone(org?.timezone);
+  const todayYmd = orgTodayYmd(timezone);
+  const todayStart = orgStartOfDay(todayYmd, timezone);
   const now = new Date();
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  thirtyDaysAgo.setHours(0, 0, 0, 0);
+  const thirtyDaysAnchor = new Date(`${todayYmd}T12:00:00Z`);
+  thirtyDaysAnchor.setUTCDate(thirtyDaysAnchor.getUTCDate() - 30);
+  const thirtyDaysAgo = orgStartOfDay(orgCalendarYmd(thirtyDaysAnchor, timezone), timezone);
 
   const { assetFilter, issueFilter } = await resolveFilters(user);
-  const org = await Organization.findById(user.organizationId).lean();
   const isExpired = org?.subscriptionEndDate && org.subscriptionEndDate < now;
   const tier = isExpired ? 'free' : org?.subscriptionTier || 'free';
   const depreciationEnabled = ['pro', 'premium'].includes(tier);
@@ -183,7 +185,12 @@ export async function getDashboardOverview(user) {
     Asset.find(assetFilter).select('cost category purchaseDate').lean(),
     Issue.aggregate([
       { $match: { ...issueFilter, createdAt: { $gte: thirtyDaysAgo } } },
-      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone } },
+          count: { $sum: 1 },
+        },
+      },
     ]),
     Issue.aggregate([
       {
@@ -193,7 +200,12 @@ export async function getDashboardOverview(user) {
           resolvedAt: { $gte: thirtyDaysAgo, $ne: null },
         },
       },
-      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$resolvedAt' } }, count: { $sum: 1 } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$resolvedAt', timezone } },
+          count: { $sum: 1 },
+        },
+      },
     ]),
     Issue.find(issueFilter)
       .populate('assetId', 'name assetId')
@@ -228,7 +240,7 @@ export async function getDashboardOverview(user) {
   })).filter((b) => b.value > 0);
 
   const financial = sumFinancials(assetsForFinance);
-  const issueTrend = buildIssueTrend(issuesCreatedAgg, issuesResolvedAgg);
+  const issueTrend = buildIssueTrend(issuesCreatedAgg, issuesResolvedAgg, timezone);
 
   const recentActivity = [
     ...auditLogs

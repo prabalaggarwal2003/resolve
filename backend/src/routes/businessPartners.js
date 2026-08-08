@@ -13,6 +13,7 @@ import {
   getBusinessPartnerOrgConfig,
   updateBusinessPartnerOrgConfig,
   validatePartnerCustomFields,
+  getOrganizationCurrency,
 } from '../services/businessPartnerOrgConfigService.js';
 import { generatePartnerCode } from '../services/partnerIdGenerator.js';
 import {
@@ -485,11 +486,12 @@ router.post('/', requirePartnerWrite, async (req, res) => {
     if (errors.length) return res.status(400).json({ message: errors.join(', ') });
 
     const partnerCode = req.body.partnerCode?.trim() || (await generatePartnerCode(req.user.organizationId));
+    const orgCurrency = await getOrganizationCurrency(req.user.organizationId);
 
     const partner = await BusinessPartner.create({
       ...payload,
       partnerCode,
-      currency: payload.currency || config.settings?.defaultCurrency || 'INR',
+      currency: orgCurrency,
       paymentTerms: payload.paymentTerms || config.settings?.defaultPaymentTerms || 'Net 30',
       contacts: Array.isArray(req.body.contacts) ? req.body.contacts : [],
       addresses: Array.isArray(req.body.addresses) ? req.body.addresses : [],
@@ -628,6 +630,9 @@ router.put('/:id', requirePartnerWrite, async (req, res) => {
       const errors = validatePartnerCustomFields(config, payload.customFields);
       if (errors.length) return res.status(400).json({ message: errors.join(', ') });
     }
+
+    // Currency is locked to the organization setting
+    payload.currency = await getOrganizationCurrency(req.user.organizationId);
 
     const changes = diffPartnerFields(partner.toObject(), payload);
     partner.set(payload);

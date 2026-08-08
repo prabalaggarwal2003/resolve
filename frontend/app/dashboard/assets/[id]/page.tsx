@@ -9,6 +9,7 @@ import AssetFieldsDisplay from '@/components/AssetFieldsDisplay';
 import { breadcrumbForNode } from '@/lib/locations';
 import { downloadDataUrlAsJpeg } from '@/lib/assetsExport';
 import { trackDownload } from '@/lib/trackDownload';
+import { formatOrgDate, formatOrgDateTime } from '@/lib/orgTimezone';
 
 type TimelineEntry = {
   _id: string;
@@ -428,7 +429,7 @@ export default function AssetDetailPage() {
             <p className="text-sm font-medium text-amber-300">Currently under maintenance</p>
             {asset.maintenanceStartDate && (
               <p className="text-xs text-gray-400 mt-1">
-                Started {new Date(asset.maintenanceStartDate).toLocaleString('en-IN')}
+                Started {formatOrgDateTime(asset.maintenanceStartDate)}
               </p>
             )}
             {asset.maintenanceReason && (
@@ -494,13 +495,7 @@ export default function AssetDetailPage() {
                 <p className="text-[10px] text-gray-500 mt-1">
                   {entry.user?.name || 'Unknown'}
                   {' · '}
-                  {new Date(entry.createdAt).toLocaleString('en-IN', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  {formatOrgDateTime(entry.createdAt)}
                 </p>
               </div>
             ))}
@@ -531,13 +526,7 @@ export default function AssetDetailPage() {
                           {meta.label}
                         </span>
                         <span className="text-[10px] text-gray-500 tabular-nums">
-                          {new Date(entry.createdAt).toLocaleString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {formatOrgDateTime(entry.createdAt)}
                         </span>
                         {entry.user?.name && (
                           <span className="text-[10px] text-gray-500">by {entry.user.name}</span>
@@ -690,8 +679,10 @@ export default function AssetDetailPage() {
                       {!end ? 'Active' : 'Done'}
                     </span>
                     <span className="text-gray-400 shrink-0 tabular-nums">
-                      {start.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                      {end ? ` → ${end.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''}
+                      {formatOrgDate(start, undefined, { year: undefined, day: 'numeric', month: 'short' })}
+                      {end
+                        ? ` → ${formatOrgDate(end, undefined, { year: undefined, day: 'numeric', month: 'short' })}`
+                        : ''}
                     </span>
                     {durationLabel && <span className="text-gray-500 shrink-0">{durationLabel}</span>}
                   </div>
@@ -775,9 +766,10 @@ export default function AssetDetailPage() {
                   )}
                   <span className="text-gray-300 truncate min-w-0 flex-1">{issue.title}</span>
                   <span className="text-[10px] text-gray-500 shrink-0 tabular-nums">
-                    {new Date(issue.createdAt).toLocaleDateString('en-IN', {
+                    {formatOrgDate(issue.createdAt, undefined, {
                       day: 'numeric',
                       month: 'short',
+                      year: undefined,
                     })}
                   </span>
                 </div>

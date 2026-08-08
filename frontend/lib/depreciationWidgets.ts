@@ -1,5 +1,6 @@
 import type { AssetDepreciationMetrics, DepreciationFilters } from '@/lib/depreciation';
 import { DEFAULT_ASSET_STATUSES } from '@/lib/assetStatuses';
+import { formatOrgMoney, getOrgCurrencySymbol } from '@/lib/orgCurrency';
 
 export type WidgetMetric =
   | 'purchase_value'
@@ -249,11 +250,12 @@ function warrantyLabel(a: AssetDepreciationMetrics): string {
 }
 
 function valueBucket(book: number): string {
-  if (book < 10000) return 'Under ₹10K';
-  if (book < 50000) return '₹10K – ₹50K';
-  if (book < 100000) return '₹50K – ₹1L';
-  if (book < 500000) return '₹1L – ₹5L';
-  return 'Over ₹5L';
+  const s = getOrgCurrencySymbol();
+  if (book < 10000) return `Under ${s}10K`;
+  if (book < 50000) return `${s}10K – ${s}50K`;
+  if (book < 100000) return `${s}50K – ${s}1L`;
+  if (book < 500000) return `${s}1L – ${s}5L`;
+  return `Over ${s}5L`;
 }
 
 function getGroupKey(a: AssetDepreciationMetrics, groupBy: WidgetGroupBy): string {
@@ -524,7 +526,7 @@ export function computeWidgetData(
 }
 
 function formatINR(n: number) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
+  return formatOrgMoney(n);
 }
 
 function formatMetricValue(n: number, metric: WidgetMetric): string {

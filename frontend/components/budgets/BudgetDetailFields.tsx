@@ -1,6 +1,7 @@
 'use client';
 
 import { formatBudgetCurrency, type Budget, type BudgetOrgConfig } from '@/lib/budgets';
+import { formatOrgDate } from '@/lib/orgTimezone';
 
 export type BudgetRefData = {
   departments?: { _id: string; name: string }[];
@@ -20,9 +21,7 @@ const REF_DIMENSION_SOURCE: Record<string, keyof BudgetRefData> = {
 };
 
 function formatDate(value?: string) {
-  if (!value) return '—';
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString();
+  return formatOrgDate(value);
 }
 
 function ownerName(owner: Budget['budgetOwnerId']) {

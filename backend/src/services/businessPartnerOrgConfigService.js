@@ -1,5 +1,20 @@
 import BusinessPartnerOrgConfig from '../models/BusinessPartnerOrgConfig.js';
+import Organization from '../models/Organization.js';
 import { getDefaultBusinessPartnerOrgConfig } from '../constants/businessPartnerDefaults.js';
+
+async function getOrganizationCurrency(organizationId) {
+  const org = await Organization.findById(organizationId).select('currency').lean();
+  return String(org?.currency || 'INR').trim().toUpperCase() || 'INR';
+}
+
+export { getOrganizationCurrency };
+
+function applyOrgCurrencyToConfig(config, currency) {
+  if (!config) return config;
+  if (!config.settings) config.settings = {};
+  config.settings.defaultCurrency = currency;
+  return config;
+}
 
 function slugify(text) {
   return String(text || '')
@@ -148,12 +163,16 @@ export async function ensureBusinessPartnerOrgConfig(organizationId) {
 }
 
 export async function getBusinessPartnerOrgConfig(organizationId) {
-  return ensureBusinessPartnerOrgConfig(organizationId);
+  const config = await ensureBusinessPartnerOrgConfig(organizationId);
+  const currency = await getOrganizationCurrency(organizationId);
+  applyOrgCurrencyToConfig(config, currency);
+  return config;
 }
 
 export async function updateBusinessPartnerOrgConfig(organizationId, userId, payload = {}) {
   const defaults = getDefaultBusinessPartnerOrgConfig();
   const config = await ensureBusinessPartnerOrgConfig(organizationId);
+  const currency = await getOrganizationCurrency(organizationId);
 
   if (payload.partnerTypes) {
     config.partnerTypes = normalizeOptionList(payload.partnerTypes, defaults.partnerTypes);
@@ -198,14 +217,20 @@ export async function updateBusinessPartnerOrgConfig(organizationId, userId, pay
       .filter((w) => w.label);
   }
   if (payload.settings && typeof payload.settings === 'object') {
-    config.settings = {
+    const nextSettings = {
       ...(config.settings?.toObject?.() || config.settings),
       ...payload.settings,
     };
+    // Currency is owned by Organization — never accept client overrides
+    nextSettings.defaultCurrency = currency;
+    config.settings = nextSettings;
+  } else {
+    applyOrgCurrencyToConfig(config, currency);
   }
 
   config.updatedBy = userId;
   await config.save();
+  applyOrgCurrencyToConfig(config, currency);
   return config;
 }
 

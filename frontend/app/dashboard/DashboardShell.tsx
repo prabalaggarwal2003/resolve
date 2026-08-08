@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import DashboardNav from './DashboardNav';
 import { NotificationProvider } from '@/contexts/NotificationContext';
+import { OrgCurrencyProvider, useOrgCurrency, useOrgTimezone } from '@/contexts/OrgCurrencyContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { refreshStoredUser } from '@/lib/permissions';
@@ -85,6 +86,20 @@ function SidebarPanel({
 }
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
+  return (
+    <ProtectedRoute>
+      <NotificationProvider>
+        <OrgCurrencyProvider>
+          <DashboardShellInner>{children}</DashboardShellInner>
+        </OrgCurrencyProvider>
+      </NotificationProvider>
+    </ProtectedRoute>
+  );
+}
+
+function DashboardShellInner({ children }: { children: React.ReactNode }) {
+  const { currency } = useOrgCurrency();
+  const { timezone } = useOrgTimezone();
   const [isDrawerMounted, setIsDrawerMounted] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const pathname = usePathname();
@@ -135,8 +150,6 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   }, [isDrawerMounted]);
 
   return (
-    <ProtectedRoute>
-      <NotificationProvider>
         <div
           className="min-h-screen bg-gray-950 flex flex-col md:flex-row"
           style={{ fontFamily: 'var(--font-manrope, Manrope, sans-serif)' }}
@@ -226,11 +239,11 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           {/* Main content */}
           <main className="flex-1 flex flex-col min-h-0 md:sticky md:top-0 md:h-screen md:p-3">
             <div className="flex-1 flex flex-col md:rounded-2xl md:border md:border-gray-700/60 md:bg-gray-900/60 md:backdrop-blur-xl md:shadow-2xl overflow-hidden min-h-0">
-              <div className="flex-1 overflow-y-auto p-4 sm:p-5 md:p-6">{children}</div>
+              <div key={`${currency}:${timezone}`} className="flex-1 overflow-y-auto p-4 sm:p-5 md:p-6">
+                {children}
+              </div>
             </div>
           </main>
         </div>
-      </NotificationProvider>
-    </ProtectedRoute>
   );
 }

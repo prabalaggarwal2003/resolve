@@ -88,6 +88,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       localStorage.removeItem('dismissedNudges');
+      localStorage.removeItem('orgCurrency');
+      localStorage.removeItem('orgTimezone');
       localStorage.setItem('loggedOut', 'true');
 
       window.location.replace('/login');

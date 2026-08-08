@@ -5,6 +5,7 @@ import Link from 'next/link';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { apiUrl, authHeaders } from '@/lib/api';
 import { fetchPartners, formatMoney } from '@/lib/businessPartners';
+import { formatOrgDate } from '@/lib/orgTimezone';
 
 const thClass = 'px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500';
 const tdClass = 'px-3 py-2 text-xs text-gray-300';
@@ -15,8 +16,7 @@ const btnGhost =
   'px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-700/60 bg-gray-800/40 text-gray-400 hover:text-gray-200 transition-colors';
 
 function formatDate(value?: string) {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
+  return formatOrgDate(value);
 }
 
 function partnerRef(row: any) {

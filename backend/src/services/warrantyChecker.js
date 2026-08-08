@@ -1,4 +1,5 @@
 import { Asset, Notification, User } from '../models/index.js';
+import { formatOrgDate, normalizeOrgTimezone } from '../utils/orgTimezone.js';
 
 /**
  * Check for expired warranties and send notifications
@@ -20,7 +21,7 @@ export async function checkExpiredWarranties() {
         $lt: today
       }
     })
-      .populate('organizationId', 'name')
+      .populate('organizationId', 'name timezone')
       .lean();
 
     console.log(`Found ${expiredAssets.length} assets with warranty that expired yesterday`);
@@ -54,7 +55,7 @@ export async function checkExpiredWarranties() {
         userId: user._id,
         type: 'warranty_expiry',
         title: `❌ Warranty Expired: ${asset.name}`,
-        body: `The warranty for ${asset.name} (${asset.assetId}) expired on ${new Date(asset.warrantyExpiry).toLocaleDateString()}.`,
+        body: `The warranty for ${asset.name} (${asset.assetId}) expired on ${formatOrgDate(asset.warrantyExpiry, normalizeOrgTimezone(asset.organizationId?.timezone))}.`,
         link: `/dashboard/assets/${asset._id}`,
         read: false,
         metadata: {
@@ -104,7 +105,7 @@ export async function checkExpiringWarranties() {
         $lte: in30Days
       }
     })
-      .populate('organizationId', 'name')
+      .populate('organizationId', 'name timezone')
       .lean();
 
     console.log(`Found ${expiringAssets.length} assets with warranty expiring in next 30 days`);
@@ -139,7 +140,7 @@ export async function checkExpiringWarranties() {
         userId: user._id,
         type: 'warranty_expiring_soon',
         title: `⚠️ Warranty Expiring Soon: ${asset.name}`,
-        body: `The warranty for ${asset.name} (${asset.assetId}) will expire in ${daysRemaining} days on ${new Date(asset.warrantyExpiry).toLocaleDateString()}.`,
+        body: `The warranty for ${asset.name} (${asset.assetId}) will expire in ${daysRemaining} days on ${formatOrgDate(asset.warrantyExpiry, normalizeOrgTimezone(asset.organizationId?.timezone))}.`,
         link: `/dashboard/assets/${asset._id}`,
         read: false,
         metadata: {

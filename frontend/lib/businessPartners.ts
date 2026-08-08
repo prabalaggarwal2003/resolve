@@ -1,4 +1,5 @@
 import { apiUrl, authHeaders } from './api';
+import { formatOrgMoney, getOrgCurrency } from './orgCurrency';
 
 export type PartnerConfig = {
   partnerTypes: { id: string; name: string; isDefault?: boolean }[];
@@ -277,10 +278,8 @@ export async function updatePartnerInvoice(id: string, body: Record<string, unkn
   return data.invoice || data;
 }
 
-export function formatMoney(amount: number, currency = 'INR') {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency,
+export function formatMoney(amount: number, _currency?: string) {
+  return formatOrgMoney(amount, getOrgCurrency(), {
     maximumFractionDigits: 0,
-  }).format(amount || 0);
+  });
 }

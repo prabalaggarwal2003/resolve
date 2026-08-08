@@ -25,7 +25,15 @@ function normalizeYearRates(yearRates, fallbackRate) {
   if (!normalized.length && fallbackRate != null) {
     return [{ year: 1, rate: Number(fallbackRate) }];
   }
+  const total = normalized.reduce((sum, row) => sum + row.rate, 0);
+  if (total > 100.0001) {
+    throw new Error(`Year-wise rates total ${round1(total)}% — must not exceed 100%.`);
+  }
   return normalized;
+}
+
+function round1(n) {
+  return Math.round(n * 10) / 10;
 }
 
 export async function findOrgAsset(organizationId, identifier) {
@@ -275,6 +283,53 @@ export async function removeAssignment(organizationId, targetType, targetRef) {
     });
   }
   return { message: 'Assignment removed' };
+}
+
+export async function listAssetOverrides(organizationId) {
+  const [assets, policies, assignments] = await Promise.all([
+    Asset.find({
+      organizationId,
+      depreciationRateOverride: { $exists: true, $ne: null, $type: 'number' },
+    })
+      .select(
+        'assetId name category status cost purchaseDate groupId depreciationRateOverride depreciationOverrideReason updatedAt'
+      )
+      .populate('groupId', 'name')
+      .sort({ assetId: 1 })
+      .lean(),
+    DepreciationPolicy.find({ organizationId }).lean(),
+    DepreciationPolicyAssignment.find({ organizationId }).lean(),
+  ]);
+
+  const ctx = buildPolicyContext(policies, assignments);
+
+  return assets.map((asset) => {
+    const { policy, source } = resolvePolicyForAsset(asset, ctx);
+    const policyRate = policy ? getRateForDepreciationYear(policy, 1, null) : null;
+    return {
+      _id: asset._id,
+      assetId: asset.assetId,
+      name: asset.name,
+      category: asset.category || '',
+      status: asset.status || '',
+      cost: asset.cost ?? null,
+      purchaseDate: asset.purchaseDate || null,
+      groupName: asset.groupId?.name || null,
+      overrideRate: Number(asset.depreciationRateOverride),
+      reason: asset.depreciationOverrideReason || '',
+      updatedAt: asset.updatedAt || null,
+      policy: policy
+        ? {
+            id: String(policy._id),
+            name: policy.name,
+            method: policy.method,
+            rate: Number(policy.rate),
+            year1Rate: policyRate,
+            source,
+          }
+        : null,
+    };
+  });
 }
 
 export async function setAssetOverride(req, assetIdentifier, { rateOverride, reason, clear }) {

@@ -1,4 +1,5 @@
 import { formatMoney } from './businessPartners';
+import { formatOrgDateTime } from './orgTimezone';
 
 export type PartnerFilterFieldKey = 'status' | 'partnerTypeKey' | 'categoryKey' | 'tag' | 'search';
 
@@ -325,7 +326,7 @@ export function computePartnerWidgetData(ctx: PartnerDataContext, widget: Partne
         .map((a) => ({
           id: a.id || a._id,
           primary: a.summary || 'Activity',
-          secondary: [a.partnerName, a.userName, a.createdAt ? new Date(a.createdAt).toLocaleString() : '']
+          secondary: [a.partnerName, a.userName, a.createdAt ? formatOrgDateTime(a.createdAt) : '']
             .filter(Boolean)
             .join(' · '),
           href: a.partnerId ? `/dashboard/partners/${a.partnerId}` : undefined,

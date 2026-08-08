@@ -12,6 +12,8 @@ import {
   TIME_ZONES,
   formatOrgAddressLabel,
 } from '@/lib/orgProfile';
+import { setOrgCurrency } from '@/lib/orgCurrency';
+import { formatOrgDate, setOrgTimezone } from '@/lib/orgTimezone';
 
 const INDUSTRIES = [
   { value: 'IT', label: 'Information Technology' },
@@ -228,6 +230,8 @@ export default function OrganizationPage() {
       setOrganization(data.organization);
       setStatistics(data.statistics);
       setFormData(mapOrgToForm(data.organization));
+      setOrgCurrency(data.organization?.currency);
+      setOrgTimezone(data.organization?.timezone);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -280,6 +284,8 @@ export default function OrganizationPage() {
 
       setOrganization(data.organization);
       setFormData(mapOrgToForm(data.organization));
+      setOrgCurrency(data.organization?.currency);
+      setOrgTimezone(data.organization?.timezone);
       setSuccess('Organization updated successfully');
       setEditing(false);
     } catch (err) {
@@ -377,7 +383,7 @@ export default function OrganizationPage() {
             <SummaryCard label="Total users" value={String(statistics.totalUsers)} accent="text-blue-300" />
             <SummaryCard
               label="Created"
-              value={new Date(statistics.createdAt).toLocaleDateString()}
+              value={formatOrgDate(statistics.createdAt)}
               accent="text-violet-300"
             />
             <SummaryCard

@@ -3,11 +3,10 @@
 import Link from 'next/link';
 import { formatBudgetCurrency, type BudgetOrgConfig } from '@/lib/budgets';
 import type { Procurement } from '@/lib/procurement';
+import { formatOrgDate } from '@/lib/orgTimezone';
 
 function formatDate(value?: string) {
-  if (!value) return '—';
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString();
+  return formatOrgDate(value);
 }
 
 function Field({ label, value, accent }: { label: string; value: React.ReactNode; accent?: string }) {

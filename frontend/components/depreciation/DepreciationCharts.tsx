@@ -1,6 +1,7 @@
 'use client';
 
 import { formatCurrency } from '@/lib/depreciation';
+import { getOrgCurrencySymbol } from '@/lib/orgCurrency';
 
 const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#84cc16', '#ec4899'];
 
@@ -295,12 +296,13 @@ export function computeChartMetrics(assets: Array<{
   const depreciationPct = totalPurchase > 0 ? Math.round((totalDepreciation / totalPurchase) * 1000) / 10 : 0;
   const fullyDepreciatedCount = assets.filter((a) => a.indicators?.fullyDepreciated).length;
 
+  const s = getOrgCurrencySymbol();
   const buckets = [
-    { label: 'Under ₹10K', min: 0, max: 10000 },
-    { label: '₹10K – ₹50K', min: 10000, max: 50000 },
-    { label: '₹50K – ₹1L', min: 50000, max: 100000 },
-    { label: '₹1L – ₹5L', min: 100000, max: 500000 },
-    { label: 'Over ₹5L', min: 500000, max: Infinity },
+    { label: `Under ${s}10K`, min: 0, max: 10000 },
+    { label: `${s}10K – ${s}50K`, min: 10000, max: 50000 },
+    { label: `${s}50K – ${s}1L`, min: 50000, max: 100000 },
+    { label: `${s}1L – ${s}5L`, min: 100000, max: 500000 },
+    { label: `Over ${s}5L`, min: 500000, max: Infinity },
   ];
   const bucketTotals = buckets.map((b, i) => ({
     label: b.label,

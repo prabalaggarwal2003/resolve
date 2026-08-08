@@ -18,6 +18,9 @@ import {
 } from '@/lib/businessPartners';
 import { canWrite } from '@/lib/permissions';
 import PartnerActivityList from '@/components/partners/PartnerActivityList';
+import { getOrgCurrency } from '@/lib/orgCurrency';
+import { formatOrgDate, formatOrgDateTime, orgTodayYmd } from '@/lib/orgTimezone';
+import { CURRENCIES } from '@/lib/orgProfile';
 
 const inputClass =
   'w-full px-3 py-1.5 text-sm border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200 focus:ring-1 focus:ring-blue-500/40 focus:border-blue-500/40';
@@ -33,8 +36,7 @@ const thClass = 'px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gr
 const tdClass = 'px-3 py-2 text-xs text-gray-300';
 
 function formatDate(value?: string | Date | null) {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
+  return formatOrgDate(value);
 }
 
 function labelize(key: string) {
@@ -241,7 +243,7 @@ export default function PartnerDetailPage() {
     email: '',
     phone: '',
     website: '',
-    currency: 'INR',
+    currency: getOrgCurrency(),
   });
   const [taxDraft, setTaxDraft] = useState<Record<string, string>>({});
   const [registrationDraft, setRegistrationDraft] = useState<Record<string, string>>({});
@@ -250,7 +252,7 @@ export default function PartnerDetailPage() {
   const [paymentDraft, setPaymentDraft] = useState({
     paymentTerms: '',
     creditLimit: '',
-    currency: 'INR',
+    currency: getOrgCurrency(),
     preferredPaymentMethod: '',
     billingCycle: '',
     earlyPaymentDiscount: '',
@@ -300,7 +302,7 @@ export default function PartnerDetailPage() {
     dueDate: '',
     totalAmount: '',
     paidAmount: '',
-    currency: 'INR',
+    currency: getOrgCurrency(),
     status: 'Pending',
     paymentMethod: 'Bank Transfer',
     notes: '',
@@ -444,7 +446,7 @@ export default function PartnerDetailPage() {
       email: partner.email || '',
       phone: partner.phone || '',
       website: partner.website || '',
-      currency: partner.currency || 'INR',
+      currency: partner.currency || getOrgCurrency(),
     });
     setEditingSection('general');
   }
@@ -454,7 +456,7 @@ export default function PartnerDetailPage() {
       alert('Name is required');
       return;
     }
-    await saveSection('general', generalDraft);
+    await saveSection('general', { ...generalDraft, currency: getOrgCurrency() });
   }
 
   function startEditTax() {
@@ -500,7 +502,7 @@ export default function PartnerDetailPage() {
     setPaymentDraft({
       paymentTerms: partner?.paymentTerms || '',
       creditLimit: partner?.creditLimit != null ? String(partner.creditLimit) : '',
-      currency: partner?.currency || 'INR',
+      currency: partner?.currency || getOrgCurrency(),
       preferredPaymentMethod: details.preferredPaymentMethod || '',
       billingCycle: details.billingCycle || '',
       earlyPaymentDiscount: details.earlyPaymentDiscount || '',
@@ -526,7 +528,7 @@ export default function PartnerDetailPage() {
     await saveSection('payment', {
       paymentTerms,
       creditLimit: creditLimit === '' ? null : Number(creditLimit),
-      currency,
+      currency: getOrgCurrency(),
       paymentDetails: {
         preferredPaymentMethod,
         billingCycle,
@@ -808,7 +810,7 @@ export default function PartnerDetailPage() {
       dueDate: '',
       totalAmount: '',
       paidAmount: '',
-      currency: partner?.currency || 'INR',
+      currency: partner?.currency || getOrgCurrency(),
       status: 'Pending',
       paymentMethod: 'Bank Transfer',
       notes: '',
@@ -825,7 +827,7 @@ export default function PartnerDetailPage() {
       dueDate: inv.dueDate ? String(inv.dueDate).slice(0, 10) : '',
       totalAmount: inv.totalAmount != null ? String(inv.totalAmount) : '',
       paidAmount: inv.paidAmount != null ? String(inv.paidAmount) : '',
-      currency: inv.currency || partner?.currency || 'INR',
+      currency: inv.currency || partner?.currency || getOrgCurrency(),
       status: inv.status || 'Pending',
       paymentMethod: inv.paymentMethod || 'Bank Transfer',
       notes: inv.notes || '',
@@ -841,11 +843,11 @@ export default function PartnerDetailPage() {
       const paidAmount = Number(invoiceForm.paidAmount) || 0;
       const payload = {
         invoiceNumber: invoiceForm.invoiceNumber.trim(),
-        purchaseDate: invoiceForm.purchaseDate || new Date().toISOString().slice(0, 10),
+        purchaseDate: invoiceForm.purchaseDate || orgTodayYmd(),
         dueDate: invoiceForm.dueDate || undefined,
         totalAmount,
         paidAmount,
-        currency: invoiceForm.currency || partner.currency || 'INR',
+        currency: getOrgCurrency(),
         status: invoiceForm.status,
         paymentMethod: invoiceForm.paymentMethod,
         notes: invoiceForm.notes,
@@ -1069,11 +1071,12 @@ export default function PartnerDetailPage() {
               </div>
               <div>
                 <label className={labelClass}>Currency</label>
-                <input
-                  className={inputClass}
-                  value={generalDraft.currency}
-                  onChange={(e) => setGeneralDraft({ ...generalDraft, currency: e.target.value })}
-                />
+                <p className={`${inputClass} opacity-80 cursor-default`}>
+                  {CURRENCIES.find((c) => c.value === generalDraft.currency)?.label ||
+                    generalDraft.currency ||
+                    getOrgCurrency()}
+                </p>
+                <p className="text-[10px] text-gray-500 mt-1">Fixed from Organization. Change it on the Organization page.</p>
               </div>
             </div>
           ) : (
@@ -1519,11 +1522,12 @@ export default function PartnerDetailPage() {
               </div>
               <div>
                 <label className={labelClass}>Currency</label>
-                <input
-                  className={inputClass}
-                  value={paymentDraft.currency}
-                  onChange={(e) => setPaymentDraft({ ...paymentDraft, currency: e.target.value })}
-                />
+                <p className={`${inputClass} opacity-80 cursor-default`}>
+                  {CURRENCIES.find((c) => c.value === paymentDraft.currency)?.label ||
+                    paymentDraft.currency ||
+                    getOrgCurrency()}
+                </p>
+                <p className="text-[10px] text-gray-500 mt-1">Fixed from Organization. Change it on the Organization page.</p>
               </div>
               <div>
                 <label className={labelClass}>Preferred payment method</label>
@@ -1670,7 +1674,7 @@ export default function PartnerDetailPage() {
           {noteItems.length === 0 && <li className="text-xs text-gray-500">No notes yet</li>}
           {noteItems.map((a) => (
             <li key={a._id} className="text-xs text-gray-300 border-b border-gray-800/80 pb-2">
-              <span className="text-gray-500">{formatDate(a.createdAt)} · </span>
+              <span className="text-gray-500">{formatOrgDateTime(a.createdAt)} · </span>
               {a.summary}
             </li>
           ))}
@@ -1873,7 +1877,12 @@ export default function PartnerDetailPage() {
             </div>
             <div>
               <label className={labelClass}>Currency</label>
-              <input className={inputClass} value={invoiceForm.currency} onChange={(e) => setInvoiceForm({ ...invoiceForm, currency: e.target.value })} />
+              <p className={`${inputClass} opacity-80 cursor-default`}>
+                {CURRENCIES.find((c) => c.value === invoiceForm.currency)?.label ||
+                  invoiceForm.currency ||
+                  getOrgCurrency()}
+              </p>
+              <p className="text-[10px] text-gray-500 mt-1">Fixed from Organization.</p>
             </div>
             <div>
               <label className={labelClass}>Status</label>

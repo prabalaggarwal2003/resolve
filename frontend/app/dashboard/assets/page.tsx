@@ -8,7 +8,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import AssetsListToolbar from '@/components/assets/AssetsListToolbar';
 import AssetsDataTable, { type AssetRow } from '@/components/assets/AssetsDataTable';
 import { useAssetListPreferences } from '@/hooks/useAssetListPreferences';
-import { canWrite } from '@/lib/permissions';
+import { canRead, canWrite } from '@/lib/permissions';
 import type { ColumnId } from '@/lib/assetsTableConfig';
 import { DEFAULT_COLUMNS, hasActiveBasicFilters } from '@/lib/assetsTableConfig';
 import { breadcrumbForNode, flattenTree, type LocationTreeNode } from '@/lib/locations';
@@ -82,7 +82,7 @@ function AssetsPageContent() {
 
   const canAddAsset = canWrite('assets');
   const canEdit = canWrite('assets');
-  const canDownload = canWrite('assets');
+  const canDownload = canRead('assets');
 
   const visibleColumns = prefs.columns.filter((c) => c.visible).map((c) => c.id as ColumnId);
   const totalPages = Math.ceil(total / prefs.pageSize);
@@ -480,9 +480,14 @@ function AssetsPageContent() {
             </div>
           )}
           {canAddAsset && (
-            <Link href="/dashboard/assets/new" className={`${buttonClass} border-blue-500/40 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 no-underline`}>
-              + Add asset
-            </Link>
+            <>
+              <Link href="/dashboard/assets/import" className={`${buttonClass} border-cyan-500/40 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 no-underline`}>
+                Import assets
+              </Link>
+              <Link href="/dashboard/assets/new" className={`${buttonClass} border-blue-500/40 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 no-underline`}>
+                + Add asset
+              </Link>
+            </>
           )}
         </div>
       </div>

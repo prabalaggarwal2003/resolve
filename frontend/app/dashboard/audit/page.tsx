@@ -8,6 +8,7 @@ import {
   AUDIT_RESOURCE_ICONS,
   AUDIT_RESOURCE_LABELS,
 } from '@/lib/auditLabels';
+import { formatOrgDate, formatOrgTime } from '@/lib/orgTimezone';
 
 type FieldChange = {
   field: string;
@@ -136,8 +137,8 @@ function AuditLogRow({ log }: { log: AuditLog }) {
   return (
     <tr className="hover:bg-gray-800/40 transition-colors">
       <td className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap align-top">
-        {new Date(log.createdAt).toLocaleDateString()}{' '}
-        <span className="text-gray-600">{new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        {formatOrgDate(log.createdAt)}{' '}
+        <span className="text-gray-600">{formatOrgTime(log.createdAt)}</span>
       </td>
       <td className="px-3 py-2 align-top">
         <span className="text-xs font-medium text-gray-200">{log.userId?.name || 'System'}</span>

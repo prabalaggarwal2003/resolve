@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { fetchPartnerConfig, updatePartnerConfig, PartnerConfig } from '@/lib/businessPartners';
 import { canWrite } from '@/lib/permissions';
+import { apiUrl } from '@/lib/api';
+import { CURRENCIES } from '@/lib/orgProfile';
 
 const inputClass =
   'w-full px-3 py-1.5 text-sm border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200 focus:ring-1 focus:ring-blue-500/40 focus:border-blue-500/40';
@@ -38,8 +40,27 @@ export default function PartnerSettingsPage() {
   const [newField, setNewField] = useState({ key: '', label: '', type: 'text', required: false });
 
   useEffect(() => {
-    fetchPartnerConfig()
-      .then(setConfig)
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    Promise.all([
+      fetchPartnerConfig(),
+      fetch(apiUrl('/organization'), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+    ])
+      .then(([partnerConfig, orgData]) => {
+        const orgCurrency = String(orgData?.organization?.currency || partnerConfig.settings?.defaultCurrency || 'INR')
+          .trim()
+          .toUpperCase() || 'INR';
+        setConfig({
+          ...partnerConfig,
+          settings: {
+            ...partnerConfig.settings,
+            defaultCurrency: orgCurrency,
+          },
+        });
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
@@ -49,6 +70,7 @@ export default function PartnerSettingsPage() {
     setSaving(true);
     setMessage('');
     try {
+      const { defaultCurrency: _ignored, ...restSettings } = config.settings || {};
       const updated = await updatePartnerConfig({
         partnerTypes: config.partnerTypes,
         categories: config.categories,
@@ -57,9 +79,15 @@ export default function PartnerSettingsPage() {
         addressTypes: config.addressTypes,
         assetRelationshipTypes: config.assetRelationshipTypes,
         customFields: config.customFields,
-        settings: config.settings,
+        settings: restSettings,
       });
-      setConfig(updated);
+      setConfig({
+        ...updated,
+        settings: {
+          ...updated.settings,
+          defaultCurrency: config.settings?.defaultCurrency || updated.settings?.defaultCurrency || 'INR',
+        },
+      });
       setMessage('Settings saved');
     } catch (e: any) {
       alert(e.message || 'Failed to save settings');
@@ -103,14 +131,12 @@ export default function PartnerSettingsPage() {
           </div>
           <div>
             <label className={labelClass}>Default currency</label>
-            <input
-              className={inputClass}
-              disabled={!canEdit}
-              value={config.settings?.defaultCurrency || ''}
-              onChange={(e) =>
-                setConfig({ ...config, settings: { ...config.settings, defaultCurrency: e.target.value } })
-              }
-            />
+            <p className={`${inputClass} opacity-80 cursor-default`}>
+              {CURRENCIES.find((c) => c.value === config.settings?.defaultCurrency)?.label ||
+                config.settings?.defaultCurrency ||
+                'INR'}
+            </p>
+            <p className="text-[10px] text-gray-500 mt-1">Fixed from Organization. Change it on the Organization page.</p>
           </div>
           <div>
             <label className={labelClass}>Default payment terms</label>

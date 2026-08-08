@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { downloadExport, downloadTextFile, fetchExports } from '@/lib/reportStudio';
+import { formatOrgDateTime } from '@/lib/orgTimezone';
 
 const buttonClass = 'px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors';
 const inputClass = 'px-2.5 py-1.5 text-sm border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200';
@@ -95,7 +96,7 @@ export default function ExportHistoryPage() {
                     <td className="px-3 py-2">{String(row.reportName)}</td>
                     <td className="px-3 py-2">{user?.name || '—'}</td>
                     <td className="px-3 py-2 whitespace-nowrap">
-                      {row.createdAt ? new Date(String(row.createdAt)).toLocaleString('en-IN') : '—'}
+                      {row.createdAt ? formatOrgDateTime(String(row.createdAt)) : '—'}
                     </td>
                     <td className="px-3 py-2 uppercase">{String(row.format)}</td>
                     <td className="px-3 py-2">{String(row.recordCount ?? 0)}</td>

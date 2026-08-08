@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { fetchReportDashboard } from '@/lib/reportStudio';
+import { formatOrgDateTime } from '@/lib/orgTimezone';
 
 function Card({
   title,
@@ -89,7 +90,7 @@ export default function ReportStudioDashboardPage() {
                     {r.name}
                   </Link>
                   <p className="text-[10px] text-gray-500">
-                    {r.lastRunAt ? `Last run ${new Date(r.lastRunAt).toLocaleString('en-IN')}` : 'Never run'}
+                    {r.lastRunAt ? `Last run ${formatOrgDateTime(r.lastRunAt)}` : 'Never run'}
                   </p>
                 </li>
               ))}
@@ -187,7 +188,7 @@ export default function ReportStudioDashboardPage() {
                 <li key={e._id} className="text-sm text-gray-200">
                   {e.reportName}
                   <p className="text-[10px] text-gray-500">
-                    {e.format.toUpperCase()} · {e.recordCount} rows · {new Date(e.createdAt).toLocaleString('en-IN')}
+                    {e.format.toUpperCase()} · {e.recordCount} rows · {formatOrgDateTime(e.createdAt)}
                   </p>
                 </li>
               ))}

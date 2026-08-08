@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { formatOrgDateTime } from '@/lib/orgTimezone';
 
 type ReportRow = {
   reporterName: string;
@@ -214,13 +215,7 @@ export default function IssueDetailPage() {
           <DetailTile label="Category" value={issue.category.replace(/_/g, ' ')} />
           <DetailTile
             label="Reported"
-            value={new Date(issue.createdAt).toLocaleString('en-IN', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
+            value={formatOrgDateTime(issue.createdAt)}
           />
           {issue.assignedTo && (
             <DetailTile label="Assigned to" value={issue.assignedTo.name} />
@@ -283,13 +278,7 @@ export default function IssueDetailPage() {
                     <DetailTile label="Phone" value={r.reporterPhone ?? '—'} />
                     <DetailTile
                       label="Reported at"
-                      value={new Date(r.createdAt).toLocaleString('en-IN', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      value={formatOrgDateTime(r.createdAt)}
                     />
                   </div>
                   <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">

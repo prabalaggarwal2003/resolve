@@ -12,6 +12,7 @@ import {
   fetchOrgSubscription,
   getStoredSubscription,
 } from '@/lib/subscriptionUtils';
+import { canWrite } from '@/lib/permissions';
 import { api, fetchInsightDashboard, type InsightDashboardData } from '@/lib/insights';
 
 function SummaryCard({ label, value, accent = 'text-gray-100' }: { label: string; value: number | string; accent?: string }) {
@@ -32,6 +33,7 @@ export default function InsightsDashboardPage() {
   const [page, setPage] = useState(1);
 
   const hasAccess = canAccessFeature(tier, 'insights') && !isExpired;
+  const canAddInsight = canWrite('insights');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -82,12 +84,14 @@ export default function InsightsDashboardPage() {
           <p className="text-sm text-gray-500 mt-0.5">Simple alerts when something needs attention</p>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            href="/dashboard/insights/rules?new=1"
-            className="px-3 py-1.5 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white no-underline"
-          >
-            + Add insight
-          </Link>
+          {canAddInsight && (
+            <Link
+              href="/dashboard/insights/rules?new=1"
+              className="px-3 py-1.5 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white no-underline"
+            >
+              + Add insight
+            </Link>
+          )}
           <button type="button" onClick={load} className="px-3 py-1.5 text-sm rounded-lg border border-gray-700/60 text-gray-300 hover:bg-gray-800/60">
             Refresh
           </button>

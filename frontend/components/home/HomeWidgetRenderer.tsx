@@ -4,14 +4,11 @@ import Link from 'next/link';
 import type { ContainerSize } from '@/hooks/useContainerSize';
 import type { HomeWidget, HomeWidgetResult } from '@/lib/homeDashboardWidgets';
 import { formatINR } from '@/lib/homeDashboardWidgets';
+import { formatOrgDateTimeShort } from '@/lib/orgTimezone';
 import { DonutChart, HorizontalBars } from '@/components/kpis/KpiCharts';
 
 function formatTime(iso: string) {
-  try {
-    return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return iso;
-  }
+  return formatOrgDateTimeShort(iso);
 }
 
 function LimitBar({ label, count, limit }: { label: string; count: number; limit: number }) {

@@ -1,3 +1,5 @@
+import { formatOrgMoney } from './orgCurrency';
+
 export type YearRate = { year: number; rate: number };
 
 export type DepreciationPolicy = {
@@ -17,6 +19,28 @@ export type PolicyAssignment = {
   targetType: 'group' | 'category';
   targetId?: string | null;
   targetKey?: string | null;
+};
+
+export type AssetRateOverride = {
+  _id: string;
+  assetId: string;
+  name: string;
+  category: string;
+  status?: string;
+  cost?: number | null;
+  purchaseDate?: string | null;
+  groupName?: string | null;
+  overrideRate: number;
+  reason: string;
+  updatedAt?: string | null;
+  policy?: {
+    id: string;
+    name: string;
+    method: 'SLM' | 'WDV';
+    rate: number;
+    year1Rate?: number | null;
+    source: string;
+  } | null;
 };
 
 export type AssetDepreciationMetrics = {
@@ -124,12 +148,7 @@ export function filtersToQuery(filters: DepreciationFilters): string {
 }
 
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
+  return formatOrgMoney(amount);
 }
 
 export const POLICY_SOURCE_LABELS: Record<string, string> = {

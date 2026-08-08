@@ -1,4 +1,5 @@
 import type { BudgetWidgetFilters } from './budgetWidgets';
+import { orgTodayYmd } from './orgTimezone';
 
 export type BudgetModuleFilters = BudgetWidgetFilters & {
   search?: string;
@@ -63,12 +64,12 @@ export function budgetModuleFiltersToQuery(filters: BudgetModuleFilters): Record
 
 export function timeRangeToDateRange(timeRange?: string): { dateFrom?: string; dateTo?: string } {
   if (!timeRange || timeRange === 'all') return {};
-  const now = new Date();
-  const to = now.toISOString().slice(0, 10);
-  const from = new Date(now);
-  if (timeRange === '30d') from.setDate(from.getDate() - 30);
-  else if (timeRange === '90d') from.setDate(from.getDate() - 90);
-  else if (timeRange === '1y') from.setFullYear(from.getFullYear() - 1);
+  const to = orgTodayYmd();
+  const anchor = new Date(`${to}T12:00:00Z`);
+  const from = new Date(anchor);
+  if (timeRange === '30d') from.setUTCDate(from.getUTCDate() - 30);
+  else if (timeRange === '90d') from.setUTCDate(from.getUTCDate() - 90);
+  else if (timeRange === '1y') from.setUTCFullYear(from.getUTCFullYear() - 1);
   else return {};
   return { dateFrom: from.toISOString().slice(0, 10), dateTo: to };
 }
