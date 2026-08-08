@@ -21,6 +21,28 @@ export type PolicyAssignment = {
   targetKey?: string | null;
 };
 
+export type AssetRateOverride = {
+  _id: string;
+  assetId: string;
+  name: string;
+  category: string;
+  status?: string;
+  cost?: number | null;
+  purchaseDate?: string | null;
+  groupName?: string | null;
+  overrideRate: number;
+  reason: string;
+  updatedAt?: string | null;
+  policy?: {
+    id: string;
+    name: string;
+    method: 'SLM' | 'WDV';
+    rate: number;
+    year1Rate?: number | null;
+    source: string;
+  } | null;
+};
+
 export type AssetDepreciationMetrics = {
   assetId: string;
   assetIdString: string;

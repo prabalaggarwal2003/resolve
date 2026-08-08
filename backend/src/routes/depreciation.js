@@ -13,6 +13,7 @@ import {
   deletePolicy,
   setAssignment,
   removeAssignment,
+  listAssetOverrides,
   setAssetOverride,
 } from '../services/depreciationPolicyService.js';
 
@@ -127,6 +128,15 @@ router.delete('/assignments/:targetType/:targetRef', requireTabWrite('depreciati
     res.json(result);
   } catch (error) {
     res.status(400).json({ message: error.message });
+  }
+});
+
+router.get('/overrides', requireTabRead('depreciation'), async (req, res) => {
+  try {
+    const overrides = await listAssetOverrides(req.user.organizationId);
+    res.json({ overrides });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 

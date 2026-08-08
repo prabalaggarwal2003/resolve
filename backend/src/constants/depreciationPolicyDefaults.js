@@ -4,7 +4,7 @@ export const DEFAULT_DEPRECIATION_POLICIES = [
     name: 'Laptop Policy',
     method: 'WDV',
     rate: 40,
-    yearRates: [{ year: 1, rate: 40 }, { year: 2, rate: 40 }, { year: 3, rate: 40 }],
+    yearRates: [{ year: 1, rate: 40 }, { year: 2, rate: 30 }, { year: 3, rate: 20 }],
     residualPct: 10,
     description: 'High-rate WDV for laptops',
     categoryNames: ['Laptop'],
