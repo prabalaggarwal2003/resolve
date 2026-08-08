@@ -34,6 +34,8 @@ import {
   formatBudgetCurrency,
   updateBudget,
 } from '@/lib/budgets';
+import { apiUrl } from '@/lib/api';
+import { CURRENCIES } from '@/lib/orgProfile';
 
 const inputClass =
   'w-full px-3 py-1.5 text-sm border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200 focus:ring-1 focus:ring-blue-500/40 focus:border-blue-500/40';
@@ -282,6 +284,7 @@ export default function BudgetsPage() {
   const [config, setConfig] = useState<BudgetOrgConfig | null>(null);
   const [summary, setSummary] = useState<BudgetSummary | null>(null);
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [orgCurrency, setOrgCurrency] = useState('INR');
   const [refData, setRefData] = useState<RefData>({
     departments: [],
     groups: [],
@@ -326,7 +329,7 @@ export default function BudgetsPage() {
       if (moduleFilters.search?.trim()) params.search = moduleFilters.search.trim();
 
       const headers = authHeaders();
-      const [cfg, sum, list, deptRes, groupRes, locRes, vendorRes, userRes, tplRes] = await Promise.all([
+      const [cfg, sum, list, deptRes, groupRes, locRes, vendorRes, userRes, tplRes, orgRes] = await Promise.all([
         fetchBudgetConfig(),
         fetchBudgetSummary(),
         fetchBudgets(params),
@@ -336,11 +339,13 @@ export default function BudgetsPage() {
         fetch(api('/api/vendors'), { headers }).then((r) => r.json()),
         fetch(api('/api/users'), { headers }).then((r) => r.json()),
         fetch(api('/api/asset-templates'), { headers }).then((r) => r.json()),
+        fetch(apiUrl('/organization'), { headers }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       ]);
 
       setConfig(cfg);
       setSummary(sum);
       setBudgets(list);
+      setOrgCurrency(String(orgRes?.organization?.currency || 'INR').trim().toUpperCase() || 'INR');
       setRefData({
         departments: deptRes.departments || deptRes || [],
         groups: groupRes.groups || groupRes || [],
@@ -379,6 +384,7 @@ export default function BudgetsPage() {
     setEditing(null);
     setForm({
       ...EMPTY_FORM,
+      currency: orgCurrency,
       budgetTypeId: defaultType,
       status: defaultStatus,
       budgetOwnerId: user._id || user.id || '',
@@ -401,7 +407,7 @@ export default function BudgetsPage() {
       startDate: budget.startDate ? budget.startDate.slice(0, 10) : '',
       endDate: budget.endDate ? budget.endDate.slice(0, 10) : '',
       allocatedAmount: String(budget.allocatedAmount),
-      currency: budget.currency || 'INR',
+      currency: orgCurrency,
       budgetOwnerId: ownerId,
       description: budget.description || '',
       status: budget.status,
@@ -429,7 +435,7 @@ export default function BudgetsPage() {
         startDate: form.startDate || undefined,
         endDate: form.endDate || undefined,
         allocatedAmount: Number(form.allocatedAmount) || 0,
-        currency: form.currency,
+        currency: orgCurrency,
         budgetOwnerId: form.budgetOwnerId || undefined,
         description: form.description,
         status: form.status,
@@ -763,15 +769,10 @@ export default function BudgetsPage() {
                 </div>
                 <div>
                   <label className={labelClass}>Currency</label>
-                  <select
-                    className={inputClass}
-                    value={form.currency}
-                    onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
-                  >
-                    {['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD'].map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
+                  <p className={`${inputClass} opacity-80 cursor-default`}>
+                    {CURRENCIES.find((c) => c.value === orgCurrency)?.label || orgCurrency}
+                  </p>
+                  <p className="text-[10px] text-gray-500 mt-1">Fixed from Organization. Change it on the Organization page.</p>
                 </div>
                 <div>
                   <label className={labelClass}>Budget owner</label>

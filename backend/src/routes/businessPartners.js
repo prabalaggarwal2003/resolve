@@ -489,7 +489,7 @@ router.post('/', requirePartnerWrite, async (req, res) => {
     const partner = await BusinessPartner.create({
       ...payload,
       partnerCode,
-      currency: payload.currency || config.settings?.defaultCurrency || 'INR',
+      currency: config.settings?.defaultCurrency || 'INR',
       paymentTerms: payload.paymentTerms || config.settings?.defaultPaymentTerms || 'Net 30',
       contacts: Array.isArray(req.body.contacts) ? req.body.contacts : [],
       addresses: Array.isArray(req.body.addresses) ? req.body.addresses : [],

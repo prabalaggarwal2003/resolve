@@ -1147,6 +1147,9 @@ export default function ReportBuilderInner() {
                 {busy === 'preview' ? 'Running…' : 'Refresh preview'}
               </button>
             </div>
+            <p className="text-[11px] text-gray-500">
+              CSV, XLSX, and DOCX export raw tabular data only — charts, visuals, header, footer, and watermark are not included. Export or print PDF to include those.
+            </p>
 
             {preview?.aggregates && preview.aggregates.length > 0 && (
               <div className="flex flex-wrap gap-2">

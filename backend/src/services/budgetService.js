@@ -1,5 +1,6 @@
 import Budget from '../models/Budget.js';
 import BudgetHistory from '../models/BudgetHistory.js';
+import Organization from '../models/Organization.js';
 import {
   ensureBudgetOrgConfig,
   validateBudgetCustomFields,
@@ -9,6 +10,11 @@ import {
 import { countPendingProcurements } from './budgetRollupService.js';
 import { diffFields, diffKeyedMap, resolveRefName, displayBasic } from './budgetChangeLog.js';
 import { formatChangesSummary } from './assetLogService.js';
+
+async function getOrganizationCurrency(organizationId) {
+  const org = await Organization.findById(organizationId).select('currency').lean();
+  return String(org?.currency || 'INR').trim().toUpperCase() || 'INR';
+}
 
 const REF_DIMENSION_FIELDS = new Set(['departmentId', 'groupId', 'locationId', 'vendorId', 'templateId']);
 
@@ -228,7 +234,7 @@ export async function createBudget(organizationId, user, body) {
     startDate: body.startDate ? new Date(body.startDate) : undefined,
     endDate: body.endDate ? new Date(body.endDate) : undefined,
     allocatedAmount: Number(body.allocatedAmount) || 0,
-    currency: body.currency?.trim() || 'INR',
+    currency: await getOrganizationCurrency(organizationId),
     budgetOwnerId: body.budgetOwnerId || user._id,
     description: body.description || '',
     status,
@@ -287,11 +293,13 @@ export async function updateBudget(organizationId, user, id, body) {
 
   const scalarFields = [
     'name', 'code', 'budgetTypeId', 'financialYear', 'periodLabel',
-    'currency', 'description', 'notes', 'budgetOwnerId', 'status',
+    'description', 'notes', 'budgetOwnerId', 'status',
   ];
   for (const key of scalarFields) {
     if (body[key] !== undefined) budget[key] = body[key];
   }
+  // Currency always follows Organization
+  budget.currency = await getOrganizationCurrency(organizationId);
   if (body.startDate !== undefined) budget.startDate = body.startDate ? new Date(body.startDate) : null;
   if (body.endDate !== undefined) budget.endDate = body.endDate ? new Date(body.endDate) : null;
   if (body.allocatedAmount !== undefined) budget.allocatedAmount = Number(body.allocatedAmount) || 0;
