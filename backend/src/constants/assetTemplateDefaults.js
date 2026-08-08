@@ -51,6 +51,11 @@ function baseFields(extraBasic = []) {
   ];
 }
 
+/** Standard built-in fields for templates created during import (no group assigned yet). */
+export function getStandardTemplateFields() {
+  return baseFields();
+}
+
 export const DEFAULT_ASSET_TEMPLATES = [
   {
     name: 'Laptop',

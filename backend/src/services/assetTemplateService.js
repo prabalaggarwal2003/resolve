@@ -213,7 +213,7 @@ export function applyTemplateToAssetBody(body, template) {
 
   if (Object.keys(customFields).length) result.customFields = customFields;
   if (template?._id) result.templateId = template._id;
-  if (template?.groupId) result.groupId = template.groupId;
+  if (template?.groupId && !result.groupId) result.groupId = template.groupId;
   if (template?.name && !result.category) result.category = template.name;
 
   return result;

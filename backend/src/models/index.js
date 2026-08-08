@@ -42,3 +42,6 @@ export { default as AssetHealthOrgConfig } from './AssetHealthOrgConfig.js';
 export { default as AssetHealthProfile } from './AssetHealthProfile.js';
 export { default as AssetHealthDashboard } from './AssetHealthDashboard.js';
 export { default as AssetHealthScoreSnapshot } from './AssetHealthScoreSnapshot.js';
+export { default as ImportJob } from './ImportJob.js';
+export { default as ImportJobRow } from './ImportJobRow.js';
+export { default as ImportMapping } from './ImportMapping.js';

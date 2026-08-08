@@ -33,5 +33,6 @@ import procurement from './procurement.js';
 import budgetDashboard from './budgetDashboard.js';
 import insights from './insights.js';
 import reportStudio from './reportStudio.js';
+import assetImport from './assetImport.js';
 
-export { auth, signup, health, assets, issues, dashboard, notifications, users, locations, locationTypes, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth, testNotifications, qrPdf, depreciation, kpis, homeDashboard, vendors, businessPartners, invoices, reports, payments, testPayments, orgRoles, assetTemplates, assetGroups, budgets, procurement, budgetDashboard, insights, reportStudio };
+export { auth, signup, health, assets, issues, dashboard, notifications, users, locations, locationTypes, departments, publicRoutes, organization, warrantyChecks, auditLogs, assetHealth, testNotifications, qrPdf, depreciation, kpis, homeDashboard, vendors, businessPartners, invoices, reports, payments, testPayments, orgRoles, assetTemplates, assetGroups, budgets, procurement, budgetDashboard, insights, reportStudio, assetImport };

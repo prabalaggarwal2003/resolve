@@ -48,6 +48,7 @@ export const AUDIT_ACTIONS = {
   ASSET_ASSIGNED: 'assigned',
   ASSET_UNASSIGNED: 'unassigned',
   ASSET_NOTE_ADDED: 'note_added',
+  ASSET_IMPORTED: 'imported',
 
   // Issues
   ISSUE_CREATED: 'created',

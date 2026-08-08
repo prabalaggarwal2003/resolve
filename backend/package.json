@@ -16,11 +16,13 @@
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.0.3",
+    "multer": "^2.2.0",
     "node-cron": "^4.2.1",
     "pdfkit": "^0.17.2",
     "qrcode": "^1.5.4",
     "razorpay": "^2.9.6",
-    "speakeasy": "^2.0.0"
+    "speakeasy": "^2.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
