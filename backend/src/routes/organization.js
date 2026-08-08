@@ -1,6 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import { Organization, User, Budget, BusinessPartner, BusinessPartnerOrgConfig } from '../models/index.js';
+import { Organization, User, Budget, BusinessPartner, BusinessPartnerOrgConfig, Invoice } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
 import { canRead, canWrite } from '../services/permissions.js';
 import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
@@ -262,6 +262,7 @@ router.put('/', protect, async (req, res) => {
       await Promise.all([
         Budget.updateMany({ organizationId: organization._id }, { $set: { currency } }),
         BusinessPartner.updateMany({ organizationId: organization._id }, { $set: { currency } }),
+        Invoice.updateMany({ organizationId: organization._id }, { $set: { currency } }),
         BusinessPartnerOrgConfig.updateOne(
           { organizationId: organization._id },
           { $set: { 'settings.defaultCurrency': currency } }

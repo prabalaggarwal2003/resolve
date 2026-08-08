@@ -7,6 +7,8 @@ async function getOrganizationCurrency(organizationId) {
   return String(org?.currency || 'INR').trim().toUpperCase() || 'INR';
 }
 
+export { getOrganizationCurrency };
+
 function applyOrgCurrencyToConfig(config, currency) {
   if (!config) return config;
   if (!config.settings) config.settings = {};

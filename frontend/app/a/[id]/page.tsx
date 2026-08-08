@@ -6,6 +6,7 @@ import Link from 'next/link';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { breadcrumbForNode } from '@/lib/locations';
 import { SECTION_LABELS, SECTION_ORDER, type TemplateSection } from '@/lib/assetTemplates';
+import { formatOrgMoney } from '@/lib/orgCurrency';
 
 type Issue = {
   ticketId: string;
@@ -50,6 +51,7 @@ type Asset = {
   vendor?: string;
   vendorId?: { name?: string };
   cost?: number;
+  currency?: string;
   warrantyExpiry?: string;
   amcExpiry?: string;
   nextMaintenanceDate?: string;
@@ -107,13 +109,8 @@ function api(path: string) {
   return base ? `${base}${path}` : path;
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
+function formatCurrency(amount: number, currency?: string) {
+  return formatOrgMoney(amount, currency);
 }
 
 function formatDate(iso: string): string {
@@ -282,7 +279,7 @@ export default function PublicAssetPage() {
     if (key === 'warrantyExpiry' && asset.warrantyExpiry) return formatDate(asset.warrantyExpiry);
     if (key === 'amcExpiry' && asset.amcExpiry) return formatDate(asset.amcExpiry);
     if (key === 'nextMaintenanceDate' && asset.nextMaintenanceDate) return formatDate(asset.nextMaintenanceDate);
-    if (key === 'cost' && asset.cost != null) return formatCurrency(asset.cost);
+    if (key === 'cost' && asset.cost != null) return formatCurrency(asset.cost, asset.currency);
 
     const custom = asset.customFields?.[key];
     if (custom != null && custom !== '') {

@@ -1,4 +1,5 @@
 import { isActiveAssetStatus } from '@/lib/assetStatuses';
+import { formatOrgMoney } from '@/lib/orgCurrency';
 import type { BudgetDataContext, BudgetFilterFieldKey, BudgetWidgetFilters } from './budgetWidgets';
 import type { PartnerDataContext, PartnerFilterFieldKey, PartnerWidgetFilters } from './partnerDashboardWidgets';
 import type {
@@ -242,7 +243,7 @@ function colorAt(i: number) {
 }
 
 function formatINR(n: number) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
+  return formatOrgMoney(n);
 }
 
 export function clampHomeSpan(value: number, min: number, max: number) {

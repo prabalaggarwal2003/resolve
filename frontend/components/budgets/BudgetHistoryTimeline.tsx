@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { BudgetHistoryEntry } from '@/lib/budgets';
+import { formatOrgMoney } from '@/lib/orgCurrency';
 
 const EVENT_META: Record<
   string,
@@ -43,11 +44,7 @@ export type OrgBudgetHistoryEntry = BudgetHistoryEntry & {
 function formatMoney(value: unknown) {
   const n = typeof value === 'number' ? value : Number(value);
   if (Number.isNaN(n)) return String(value ?? '—');
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(n);
+  return formatOrgMoney(n);
 }
 
 function budgetLabel(entry: OrgBudgetHistoryEntry) {

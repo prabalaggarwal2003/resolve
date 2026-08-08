@@ -1,5 +1,6 @@
 import { isActiveAssetStatus } from '@/lib/assetStatuses';
 import { AUDIT_RESOURCE_LABELS } from '@/lib/auditLabels';
+import { formatOrgMoney } from '@/lib/orgCurrency';
 import type { BudgetDataContext, BudgetFilterFieldKey, BudgetWidgetFilters } from './budgetWidgets';
 import { computeKpiBudgetWidgetData, isBudgetWidget } from './kpiBudgetBridge';
 import type { PartnerDataContext, PartnerFilterFieldKey, PartnerWidgetFilters } from './partnerDashboardWidgets';
@@ -302,7 +303,7 @@ function colorAt(i: number) {
 }
 
 function formatINR(n: number) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
+  return formatOrgMoney(n);
 }
 
 export function clampKpiSpan(value: number, min: number, max: number) {

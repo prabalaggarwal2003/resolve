@@ -36,6 +36,7 @@ import {
 } from '@/lib/budgets';
 import { apiUrl } from '@/lib/api';
 import { CURRENCIES } from '@/lib/orgProfile';
+import { getOrgCurrency } from '@/lib/orgCurrency';
 
 const inputClass =
   'w-full px-3 py-1.5 text-sm border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200 focus:ring-1 focus:ring-blue-500/40 focus:border-blue-500/40';
@@ -59,7 +60,7 @@ const EMPTY_FORM = {
   startDate: '',
   endDate: '',
   allocatedAmount: '',
-  currency: 'INR',
+  currency: getOrgCurrency(),
   budgetOwnerId: '',
   description: '',
   status: 'draft',

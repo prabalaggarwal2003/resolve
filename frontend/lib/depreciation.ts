@@ -1,3 +1,5 @@
+import { formatOrgMoney } from './orgCurrency';
+
 export type YearRate = { year: number; rate: number };
 
 export type DepreciationPolicy = {
@@ -124,12 +126,7 @@ export function filtersToQuery(filters: DepreciationFilters): string {
 }
 
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
+  return formatOrgMoney(amount);
 }
 
 export const POLICY_SOURCE_LABELS: Record<string, string> = {

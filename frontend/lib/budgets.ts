@@ -1,3 +1,5 @@
+import { formatOrgMoney, getOrgCurrency } from './orgCurrency';
+
 export function api(path: string) {
   const base = process.env.NEXT_PUBLIC_API_URL || '';
   return base ? `${base}${path}` : path;
@@ -121,13 +123,9 @@ export type BudgetHistoryEntry = {
   entityLabel?: string;
 };
 
-export function formatBudgetCurrency(amount: number, currency = 'INR') {
+export function formatBudgetCurrency(amount: number, _currency?: string) {
   try {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount);
+    return formatOrgMoney(amount, getOrgCurrency(), { maximumFractionDigits: 0 });
   } catch {
     return String(amount);
   }

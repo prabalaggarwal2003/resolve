@@ -16,6 +16,7 @@ import {
   describeRulePlain,
   metricLabel,
 } from '@/lib/insights';
+import { getOrgCurrencySymbol } from '@/lib/orgCurrency';
 
 const inputClass =
   'w-full min-w-0 px-3 py-2 text-sm border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200';
@@ -29,7 +30,7 @@ const DEFAULT_MESSAGE = '{{count}} items need attention';
 const QUICK_TEMPLATES: { label: string; description: string; patch: Partial<InsightRule> }[] = [
   {
     label: 'High maintenance cost',
-    description: 'Assets costing more than ₹20,000 in maintenance',
+    description: 'Assets costing more than a set maintenance amount',
     patch: {
       name: 'High maintenance cost',
       messageTemplate: '{{count}} assets have high maintenance costs',
@@ -213,7 +214,9 @@ export default function InsightRuleBuilder({
     return (
       <div className="relative">
         {isMoney && (
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
+            {getOrgCurrencySymbol()}
+          </span>
         )}
         <input
           type={isNumber ? 'number' : 'text'}

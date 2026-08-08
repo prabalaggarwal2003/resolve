@@ -3,6 +3,7 @@ import { protect } from '../middleware/auth.js';
 import { canRead, canWrite } from '../services/permissions.js';
 import { Invoice, Vendor } from '../models/index.js';
 import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
+import { getOrganizationCurrency } from '../services/businessPartnerOrgConfigService.js';
 
 const router = express.Router();
 
@@ -102,6 +103,7 @@ router.post('/', requireVendorWrite, async (req, res) => {
     const invoiceData = {
       ...req.body,
       partnerId: req.body.partnerId || vendor._id,
+      currency: await getOrganizationCurrency(req.user.organizationId),
       organizationId: req.user.organizationId,
       createdBy: req.user._id
     };
@@ -153,8 +155,9 @@ router.put('/:id', requireVendorWrite, async (req, res) => {
       return res.status(404).json({ message: 'Invoice not found' });
     }
 
-    // Don't allow changing organizationId
+    // Don't allow changing organizationId; currency stays locked to org
     delete req.body.organizationId;
+    req.body.currency = await getOrganizationCurrency(req.user.organizationId);
 
     const invoice = await Invoice.findByIdAndUpdate(
       req.params.id,

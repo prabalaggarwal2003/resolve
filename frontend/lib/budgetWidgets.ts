@@ -1,4 +1,5 @@
 import { isDateInRange, mergeWidgetTimeRange } from './budgetModuleFilters';
+import { formatOrgMoney } from './orgCurrency';
 
 export type BudgetRow = {
   id: string;
@@ -389,7 +390,7 @@ function colorAt(i: number) {
 }
 
 function formatINR(n: number) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
+  return formatOrgMoney(n);
 }
 
 export function clampBudgetSpan(value: number, min: number, max: number) {

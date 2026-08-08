@@ -6,6 +6,7 @@ import {
   type AdvancedFilter,
 } from '@/lib/assetsTableConfig';
 import { breadcrumbForNode } from '@/lib/locations';
+import { formatOrgMoney } from '@/lib/orgCurrency';
 
 export type AssetExportRow = {
   assetId?: string;
@@ -42,7 +43,7 @@ function formatDate(d?: string) {
 
 function formatCurrency(n?: number) {
   if (n == null) return '';
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
+  return formatOrgMoney(n);
 }
 
 function partnerExportLabel(asset: AssetExportRow) {

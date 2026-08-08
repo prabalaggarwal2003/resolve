@@ -1,5 +1,5 @@
 import express from 'express';
-import { Asset, Issue, Notification, User, AssetTemplate } from '../models/index.js';
+import { Asset, Issue, Notification, User, AssetTemplate, Organization } from '../models/index.js';
 import { generateTicketId } from '../services/ticketId.js';
 import { getDeviceFingerprint, canReport, recordReportAttempt } from '../utils/rateLimiter.js';
 import { getQrVisibilityFromTemplate } from '../services/assetTemplateService.js';
@@ -89,12 +89,17 @@ router.get('/assets/:id', async (req, res) => {
       }
     }
 
+    const org = asset.organizationId
+      ? await Organization.findById(asset.organizationId).select('currency').lean()
+      : null;
+
     const publicAsset = {
       _id: asset._id,
       name: asset.name,
       assetId: asset.assetId,
       category: asset.category,
       status: asset.status,
+      currency: org?.currency || 'INR',
       model: visibleKeySet.has('model') ? asset.model : undefined,
       serialNumber: visibleKeySet.has('serialNumber') ? asset.serialNumber : undefined,
       condition: visibleKeySet.has('condition') ? asset.condition : undefined,

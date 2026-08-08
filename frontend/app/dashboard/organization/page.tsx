@@ -12,6 +12,7 @@ import {
   TIME_ZONES,
   formatOrgAddressLabel,
 } from '@/lib/orgProfile';
+import { setOrgCurrency } from '@/lib/orgCurrency';
 
 const INDUSTRIES = [
   { value: 'IT', label: 'Information Technology' },
@@ -228,6 +229,7 @@ export default function OrganizationPage() {
       setOrganization(data.organization);
       setStatistics(data.statistics);
       setFormData(mapOrgToForm(data.organization));
+      setOrgCurrency(data.organization?.currency);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -280,6 +282,7 @@ export default function OrganizationPage() {
 
       setOrganization(data.organization);
       setFormData(mapOrgToForm(data.organization));
+      setOrgCurrency(data.organization?.currency);
       setSuccess('Organization updated successfully');
       setEditing(false);
     } catch (err) {

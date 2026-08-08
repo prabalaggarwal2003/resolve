@@ -10,6 +10,7 @@ import {
   type DisplaySection,
 } from '@/lib/assetFieldDisplay';
 import { breadcrumbForNode } from '@/lib/locations';
+import { formatOrgMoney } from '@/lib/orgCurrency';
 import { partnerRelationshipsFromAsset } from '@/components/AssetPartnerRelationshipsEditor';
 
 const STATUS_BADGE: Record<string, string> = {
@@ -41,12 +42,7 @@ const SECTION_ACCENT: Record<DisplaySection, { border: string; title: string }> 
 };
 
 function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
+  return formatOrgMoney(amount);
 }
 
 function formatDate(val: string): string {
