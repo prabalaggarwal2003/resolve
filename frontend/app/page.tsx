@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef } from 'react';
+import LandingBody from '@/components/landing/LandingBody';
 
 // ════════════════════════════════════════════════════════════════════════════════════
 // COMMENTED OUT: Plus Sign Pattern with Sweeping Highlight Animation
@@ -306,38 +307,6 @@ function AnimatedBackground() {
 	return <canvas ref={canvasRef} className="absolute inset-0" />;
 }
 
-const features = [
-	{ icon: '📦', label: 'Asset Tracking', desc: 'Full lifecycle from purchase to retirement' },
-	{ icon: '🔔', label: 'Issue Reporting', desc: 'QR-based reporting, no login needed' },
-	{ icon: '🔧', label: 'Maintenance', desc: 'Schedule, history & health scoring' },
-	{ icon: '📊', label: 'Analytics & KPIs', desc: 'Depreciation, utilisation & metrics' },
-	{ icon: '📋', label: 'Audit Logs', desc: 'Every action tracked and downloadable' },
-	{ icon: '🏢', label: 'Multi-role', desc: 'Admin, manager, reporter — all in one' },
-];
-
-const overview = [
-	{
-		step: '01',
-		title: 'Add your assets',
-		desc: 'Create assets with auto-generated IDs, categories, purchase details, warranty dates and vendor info. Bulk-add with replication.',
-	},
-	{
-		step: '02',
-		title: 'Scan & report issues',
-		desc: 'Every asset gets a QR code. Anyone can scan it to report a problem — no account required. Track every report from open to resolved.',
-	},
-	{
-		step: '03',
-		title: 'Manage & maintain',
-		desc: 'Assets can be flagged for maintenance based on age and open issues. Complete maintenance cycles and track full history.',
-	},
-	{
-		step: '04',
-		title: 'Analyse & audit',
-		desc: 'Download audit logs, generate daily/weekly/monthly reports, track depreciation and KPIs — everything in one place.',
-	},
-];
-
 const plans = [
 	{
 		name: 'Free',
@@ -433,225 +402,11 @@ export default function HomePage() {
 				</span>
 			</div>
 
-			{/* ── Hero ── */}
-			<section className="relative z-10 flex flex-col items-center justify-center text-center px-6 pt-36 pb-24">
-				<span className="mb-6 inline-flex items-center px-4 py-1.5 rounded-full bg-gray-800/70 border border-gray-700/60 text-xs font-semibold text-gray-400 tracking-widest uppercase backdrop-blur-sm">
-					Asset Management Platform
-				</span>
-				<h1 className="text-6xl sm:text-7xl font-extrabold text-gray-100 tracking-tight leading-tight mb-5">
-					From Chaos,
-					<br />
-					<span className="text-gray-500">To Control.</span>
-				</h1>
-				<p className="text-gray-500 text-lg leading-relaxed max-w-lg mb-10">
-					Track equipment, report issues via QR, manage inventory and audits — purpose-built for all organisations.
-				</p>
-				<div className="flex flex-col sm:flex-row items-center gap-3 mb-20">
-					<Link
-						href="/signup"
-						className="inline-flex items-center justify-center px-8 py-4 bg-gray-100 text-gray-950 rounded-xl font-bold text-base hover:bg-white transition-all shadow-xl no-underline"
-					>
-						Get started free →
-					</Link>
-					<a
-						href="#overview"
-						className="inline-flex items-center justify-center px-8 py-4 bg-gray-800/60 border border-gray-700/60 text-gray-300 rounded-xl font-semibold text-base hover:bg-gray-700/60 transition-all backdrop-blur-sm no-underline"
-					>
-						See how it works
-					</a>
-				</div>
-
-
-
-				{/* ── Platform Capabilities Showcase ── */}
-				<div className="mt-24 w-full max-w-4xl mx-auto px-0">
-					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-						{[
-							{
-								icon: '⚡',
-								title: 'Instant Setup',
-								desc: 'No complex configurations. Start tracking in minutes.',
-								delay: '0ms',
-								color: 'from-gray-700/30 to-gray-800/30',
-							},
-							{
-								icon: '🔒',
-								title: 'Enterprise Security',
-								desc: 'Multiple layer security. Your data is protected.',
-								delay: '100ms',
-								color: 'from-gray-700/30 to-gray-800/30',
-							},
-							{
-								icon: '♻️',
-								title: 'Lifecycle Tracking',
-								desc: 'From purchase to retirement. Complete asset history.',
-								delay: '200ms',
-								color: 'from-gray-700/30 to-gray-800/30',
-							},
-							{
-								icon: '📡',
-								title: 'Real-time Monitoring',
-								desc: 'Live dashboards, health scoring & instant alerts.',
-								delay: '300ms',
-								color: 'from-gray-700/30 to-gray-800/30',
-							},
-						].map(({ icon, title, desc, delay, color }) => (
-							<div
-								key={title}
-								className="group"
-								style={{
-									animation: `slideInUp 0.7s ease-out forwards`,
-									animationDelay: delay,
-									opacity: 0,
-								}}
-							>
-								<div
-									className={`relative rounded-xl border border-gray-700/40 bg-gradient-to-br ${color} backdrop-blur-md p-5 h-full transition-all duration-300 hover:border-gray-600/60 hover:bg-gradient-to-br hover:from-gray-700/40 hover:to-gray-800/40`}
-								>
-									{/* Animated top accent */}
-									<div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-1 bg-gradient-to-r from-transparent via-gray-400 to-transparent group-hover:w-full transition-all duration-300" />
-
-									{/* Icon */}
-									<div className="text-3xl mb-3 transform group-hover:scale-110 group-hover:rotate-12 transition-all duration-300">
-										{icon}
-									</div>
-
-									{/* Title */}
-									<p className="text-sm font-bold text-gray-200 mb-2 group-hover:text-gray-100 transition-colors">
-										{title}
-									</p>
-
-									{/* Description */}
-									<p className="text-xs text-gray-500 leading-relaxed group-hover:text-gray-400 transition-colors">
-										{desc}
-									</p>
-
-									{/* Hover bottom accent */}
-									<div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-gray-600 to-transparent opacity-0 group-hover:opacity-100 rounded-b-xl transition-opacity duration-300" />
-								</div>
-							</div>
-						))}
-					</div>
-				</div>
-				{/* Horizontal divider */}
-				<div className="mt-20 w-full max-w-4xl mx-auto">
-					<div className="h-px bg-gradient-to-r from-transparent via-gray-700/60 to-transparent" />
-				</div>
-
-				{/* 3D Animated Impact Stats */}
-				<div className="mt-20 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto">
-					{[
-						{ value: '50K+', label: 'Assets Tracked', delay: '0ms' },
-						{ value: '99.9%', label: 'Uptime SLA', delay: '100ms' },
-						{ value: '10s', label: 'Avg Report Time', delay: '200ms' },
-					].map(({ value, label, delay }) => (
-						<div
-							key={label}
-							className="relative group"
-							style={{
-								animation: `fadeInUp 0.6s ease-out forwards`,
-								animationDelay: delay,
-								opacity: 0,
-							}}
-						>
-							{/* Animated glow background */}
-							<div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-gray-700/20 to-gray-800/20 blur-xl group-hover:blur-2xl transition-all duration-300 opacity-0 group-hover:opacity-100" />
-
-							{/* Card */}
-							<div className="relative rounded-2xl border border-gray-700/50 bg-gray-900/60 backdrop-blur-md p-8 text-center hover:border-gray-600/60 transition-all duration-300 transform group-hover:scale-105 group-hover:-translate-y-1">
-								<div className="text-5xl font-extrabold bg-gradient-to-r from-gray-200 to-gray-400 bg-clip-text text-transparent mb-2">
-									{value}
-								</div>
-								<div className="text-sm text-gray-500 font-medium">{label}</div>
-
-								{/* Animated underline */}
-								<div className="h-1 w-0 group-hover:w-full bg-gradient-to-r from-gray-600 to-gray-400 rounded-full mx-auto mt-4 transition-all duration-300" />
-							</div>
-						</div>
-					))}
-				</div>
-
-				<style jsx>{`
-					@keyframes fadeInUp {
-						from {
-							opacity: 0;
-							transform: translateY(30px);
-						}
-						to {
-							opacity: 1;
-							transform: translateY(0);
-						}
-					}
-					@keyframes slideInUp {
-						from {
-							opacity: 0;
-							transform: translateY(25px);
-						}
-						to {
-							opacity: 1;
-							transform: translateY(0);
-						}
-					}
-				`}</style>
-			</section>
-
-			{/* ── Product Overview ── */}
-			<section
-				id="overview"
-				className="scroll-mt-20 relative z-10 w-full bg-gray-900/50 border-y border-gray-800/60 backdrop-blur-sm py-24 px-6"
-			>
-				<div className="max-w-5xl mx-auto">
-					<div className="text-center mb-14">
-						<span className="mb-6 inline-flex items-center px-4 py-1.5 rounded-full bg-gray-800/70 border border-gray-700/60 text-xs font-semibold text-gray-400 tracking-widest uppercase backdrop-blur-sm">
-					HOW IT WORKS
-				</span>
-						<h2 className="text-4xl font-extrabold text-gray-100 mt-3 tracking-tight">
-							Simple. Powerful. Complete.
-						</h2>
-						<p className="text-gray-500 mt-3 max-w-md mx-auto text-base">
-							From setup to daily operations, resolve handles every step of your asset lifecycle.
-						</p>
-					</div>
-
-					<div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-						{overview.map(({ step, title, desc }) => (
-							<div
-								key={step}
-								className="rounded-2xl border border-gray-700/50 bg-gray-900/60 backdrop-blur-md p-7 hover:border-gray-600/60 hover:bg-gray-800/50 transition-all"
-							>
-								<span className="text-xs font-bold text-gray-600 tracking-widest">
-									{step}
-								</span>
-								<h3 className="text-lg font-bold text-gray-100 mt-2 mb-2">
-									{title}
-								</h3>
-								<p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
-							</div>
-						))}
-					</div>
-
-					<div className="border-t border-gray-800/60 mt-8">
-					</div>
-
-
-					{/* Feature detail grid */}
-					<div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-8">
-						{features.map(({ icon, label, desc }) => (
-							<div
-								key={label}
-								className="rounded-xl border border-gray-800/60 bg-gray-900/40 backdrop-blur-sm p-5 hover:border-gray-700/60 transition-all"
-							>
-								<div className="text-xl mb-2">{icon}</div>
-								<p className="text-sm font-bold text-gray-200 mb-1">{label}</p>
-								<p className="text-xs text-gray-600 leading-relaxed">{desc}</p>
-							</div>
-						))}
-					</div>
-				</div>
-			</section>
+			{/* ── Landing content (below wordmark) ── */}
+			<LandingBody />
 
 			{/* ── Pricing ── */}
-			<section id="pricing" className="scroll-mt-20 relative z-10 w-full py-24 px-6">
+			<section id="pricing" className="scroll-mt-20 relative z-10 w-full py-24 px-6 border-t border-gray-800/60">
 				<div className="absolute inset-0 pointer-events-none">
 					<div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[700px] h-[300px] rounded-full bg-gray-800/10 blur-[100px]" />
 				</div>
@@ -664,7 +419,7 @@ export default function HomePage() {
 							Simple, transparent pricing
 						</h2>
 						<p className="text-gray-500 mt-3 max-w-md mx-auto text-base">
-							Start free. Scale when you're ready.
+							Start free. Scale when you&apos;re ready.
 						</p>
 					</div>
 
@@ -733,7 +488,7 @@ export default function HomePage() {
 							resolve
 						</p>
 						<p className="text-xs text-gray-600 leading-relaxed">
-							Asset management for all organisations.
+							Everything your organization owns, buys, uses, and manages — in one place.
 						</p>
 					</div>
 					<div>
@@ -743,10 +498,18 @@ export default function HomePage() {
 						<ul className="space-y-2 text-sm text-gray-500">
 							<li>
 								<a
-									href="#overview"
+									href="#modules"
 									className="hover:text-gray-300 transition-colors no-underline"
 								>
-									Overview
+									Modules
+								</a>
+							</li>
+							<li>
+								<a
+									href="#how-it-works"
+									className="hover:text-gray-300 transition-colors no-underline"
+								>
+									How it works
 								</a>
 							</li>
 							<li>
