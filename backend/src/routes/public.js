@@ -90,7 +90,7 @@ router.get('/assets/:id', async (req, res) => {
     }
 
     const org = asset.organizationId
-      ? await Organization.findById(asset.organizationId).select('currency').lean()
+      ? await Organization.findById(asset.organizationId).select('currency timezone').lean()
       : null;
 
     const publicAsset = {
@@ -100,6 +100,7 @@ router.get('/assets/:id', async (req, res) => {
       category: asset.category,
       status: asset.status,
       currency: org?.currency || 'INR',
+      timezone: org?.timezone || 'Asia/Kolkata',
       model: visibleKeySet.has('model') ? asset.model : undefined,
       serialNumber: visibleKeySet.has('serialNumber') ? asset.serialNumber : undefined,
       condition: visibleKeySet.has('condition') ? asset.condition : undefined,

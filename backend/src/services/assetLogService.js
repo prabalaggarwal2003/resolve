@@ -4,6 +4,7 @@ import {
   resolvePartnerRelationships,
 } from './assetPartnerRelationships.js';
 import { getBusinessPartnerOrgConfig } from './businessPartnerOrgConfigService.js';
+import { formatOrgDate } from '../utils/orgTimezone.js';
 
 const FIELD_LABELS = {
   name: 'Name',
@@ -165,8 +166,7 @@ function formatPrimitive(field, value) {
     return String(value);
   }
   if (['purchaseDate', 'warrantyExpiry', 'amcExpiry', 'nextMaintenanceDate'].includes(field)) {
-    const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString('en-IN');
+    return formatOrgDate(value);
   }
   return String(value);
 }

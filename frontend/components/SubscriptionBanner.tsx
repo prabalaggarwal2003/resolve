@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { formatOrgDate } from '@/lib/orgTimezone';
 
 interface SubscriptionStatus {
   tier: 'free' | 'pro' | 'premium';
@@ -60,7 +61,7 @@ export default function SubscriptionBanner() {
             <div>
               <p className="font-semibold text-red-300 text-lg">Subscription Expired</p>
               <p className="text-red-400 text-sm mt-1">
-                Your {status.tier.toUpperCase()} subscription expired on {status.subscriptionEndDate ? new Date(status.subscriptionEndDate).toLocaleDateString() : 'unknown date'}. Your account is now operating on the Free plan with limits of 50 assets and 5 users. KPIs and Depreciation tracking are locked.
+                Your {status.tier.toUpperCase()} subscription expired on {status.subscriptionEndDate ? formatOrgDate(status.subscriptionEndDate) : 'unknown date'}. Your account is now operating on the Free plan with limits of 50 assets and 5 users. KPIs and Depreciation tracking are locked.
               </p>
               <p className="text-red-400 text-xs mt-2 opacity-75">
                 Renew your subscription to restore access to Pro/Premium features.
@@ -88,7 +89,7 @@ export default function SubscriptionBanner() {
             <div>
               <p className="font-semibold text-yellow-300 text-lg">Subscription Expiring Soon</p>
               <p className="text-yellow-400 text-sm mt-1">
-                Your {status.tier.toUpperCase()} plan expires in {status.daysRemaining} day{status.daysRemaining !== 1 ? 's' : ''} on {status.subscriptionEndDate ? new Date(status.subscriptionEndDate).toLocaleDateString() : 'unknown date'}. Renew to avoid losing access to premium features.
+                Your {status.tier.toUpperCase()} plan expires in {status.daysRemaining} day{status.daysRemaining !== 1 ? 's' : ''} on {status.subscriptionEndDate ? formatOrgDate(status.subscriptionEndDate) : 'unknown date'}. Renew to avoid losing access to premium features.
               </p>
               <p className="text-yellow-400 text-xs mt-2 opacity-75">
                 Once expired, your account will revert to the Free plan with limited features.

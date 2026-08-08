@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { formatOrgDateTime } from '@/lib/orgTimezone';
 
 interface TestPaymentState {
   tier: string;
@@ -152,8 +153,8 @@ export default function TestPaymentsPage() {
             </div>
           </div>
           <div className="mt-4 text-sm text-gray-400">
-            <p>Start: {state.startDate ? new Date(state.startDate).toLocaleString() : '—'}</p>
-            <p>End: {state.endDate ? new Date(state.endDate).toLocaleString() : '—'}</p>
+            <p>Start: {state.startDate ? formatOrgDateTime(state.startDate) : '—'}</p>
+            <p>End: {state.endDate ? formatOrgDateTime(state.endDate) : '—'}</p>
           </div>
         </div>
       )}

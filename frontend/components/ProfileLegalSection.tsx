@@ -1,5 +1,7 @@
 'use client';
 
+import { formatOrgDate } from '@/lib/orgTimezone';
+
 /** Update this date whenever the legal copy below is changed. */
 const LEGAL_LAST_UPDATED = '2026-06-24';
 
@@ -73,7 +75,7 @@ const legalDocs: LegalDoc[] = [
 ];
 
 function formatLegalDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-IN', {
+  return formatOrgDate(iso, undefined, {
     day: 'numeric',
     month: 'long',
     year: 'numeric',

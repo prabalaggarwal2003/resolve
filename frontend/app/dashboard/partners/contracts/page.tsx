@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { fetchPartners, partnerAction } from '@/lib/businessPartners';
+import { formatOrgDate } from '@/lib/orgTimezone';
 
 const thClass = 'px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gray-500';
 const tdClass = 'px-3 py-2 text-xs text-gray-300';
@@ -16,8 +17,7 @@ const btnGhost =
 const CONTRACT_STATUSES = ['Draft', 'Active', 'Expired', 'Renewed', 'Cancelled'];
 
 function formatDate(value?: string) {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
+  return formatOrgDate(value);
 }
 
 export default function PartnerContractsPage() {

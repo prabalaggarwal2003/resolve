@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { isSuperAdminUser, canRead } from '@/lib/permissions';
+import { formatOrgDate } from '@/lib/orgTimezone';
 
 interface SubscriptionStatus {
   tier: 'free' | 'pro' | 'premium';
@@ -329,14 +330,14 @@ export default function SubscriptionsPage() {
               <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
                 <p className="text-[10px] text-gray-500 uppercase tracking-wide">Started</p>
                 <p className="text-xs font-medium text-gray-200 mt-0.5">
-                  {new Date(subscription.subscriptionStartDate).toLocaleDateString()}
+                  {formatOrgDate(subscription.subscriptionStartDate)}
                 </p>
               </div>
               <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
                 <p className="text-[10px] text-gray-500 uppercase tracking-wide">Expires</p>
                 <p className="text-xs font-medium text-gray-200 mt-0.5">
                   {subscription.subscriptionEndDate
-                    ? new Date(subscription.subscriptionEndDate).toLocaleDateString()
+                    ? formatOrgDate(subscription.subscriptionEndDate)
                     : '—'}
                 </p>
               </div>

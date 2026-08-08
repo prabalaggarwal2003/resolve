@@ -1,6 +1,7 @@
 import { isActiveAssetStatus } from '@/lib/assetStatuses';
 import { AUDIT_RESOURCE_LABELS } from '@/lib/auditLabels';
 import { formatOrgMoney } from '@/lib/orgCurrency';
+import { formatOrgDate } from '@/lib/orgTimezone';
 import type { BudgetDataContext, BudgetFilterFieldKey, BudgetWidgetFilters } from './budgetWidgets';
 import { computeKpiBudgetWidgetData, isBudgetWidget } from './kpiBudgetBridge';
 import type { PartnerDataContext, PartnerFilterFieldKey, PartnerWidgetFilters } from './partnerDashboardWidgets';
@@ -527,10 +528,10 @@ function computeQuickWidget(
       quick.recentAssets.filter((a) => assetIds.has(a.id)).slice(0, limit).forEach((a) => rows.push({ primary: a.name, secondary: a.assetIdString, meta: a.status }));
       break;
     case 'upcoming_maintenance':
-      quick.upcomingMaintenance.filter((a) => assetIds.has(a.id)).slice(0, limit).forEach((a) => rows.push({ primary: a.name, secondary: a.assetIdString, meta: new Date(a.nextMaintenanceDate).toLocaleDateString() }));
+      quick.upcomingMaintenance.filter((a) => assetIds.has(a.id)).slice(0, limit).forEach((a) => rows.push({ primary: a.name, secondary: a.assetIdString, meta: formatOrgDate(a.nextMaintenanceDate) }));
       break;
     case 'warranty_expiring_soon':
-      quick.warrantyExpiringSoon.filter((a) => assetIds.has(a.id)).slice(0, limit).forEach((a) => rows.push({ primary: a.name, secondary: a.assetIdString, meta: new Date(a.warrantyExpiry).toLocaleDateString() }));
+      quick.warrantyExpiringSoon.filter((a) => assetIds.has(a.id)).slice(0, limit).forEach((a) => rows.push({ primary: a.name, secondary: a.assetIdString, meta: formatOrgDate(a.warrantyExpiry) }));
       break;
     case 'recent_movements':
       quick.recentMovements.slice(0, limit * 3).forEach((m) => {

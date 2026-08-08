@@ -9,6 +9,7 @@ import {
   type ReportDefinition,
 } from '@/lib/reportStudio';
 import { canWrite } from '@/lib/permissions';
+import { formatOrgDateTime } from '@/lib/orgTimezone';
 
 const buttonClass = 'px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors';
 
@@ -53,7 +54,7 @@ export default function DraftsPage() {
             <div className="min-w-0">
               <p className="text-sm font-medium text-gray-100 truncate">{item.name || 'Untitled draft'}</p>
               <p className="text-[11px] text-gray-500 mt-0.5">
-                Updated {item.updatedAt ? new Date(item.updatedAt).toLocaleString('en-IN') : '—'}
+                Updated {item.updatedAt ? formatOrgDateTime(item.updatedAt) : '—'}
                 {item.description ? ` · ${item.description}` : ''}
               </p>
             </div>

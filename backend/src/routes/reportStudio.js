@@ -15,6 +15,7 @@ import {
   getDistinctFieldValues,
 } from '../services/reportQueryService.js';
 import { buildReportPdfBuffer } from '../services/reportPdfExportService.js';
+import { getOrganizationTimezone } from '../utils/orgTimezone.js';
 import {
   DEFAULT_REPORT_FORMATTING,
   DEFAULT_REPORT_STUDIO_SETTINGS,
@@ -324,11 +325,13 @@ router.post('/export', async (req, res) => {
         companyName: String(settings.branding?.companyName || '').trim(),
         logoData: String(settings.branding?.logoData || ''),
       };
+      const timezone = await getOrganizationTimezone(orgId(req));
       const buffer = await buildReportPdfBuffer({
         reportName,
         result,
         formatting,
         branding,
+        timezone,
       });
       payload = buffer.toString('base64');
       contentType = 'application/pdf';

@@ -9,6 +9,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { isSuperAdminUser, canRead } from '@/lib/permissions';
 import TwoFactorSection from '@/components/TwoFactorSection';
 import ProfileLegalSection from '@/components/ProfileLegalSection';
+import { formatOrgDateTime } from '@/lib/orgTimezone';
 
 type Profile = {
   id: string;
@@ -60,14 +61,7 @@ const labelClass = 'block text-[10px] font-medium text-gray-500 uppercase tracki
 const buttonClass = 'px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors';
 
 function formatDateTime(iso?: string): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatOrgDateTime(iso);
 }
 
 function UsageCard({ label, used, limit }: { label: string; used: number; limit: number }) {

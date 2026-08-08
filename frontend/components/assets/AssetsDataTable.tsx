@@ -10,6 +10,7 @@ import {
 } from '@/lib/assetsTableConfig';
 import { breadcrumbForNode } from '@/lib/locations';
 import { formatOrgMoney } from '@/lib/orgCurrency';
+import { formatOrgDate } from '@/lib/orgTimezone';
 
 export type AssetRow = {
   _id: string;
@@ -45,7 +46,7 @@ const buttonClass = 'px-2 py-0.5 text-[11px] font-medium rounded border transiti
 
 function formatDate(d?: string) {
   if (!d) return '—';
-  return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  return formatOrgDate(d);
 }
 
 function formatCurrency(n?: number) {

@@ -11,6 +11,7 @@ import {
 } from '@/lib/assetFieldDisplay';
 import { breadcrumbForNode } from '@/lib/locations';
 import { formatOrgMoney } from '@/lib/orgCurrency';
+import { formatOrgDate, formatOrgDateTime } from '@/lib/orgTimezone';
 import { partnerRelationshipsFromAsset } from '@/components/AssetPartnerRelationshipsEditor';
 
 const STATUS_BADGE: Record<string, string> = {
@@ -46,21 +47,11 @@ function formatCurrency(amount: number): string {
 }
 
 function formatDate(val: string): string {
-  const d = new Date(val);
-  if (Number.isNaN(d.getTime())) return val;
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  return formatOrgDate(val);
 }
 
 function formatDateTime(val: string): string {
-  const d = new Date(val);
-  if (Number.isNaN(d.getTime())) return val;
-  return d.toLocaleString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatOrgDateTime(val);
 }
 
 function isEmpty(val: unknown): boolean {

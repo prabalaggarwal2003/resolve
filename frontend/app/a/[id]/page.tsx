@@ -7,6 +7,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { breadcrumbForNode } from '@/lib/locations';
 import { SECTION_LABELS, SECTION_ORDER, type TemplateSection } from '@/lib/assetTemplates';
 import { formatOrgMoney } from '@/lib/orgCurrency';
+import { formatOrgDate, formatOrgDateTime } from '@/lib/orgTimezone';
 
 type Issue = {
   ticketId: string;
@@ -52,6 +53,7 @@ type Asset = {
   vendorId?: { name?: string };
   cost?: number;
   currency?: string;
+  timezone?: string;
   warrantyExpiry?: string;
   amcExpiry?: string;
   nextMaintenanceDate?: string;
@@ -113,8 +115,8 @@ function formatCurrency(amount: number, currency?: string) {
   return formatOrgMoney(amount, currency);
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+function formatDate(iso: string, timezone?: string): string {
+  return formatOrgDate(iso, timezone);
 }
 
 function DetailTile({ label, value, accent }: { label: string; value: string; accent?: string }) {
@@ -275,17 +277,21 @@ export default function PublicAssetPage() {
     if (key === 'tags') {
       return Array.isArray(asset.tags) && asset.tags.length ? asset.tags.join(', ') : null;
     }
-    if (key === 'purchaseDate' && asset.purchaseDate) return formatDate(asset.purchaseDate);
-    if (key === 'warrantyExpiry' && asset.warrantyExpiry) return formatDate(asset.warrantyExpiry);
-    if (key === 'amcExpiry' && asset.amcExpiry) return formatDate(asset.amcExpiry);
-    if (key === 'nextMaintenanceDate' && asset.nextMaintenanceDate) return formatDate(asset.nextMaintenanceDate);
+    if (key === 'purchaseDate' && asset.purchaseDate) return formatDate(asset.purchaseDate, asset.timezone);
+    if (key === 'warrantyExpiry' && asset.warrantyExpiry) return formatDate(asset.warrantyExpiry, asset.timezone);
+    if (key === 'amcExpiry' && asset.amcExpiry) return formatDate(asset.amcExpiry, asset.timezone);
+    if (key === 'nextMaintenanceDate' && asset.nextMaintenanceDate) {
+      return formatDate(asset.nextMaintenanceDate, asset.timezone);
+    }
     if (key === 'cost' && asset.cost != null) return formatCurrency(asset.cost, asset.currency);
 
     const custom = asset.customFields?.[key];
     if (custom != null && custom !== '') {
       if (Array.isArray(custom)) return custom.join(', ');
       if (typeof custom === 'boolean') return custom ? 'Yes' : 'No';
-      if (typeof custom === 'string' && /^\d{4}-\d{2}-\d{2}/.test(custom)) return formatDate(custom);
+      if (typeof custom === 'string' && /^\d{4}-\d{2}-\d{2}/.test(custom)) {
+        return formatDate(custom, asset.timezone);
+      }
       return String(custom);
     }
 
@@ -414,18 +420,22 @@ export default function PublicAssetPage() {
                   </p>
                 )}
                 {asset.maintenanceStartDate && (
-                  <p className="text-xs text-gray-500 mt-1">Started: {new Date(asset.maintenanceStartDate).toLocaleString('en-IN')}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Started: {formatOrgDateTime(asset.maintenanceStartDate, asset.timezone)}
+                  </p>
                 )}
                 {asset.maintenanceCompletedDate && (
-                  <p className="text-xs text-gray-500 mt-1">Completed: {new Date(asset.maintenanceCompletedDate).toLocaleString('en-IN')}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Completed: {formatOrgDateTime(asset.maintenanceCompletedDate, asset.timezone)}
+                  </p>
                 )}
                 {asset.maintenanceHistory?.length ? (
                   <div className="mt-2 space-y-1.5">
                     {asset.maintenanceHistory.slice().reverse().slice(0, 6).map((entry, idx) => (
                       <div key={`${entry.startDate}-${idx}`} className="rounded-lg border border-gray-700/40 bg-gray-900/30 px-2.5 py-2">
                         <p className="text-[11px] text-gray-300">
-                          {formatDate(entry.startDate)}
-                          {entry.endDate ? ` → ${formatDate(entry.endDate)}` : ' → ongoing'}
+                          {formatDate(entry.startDate, asset.timezone)}
+                          {entry.endDate ? ` → ${formatDate(entry.endDate, asset.timezone)}` : ' → ongoing'}
                         </p>
                         {entry.reason && <p className="text-[10px] text-gray-500 mt-0.5">Started · {entry.reason}</p>}
                         {entry.completionReason && (
@@ -494,7 +504,7 @@ export default function PublicAssetPage() {
                           <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-2">{issue.description}</p>
                         )}
                         <p className="text-[10px] text-gray-600 mt-1">
-                          {formatDate(issue.createdAt)}
+                          {formatOrgDateTime(issue.createdAt, asset.timezone)}
                           {issue.reports && issue.reports.length > 1 && ` · ${issue.reports.length} reports`}
                         </p>
                       </div>

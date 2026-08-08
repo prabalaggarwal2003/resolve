@@ -19,6 +19,7 @@ import {
 import { canWrite } from '@/lib/permissions';
 import PartnerActivityList from '@/components/partners/PartnerActivityList';
 import { getOrgCurrency } from '@/lib/orgCurrency';
+import { formatOrgDate, formatOrgDateTime, orgTodayYmd } from '@/lib/orgTimezone';
 import { CURRENCIES } from '@/lib/orgProfile';
 
 const inputClass =
@@ -35,8 +36,7 @@ const thClass = 'px-3 py-2 text-left text-[10px] uppercase tracking-wide text-gr
 const tdClass = 'px-3 py-2 text-xs text-gray-300';
 
 function formatDate(value?: string | Date | null) {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
+  return formatOrgDate(value);
 }
 
 function labelize(key: string) {
@@ -843,7 +843,7 @@ export default function PartnerDetailPage() {
       const paidAmount = Number(invoiceForm.paidAmount) || 0;
       const payload = {
         invoiceNumber: invoiceForm.invoiceNumber.trim(),
-        purchaseDate: invoiceForm.purchaseDate || new Date().toISOString().slice(0, 10),
+        purchaseDate: invoiceForm.purchaseDate || orgTodayYmd(),
         dueDate: invoiceForm.dueDate || undefined,
         totalAmount,
         paidAmount,
@@ -1674,7 +1674,7 @@ export default function PartnerDetailPage() {
           {noteItems.length === 0 && <li className="text-xs text-gray-500">No notes yet</li>}
           {noteItems.map((a) => (
             <li key={a._id} className="text-xs text-gray-300 border-b border-gray-800/80 pb-2">
-              <span className="text-gray-500">{formatDate(a.createdAt)} · </span>
+              <span className="text-gray-500">{formatOrgDateTime(a.createdAt)} · </span>
               {a.summary}
             </li>
           ))}

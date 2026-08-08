@@ -7,6 +7,7 @@ import {
 } from '@/lib/assetsTableConfig';
 import { breadcrumbForNode } from '@/lib/locations';
 import { formatOrgMoney } from '@/lib/orgCurrency';
+import { formatOrgDate } from '@/lib/orgTimezone';
 
 export type AssetExportRow = {
   assetId?: string;
@@ -38,7 +39,7 @@ export type AssetExportRow = {
 
 function formatDate(d?: string) {
   if (!d) return '';
-  return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  return formatOrgDate(d);
 }
 
 function formatCurrency(n?: number) {

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ChangeReasonModal from '@/components/ChangeReasonModal';
 import type { ImportantChange } from '@/lib/assetChangeReason';
+import { formatOrgDate } from '@/lib/orgTimezone';
 
 interface MaintenanceAsset {
   _id: string;
@@ -31,12 +32,7 @@ function api(path: string) {
 }
 
 function formatDate(dateString: string | undefined): string {
-  if (!dateString) return '—';
-  return new Date(dateString).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatOrgDate(dateString);
 }
 
 const OVERDUE_MS = 2 * 24 * 60 * 60 * 1000;

@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import { formatOrgDateTime, normalizeOrgTimezone } from '../utils/orgTimezone.js';
 
 const CHART_COLORS = [
   '#f59e0b',
@@ -281,9 +282,11 @@ export function buildReportPdfBuffer({
   result,
   formatting = {},
   branding = {},
+  timezone,
 }) {
   return new Promise((resolve, reject) => {
     const brand = normalizeBranding(branding);
+    const tz = normalizeOrgTimezone(timezone || branding?.timezone);
     const orientation = formatting.orientation === 'portrait' ? 'portrait' : 'landscape';
     const doc = new PDFDocument({
       size: pageSize(formatting),
@@ -319,7 +322,7 @@ export function buildReportPdfBuffer({
     y = doc.y + 6;
     doc.font('Helvetica').fontSize(9).fillColor('#6b7280');
     doc.text(
-      `Generated ${new Date().toLocaleString('en-IN')} · ${result.total ?? rows.length} records`,
+      `Generated ${formatOrgDateTime(new Date(), tz)} · ${result.total ?? rows.length} records`,
       left,
       y,
       { width: usableWidth }

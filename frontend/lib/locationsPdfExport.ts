@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import type { LocationTreeNode, LocationTypeDef } from '@/lib/locations';
 import { typeDef } from '@/lib/locations';
+import { formatOrgDateTime } from '@/lib/orgTimezone';
 
 const INDENT_MM = 6;
 const LINE_HEIGHT = 5.5;
@@ -81,13 +82,7 @@ export function exportLocationsHierarchyPdf(
   orgLabel = 'Organization'
 ) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  const dateStr = new Date().toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const dateStr = formatOrgDateTime(new Date());
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
