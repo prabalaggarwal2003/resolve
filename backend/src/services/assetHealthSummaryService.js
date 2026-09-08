@@ -75,7 +75,7 @@ async function loadIssueCounts(organizationId, assetIds) {
         total: { $sum: 1 },
         open: {
           $sum: {
-            $cond: [{ $in: ['$status', ['open', 'in_progress']] }, 1, 0],
+            $cond: [{ $in: ['$status', ['open', 'new', 'triaged', 'assigned', 'in_progress', 'waiting']] }, 1, 0],
           },
         },
       },

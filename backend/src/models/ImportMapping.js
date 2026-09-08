@@ -42,7 +42,7 @@ const importMappingSchema = new mongoose.Schema(
     },
     module: {
       type: String,
-      enum: ['assets', 'businessPartners', 'users', 'locations', 'inventory'],
+      enum: ['assets', 'businessPartners', 'users', 'locations', 'inventory', 'employees'],
       default: 'assets',
       index: true,
     },

@@ -92,15 +92,21 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 const ISSUE_STATUS_BADGE: Record<string, string> = {
+  new: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
   open: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
+  triaged: 'text-violet-300 bg-violet-500/15 border-violet-500/30',
+  assigned: 'text-sky-300 bg-sky-500/15 border-sky-500/30',
   in_progress: 'text-blue-300 bg-blue-500/15 border-blue-500/30',
+  waiting: 'text-orange-300 bg-orange-500/15 border-orange-500/30',
+  resolved: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
+  verified: 'text-teal-300 bg-teal-500/15 border-teal-500/30',
   completed: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
+  closed: 'text-gray-400 bg-gray-500/15 border-gray-500/30',
   cancelled: 'text-gray-400 bg-gray-500/15 border-gray-500/30',
 };
 
-// Used by Check issue status / Report an issue (currently commented out below)
-// const inputClass =
-//   'flex-1 min-w-0 px-2.5 py-1.5 text-xs border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200 placeholder:text-gray-600 focus:ring-1 focus:ring-blue-500/40 focus:border-blue-500/40';
+const inputClass =
+  'flex-1 min-w-0 px-2.5 py-1.5 text-xs border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200 placeholder:text-gray-600 focus:ring-1 focus:ring-blue-500/40 focus:border-blue-500/40';
 const selectClass =
   'px-2 py-1 text-xs border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-300 focus:ring-1 focus:ring-blue-500/40 shrink-0';
 const buttonClass =
@@ -161,22 +167,23 @@ export default function PublicAssetPage() {
   const [asset, setAsset] = useState<Asset | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  // Issue reporting / status lookup — hidden for now; uncomment to restore
-  // const [issueId, setIssueId] = useState('');
-  // const [searchingIssue, setSearchingIssue] = useState(false);
-  // const [issueResult, setIssueResult] = useState<{
-  //   ticketId: string;
-  //   title: string;
-  //   description?: string;
-  //   status: string;
-  //   priority?: string;
-  //   category?: string;
-  //   createdAt: string;
-  //   assignedTo?: { name: string };
-  //   resolutionNotes?: string;
-  // } | null>(null);
-  // const [issueError, setIssueError] = useState('');
-  const [issueSort, setIssueSort] = useState<'all' | 'open' | 'in_progress' | 'completed' | 'cancelled'>('all');
+  const [issueId, setIssueId] = useState('');
+  const [searchingIssue, setSearchingIssue] = useState(false);
+  const [issueResult, setIssueResult] = useState<{
+    ticketId: string;
+    title: string;
+    description?: string;
+    status: string;
+    priority?: string;
+    category?: string;
+    createdAt: string;
+    assignedTo?: { name: string };
+    resolutionNotes?: string;
+  } | null>(null);
+  const [issueError, setIssueError] = useState('');
+  const [issueSort, setIssueSort] = useState<
+    'all' | 'new' | 'open' | 'in_progress' | 'waiting' | 'resolved' | 'completed' | 'closed' | 'cancelled'
+  >('all');
 
   useEffect(() => {
     if (!params.id) {
@@ -197,37 +204,42 @@ export default function PublicAssetPage() {
       .finally(() => setLoading(false));
   }, [params.id]);
 
-  // Issue status search — hidden for now; uncomment with the Check issue status UI
-  // const searchIssue = async () => {
-  //   if (!issueId.trim()) {
-  //     setIssueError('Please enter an issue ID');
-  //     return;
-  //   }
-  //
-  //   setSearchingIssue(true);
-  //   setIssueError('');
-  //   setIssueResult(null);
-  //
-  //   try {
-  //     const res = await fetch(api(`/api/public/issues/${issueId.trim()}`));
-  //     const data = await res.json();
-  //
-  //     if (res.ok) {
-  //       setIssueResult(data);
-  //     } else {
-  //       setIssueError(data.message || 'Issue not found');
-  //     }
-  //   } catch {
-  //     setIssueError('Failed to search issue');
-  //   } finally {
-  //     setSearchingIssue(false);
-  //   }
-  // };
+  const searchIssue = async () => {
+    if (!issueId.trim()) {
+      setIssueError('Please enter an issue ID');
+      return;
+    }
+
+    setSearchingIssue(true);
+    setIssueError('');
+    setIssueResult(null);
+
+    try {
+      const res = await fetch(api(`/api/public/issues/${issueId.trim()}`));
+      const data = await res.json();
+
+      if (res.ok) {
+        setIssueResult(data);
+      } else {
+        setIssueError(data.message || 'Issue not found');
+      }
+    } catch {
+      setIssueError('Failed to search issue');
+    } finally {
+      setSearchingIssue(false);
+    }
+  };
 
   const sortedIssues = asset?.previousIssues
     ? issueSort === 'all'
       ? asset.previousIssues
-      : asset.previousIssues.filter((issue) => issue.status === issueSort)
+      : issueSort === 'new'
+        ? asset.previousIssues.filter((issue) => issue.status === 'new' || issue.status === 'open')
+        : issueSort === 'resolved'
+          ? asset.previousIssues.filter(
+              (issue) => issue.status === 'resolved' || issue.status === 'completed'
+            )
+          : asset.previousIssues.filter((issue) => issue.status === issueSort)
     : [];
 
   if (loading) {
@@ -320,9 +332,77 @@ export default function PublicAssetPage() {
   return (
     <main className="min-h-screen bg-gray-950 text-sm">
       <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col gap-4">
-        {/* Check issue status — hidden for now; uncomment to restore public ticket lookup
-        ...
-        */}
+        <Section title="Check issue status" accentClass="border-l-emerald-500/50" titleClass="text-emerald-400/80">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              value={issueId}
+              onChange={(e) => setIssueId(e.target.value)}
+              placeholder="Enter Issue ID (e.g. ISS-2024-001)"
+              className={inputClass}
+              onKeyDown={(e) => e.key === 'Enter' && searchIssue()}
+            />
+            <button
+              type="button"
+              onClick={searchIssue}
+              disabled={searchingIssue || !issueId.trim()}
+              className={`${buttonClass} border-blue-500/40 bg-blue-600/20 text-blue-200 hover:bg-blue-600/30 shrink-0`}
+            >
+              {searchingIssue ? 'Searching…' : 'Search'}
+            </button>
+          </div>
+
+          {issueError && (
+            <p className="mt-2 text-[11px] text-red-400 px-2 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10">
+              {issueError}
+            </p>
+          )}
+
+          {issueResult && (
+            <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-2 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-xs font-semibold text-emerald-300">{issueResult.ticketId}</span>
+                <span
+                  className={`px-1.5 py-0.5 text-[9px] rounded border capitalize ${
+                    ISSUE_STATUS_BADGE[issueResult.status] || ISSUE_STATUS_BADGE.cancelled
+                  }`}
+                >
+                  {issueResult.status.replace('_', ' ')}
+                </span>
+              </div>
+              <p className="text-xs font-medium text-gray-200">{issueResult.title}</p>
+              {issueResult.description && (
+                <p className="text-[11px] text-gray-400 line-clamp-3">{issueResult.description}</p>
+              )}
+              <div className="grid grid-cols-2 gap-1.5 text-[10px] text-gray-500 pt-1 border-t border-gray-700/30">
+                {issueResult.priority && (
+                  <span>
+                    <span className="text-gray-600">Priority:</span> {issueResult.priority}
+                  </span>
+                )}
+                {issueResult.category && (
+                  <span>
+                    <span className="text-gray-600">Category:</span> {issueResult.category}
+                  </span>
+                )}
+                <span>
+                  <span className="text-gray-600">Reported:</span>{' '}
+                  {formatDate(issueResult.createdAt, asset.timezone)}
+                </span>
+                {issueResult.assignedTo && (
+                  <span className="truncate">
+                    <span className="text-gray-600">Assigned:</span> {issueResult.assignedTo.name}
+                  </span>
+                )}
+              </div>
+              {issueResult.resolutionNotes && (
+                <p className="text-[11px] text-gray-400 pt-1 border-t border-gray-700/30">
+                  <span className="text-gray-500 font-medium">Resolution:</span> {issueResult.resolutionNotes}
+                </p>
+              )}
+            </div>
+          )}
+        </Section>
 
         {/* Header */}
         <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-blue-500/50 bg-gray-800/40 px-4 py-3">
@@ -373,7 +453,85 @@ export default function PublicAssetPage() {
               </Section>
             ))}
 
-            {/* Report an issue — hidden for now; uncomment to restore QR reporting */}
+            {asset.status === 'under_maintenance' ? (
+              <Section title="Reporting unavailable" accentClass="border-l-amber-500/50" titleClass="text-amber-400/80">
+                <div className="flex items-start gap-2">
+                  <span className="text-base">🔧</span>
+                  <div className="min-w-0">
+                    <p className="text-xs text-amber-200/90">
+                      This asset is under maintenance. Issue reporting is temporarily disabled.
+                    </p>
+                    {asset.maintenanceReason && (
+                      <p className="text-[10px] text-amber-400/70 mt-1">
+                        <span className="font-medium">Reason:</span> {asset.maintenanceReason}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled
+                  className={`${buttonClass} mt-3 w-full border-gray-700/60 bg-gray-800/40 text-gray-500 cursor-not-allowed`}
+                >
+                  Reporting disabled
+                </button>
+              </Section>
+            ) : (
+              <div className="space-y-3">
+                {asset.previousIssues &&
+                  asset.previousIssues.filter((i) =>
+                    ['new', 'open', 'triaged', 'assigned', 'in_progress', 'waiting'].includes(i.status)
+                  ).length > 0 && (
+                    <Section
+                      title={`Open tickets (${
+                        asset.previousIssues.filter((i) =>
+                          ['new', 'open', 'triaged', 'assigned', 'in_progress', 'waiting'].includes(
+                            i.status
+                          )
+                        ).length
+                      })`}
+                      accentClass="border-l-amber-500/50"
+                      titleClass="text-amber-400/80"
+                    >
+                      <div className="space-y-1.5">
+                        {asset.previousIssues
+                          .filter((i) =>
+                            ['new', 'open', 'triaged', 'assigned', 'in_progress', 'waiting'].includes(
+                              i.status
+                            )
+                          )
+                          .slice(0, 5)
+                          .map((issue) => (
+                            <div
+                              key={issue.ticketId}
+                              className="rounded-lg border border-gray-700/40 bg-gray-900/30 px-2.5 py-2"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[11px] font-mono text-gray-400">{issue.ticketId}</span>
+                                <span className="text-[10px] text-gray-500 capitalize">
+                                  {issue.status.replace(/_/g, ' ')}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-200 mt-0.5 truncate">{issue.title}</p>
+                            </div>
+                          ))}
+                      </div>
+                    </Section>
+                  )}
+                <Link
+                  href={`/report?assetId=${asset._id}&assetName=${encodeURIComponent(asset.name)}`}
+                  className={`${buttonClass} block text-center no-underline w-full sm:w-auto border-blue-500/40 bg-blue-600/20 text-blue-200 hover:bg-blue-600/30 py-2.5 px-6 text-sm font-semibold`}
+                >
+                  Report an issue
+                </Link>
+                <Link
+                  href={`/track?assetId=${asset._id}`}
+                  className={`${buttonClass} block text-center no-underline w-full sm:w-auto border-gray-700/60 bg-gray-800/50 text-gray-300 hover:bg-gray-700/50 py-2 px-6 text-xs`}
+                >
+                  Track my report
+                </Link>
+              </div>
+            )}
 
             {qrSections.photos !== false && (asset.photos?.length ?? 0) > 0 && (
               <Section title="Photos" accentClass="border-l-violet-500/50" titleClass="text-violet-400/80">
@@ -465,14 +623,31 @@ export default function PublicAssetPage() {
                     className={selectClass}
                   >
                     <option value="all">All ({asset.previousIssues.length})</option>
-                    <option value="open">
-                      Open ({asset.previousIssues.filter((i) => i.status === 'open').length})
+                    <option value="new">
+                      New (
+                      {
+                        asset.previousIssues.filter((i) => i.status === 'new' || i.status === 'open')
+                          .length
+                      }
+                      )
                     </option>
                     <option value="in_progress">
                       In progress ({asset.previousIssues.filter((i) => i.status === 'in_progress').length})
                     </option>
-                    <option value="completed">
-                      Completed ({asset.previousIssues.filter((i) => i.status === 'completed').length})
+                    <option value="waiting">
+                      Waiting ({asset.previousIssues.filter((i) => i.status === 'waiting').length})
+                    </option>
+                    <option value="resolved">
+                      Resolved (
+                      {
+                        asset.previousIssues.filter(
+                          (i) => i.status === 'resolved' || i.status === 'completed'
+                        ).length
+                      }
+                      )
+                    </option>
+                    <option value="closed">
+                      Closed ({asset.previousIssues.filter((i) => i.status === 'closed').length})
                     </option>
                     <option value="cancelled">
                       Cancelled ({asset.previousIssues.filter((i) => i.status === 'cancelled').length})

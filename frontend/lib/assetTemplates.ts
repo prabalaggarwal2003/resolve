@@ -22,6 +22,10 @@ export type TemplateField = {
   builtIn: boolean;
   /** Show on QR scan when the parent section is enabled */
   qrVisible?: boolean;
+  /** Show on public report page (asset context) */
+  reportVisible?: boolean;
+  /** On report page: display-only when true */
+  readonly?: boolean;
   options?: string[];
 };
 

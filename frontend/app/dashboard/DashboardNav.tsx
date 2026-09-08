@@ -33,7 +33,6 @@ const navItem = (href: string, icon: string, label: string, active: boolean, onN
 const TAB_NAV: Record<PermissionTabKey, { href: string; icon: string; label: string; section: string }> = {
   dashboard: { href: '/dashboard', icon: '🏠', label: 'Dashboard', section: 'Core' },
   assets: { href: '/dashboard/assets', icon: '📦', label: 'Assets', section: 'Core' },
-  // Issues nav entry kept for typing; filtered out below — uncomment the filter to restore
   issues: { href: '/dashboard/issues', icon: '🔔', label: 'Issues', section: 'Core' },
   locations: { href: '/dashboard/locations', icon: '📍', label: 'Locations', section: 'Manage' },
   maintenance: { href: '/dashboard/maintenance', icon: '🔧', label: 'Maintenance', section: 'Manage' },
@@ -73,8 +72,6 @@ export default function DashboardNav({ onNavigate }: { onNavigate?: () => void }
   const visibleBySection = SECTION_ORDER.map((section) => {
     const items = PERMISSION_TABS.filter((tab) => {
       if (tab.section !== section) return false;
-      // Hide Issues from nav for now — remove this line to restore the tab
-      if (tab.key === 'issues') return false;
       return canReadTab(permissions, tab.key);
     }).map((tab) => TAB_NAV[tab.key]);
     if (section === 'Settings') {

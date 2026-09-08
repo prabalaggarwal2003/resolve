@@ -111,6 +111,8 @@ function newCustomField(section: TemplateSection = 'custom'): TemplateField {
     section,
     builtIn: false,
     qrVisible: true,
+    reportVisible: true,
+    readonly: true,
     options: [],
   };
 }
@@ -201,7 +203,12 @@ export default function AssetTemplateEditorPage() {
             fields: normalizeTemplateFieldSections(
               [...t.fields]
                 .sort((a, b) => a.order - b.order)
-                .map((f) => ({ ...f, qrVisible: f.qrVisible !== false }))
+                .map((f) => ({
+                  ...f,
+                  qrVisible: f.qrVisible !== false,
+                  reportVisible: f.reportVisible !== false,
+                  readonly: f.readonly !== false,
+                }))
             ),
             qrSections: normalizeQrSections(t.qrSections),
             statuses: t.statuses || [],
@@ -276,6 +283,8 @@ export default function AssetTemplateEditorPage() {
         ...f,
         order: i,
         qrVisible: f.qrVisible !== false,
+        reportVisible: f.reportVisible !== false,
+        readonly: f.readonly !== false,
       }));
 
     try {
@@ -469,6 +478,30 @@ export default function AssetTemplateEditorPage() {
                           onChange={(e) => updateFieldByKey(field.key, { qrVisible: e.target.checked })}
                         />
                         On QR
+                      </label>
+                      <label
+                        className="flex items-center gap-1.5 text-xs text-sky-300/90"
+                        title="Show this field on the public report page (asset context)"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={field.reportVisible !== false}
+                          disabled={!canEdit}
+                          onChange={(e) => updateFieldByKey(field.key, { reportVisible: e.target.checked })}
+                        />
+                        On report
+                      </label>
+                      <label
+                        className="flex items-center gap-1.5 text-xs text-gray-400"
+                        title="Read-only on the report page (unchecked = reporter can fill)"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={field.readonly !== false}
+                          disabled={!canEdit || field.reportVisible === false}
+                          onChange={(e) => updateFieldByKey(field.key, { readonly: e.target.checked })}
+                        />
+                        Read-only
                       </label>
                       {field.builtIn && <span className="text-[10px] text-gray-600">built-in</span>}
                     </div>

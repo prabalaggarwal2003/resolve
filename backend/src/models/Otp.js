@@ -5,7 +5,7 @@ const otpSchema = new mongoose.Schema(
     email: { type: String, required: true, lowercase: true },
     purpose: {
       type: String,
-      enum: ['signup', 'password_reset'],
+      enum: ['signup', 'password_reset', 'public_report'],
       default: 'signup',
     },
     codeHash: { type: String, required: true },
@@ -14,6 +14,11 @@ const otpSchema = new mongoose.Schema(
       name: String,
       passwordHash: String,
       organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
+      assetId: { type: mongoose.Schema.Types.ObjectId, ref: 'Asset' },
+      employeeId: String,
+      contactId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact' },
+      phone: String,
+      email: String,
     },
   },
   { timestamps: true }

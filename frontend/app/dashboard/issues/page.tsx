@@ -1,445 +1,681 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { canWrite } from '@/lib/permissions';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { formatOrgDate } from '@/lib/orgTimezone';
+import {
+  fetchAssignees,
+  fetchIssueConfig,
+  fetchIssues,
+  statusLabel,
+  type IssueOrgConfig,
+  type IssueTicket,
+} from '@/lib/issues';
 
-type Issue = {
-  _id: string;
-  ticketId: string;
-  title: string;
-  description?: string;
-  category: string;
-  status: string;
-  reporterName?: string;
-  reporterEmail?: string;
-  reports?: { reporterName: string }[];
-  createdAt: string;
-  assetId?: {
-    _id: string;
-    name: string;
-    assetId: string;
-    category?: string;
-    assignedTo?: { name: string; email?: string };
-  };
-  assignedTo?: { name: string };
-};
-
-const STATUS_BADGE: Record<string, string> = {
-  open: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
-  in_progress: 'text-blue-300 bg-blue-500/15 border-blue-500/30',
-  completed: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
-  cancelled: 'text-gray-400 bg-gray-500/15 border-gray-500/30',
-};
-
-const STATUS_FILTER_ACTIVE: Record<string, string> = {
-  '': 'bg-blue-500/20 text-blue-200 border-blue-500/40',
-  open: 'bg-amber-500/20 text-amber-200 border-amber-500/40',
-  in_progress: 'bg-blue-500/20 text-blue-200 border-blue-500/40',
-  completed: 'bg-emerald-500/20 text-emerald-200 border-emerald-500/40',
-  cancelled: 'bg-gray-500/20 text-gray-300 border-gray-500/40',
-};
-
-const STATUS_ACCENT: Record<string, string> = {
-  open: 'border-l-amber-500/50',
-  in_progress: 'border-l-blue-500/50',
-  completed: 'border-l-emerald-500/50',
-  cancelled: 'border-l-gray-500/50',
-};
-
-function api(path: string) {
-  const base = process.env.NEXT_PUBLIC_API_URL || '';
-  return base ? `${base}${path}` : path;
+function badgeStyle(color?: string) {
+  const c = color || '#6b7280';
+  return {
+    color: c,
+    backgroundColor: `${c}22`,
+    borderColor: `${c}55`,
+  } as React.CSSProperties;
 }
 
-const buttonClass = 'px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors';
+const selectClass =
+  'px-2 py-1.5 text-xs border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-300 focus:ring-1 focus:ring-blue-500/40 max-w-[11rem]';
+const inputClass =
+  'px-2.5 py-1.5 text-xs border border-gray-700/60 rounded-lg bg-gray-800/60 text-gray-200 placeholder:text-gray-600 focus:ring-1 focus:ring-blue-500/40 min-w-[10rem]';
 
-function SummaryCard({
+type SortKey =
+  | 'createdAt'
+  | 'updatedAt'
+  | 'dueAt'
+  | 'priority'
+  | 'ticketId'
+  | 'title'
+  | 'status'
+  | 'reports'
+  | 'newReports';
+
+const SORT_OPTIONS: { id: SortKey; label: string }[] = [
+  { id: 'createdAt', label: 'Created' },
+  { id: 'updatedAt', label: 'Updated' },
+  { id: 'dueAt', label: 'Due date' },
+  { id: 'priority', label: 'Priority' },
+  { id: 'reports', label: 'Reports' },
+  { id: 'newReports', label: 'New reports' },
+  { id: 'ticketId', label: 'Ticket ID' },
+  { id: 'title', label: 'Title' },
+  { id: 'status', label: 'Status' },
+];
+
+function SortHeader({
   label,
-  value,
-  accent = 'text-gray-100',
+  column,
+  sort,
+  order,
+  onSort,
 }: {
   label: string;
-  value: string | number;
-  accent?: string;
+  column: SortKey;
+  sort: SortKey;
+  order: 'asc' | 'desc';
+  onSort: (key: SortKey) => void;
 }) {
+  const active = sort === column;
   return (
-    <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30">
-      <p className="text-[10px] text-gray-500 uppercase tracking-wide">{label}</p>
-      <p className={`text-sm font-semibold mt-0.5 tabular-nums ${accent}`}>{value}</p>
-    </div>
+    <button
+      type="button"
+      onClick={() => onSort(column)}
+      className={`font-medium uppercase tracking-wide hover:text-gray-300 ${
+        active ? 'text-blue-300' : 'text-gray-500'
+      }`}
+    >
+      {label}
+      {active ? (order === 'asc' ? ' ↑' : ' ↓') : ''}
+    </button>
   );
 }
 
-function DetailTile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="px-2 py-1.5 rounded-lg border border-gray-700/40 bg-gray-900/30 min-w-0">
-      <p className="text-[10px] text-gray-500 uppercase tracking-wide">{label}</p>
-      <p className="text-xs font-medium text-gray-200 mt-0.5 truncate" title={value}>
-        {value}
-      </p>
-    </div>
-  );
-}
+export default function IssuesPage() {
+  const [scope, setScope] = useState<'my' | 'all'>('all');
+  const [status, setStatus] = useState('');
+  const [priorityId, setPriorityId] = useState('');
+  const [severityId, setSeverityId] = useState('');
+  const [issueTypeId, setIssueTypeId] = useState('');
+  const [departmentId, setDepartmentId] = useState('');
+  const [teamId, setTeamId] = useState('');
+  const [handlerId, setHandlerId] = useState('');
+  const [unassigned, setUnassigned] = useState(false);
+  const [escalationStatus, setEscalationStatus] = useState('');
+  const [escalationLevel, setEscalationLevel] = useState('');
+  const [escalatedTo, setEscalatedTo] = useState('');
+  const [hasNewReports, setHasNewReports] = useState(false);
+  const [q, setQ] = useState('');
+  const [qDebounced, setQDebounced] = useState('');
+  const [sort, setSort] = useState<SortKey>('createdAt');
+  const [order, setOrder] = useState<'asc' | 'desc'>('desc');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 25;
 
-function StatusButtons({
-  issueId,
-  currentStatus,
-  onUpdate,
-}: {
-  issueId: string;
-  currentStatus: string;
-  onUpdate: () => void;
-}) {
-  const [loading, setLoading] = useState(false);
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const [issues, setIssues] = useState<IssueTicket[]>([]);
+  const [total, setTotal] = useState(0);
+  const [config, setConfig] = useState<IssueOrgConfig | null>(null);
+  const [departments, setDepartments] = useState<{ _id: string; name: string }[]>([]);
+  const [teams, setTeams] = useState<{ _id: string; name: string }[]>([]);
+  const [handlers, setHandlers] = useState<{ _id: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const setStatus = async (status: string) => {
-    if (!token || loading || status === currentStatus) return;
-    setLoading(true);
-    try {
-      const res = await fetch(api(`/api/issues/${issueId}`), {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status }),
+  useEffect(() => {
+    const t = setTimeout(() => setQDebounced(q.trim()), 300);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  useEffect(() => {
+    fetchAssignees()
+      .then((data) => {
+        setDepartments((data.departments || []).map((d) => ({ _id: d._id, name: d.name })));
+        setTeams((data.groups || []).map((g) => ({ _id: g._id, name: g.name })));
+        setHandlers((data.users || []).map((u) => ({ _id: u._id, name: u.name })));
+      })
+      .catch(() => {
+        /* filters still work without option lists */
       });
-      if (res.ok) onUpdate();
+  }, []);
+
+  const load = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [cfg, list] = await Promise.all([
+        fetchIssueConfig(),
+        fetchIssues({
+          scope,
+          status: status || undefined,
+          priorityId: priorityId || undefined,
+          severityId: severityId || undefined,
+          issueTypeId: issueTypeId || undefined,
+          departmentId: departmentId || undefined,
+          teamId: teamId || undefined,
+          handlerId: unassigned ? undefined : handlerId || undefined,
+          unassigned: unassigned ? 'true' : undefined,
+          escalationStatus: escalationStatus || undefined,
+          escalationLevel: escalationLevel || undefined,
+          escalatedTo: escalatedTo || undefined,
+          hasNewReports: hasNewReports ? 'true' : undefined,
+          q: qDebounced || undefined,
+          sort,
+          order,
+          page,
+          limit: PAGE_SIZE,
+        }),
+      ]);
+      setConfig(cfg.config);
+      setIssues(list.issues);
+      setTotal(list.total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load');
     } finally {
       setLoading(false);
     }
   };
 
-  const options = [
-    { value: 'in_progress', label: 'In progress', className: 'border-blue-500/40 bg-blue-500/10 text-blue-300' },
-    { value: 'completed', label: 'Complete', className: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' },
-    { value: 'cancelled', label: 'Cancel', className: 'border-gray-500/40 bg-gray-500/10 text-gray-400' },
-  ].filter((o) => o.value !== currentStatus);
-
-  if (options.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          onClick={() => setStatus(o.value)}
-          disabled={loading}
-          className={`${buttonClass} ${o.className} disabled:opacity-50`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function getReportCount(issue: Issue): number {
-  if (issue.reports && issue.reports.length > 0) return issue.reports.length;
-  return 1;
-}
-
-function IssueCard({
-  issue,
-  canManage,
-  onUpdate,
-}: {
-  issue: Issue;
-  canManage: boolean;
-  onUpdate: () => void;
-}) {
-  const reporter =
-    issue.reporterName ?? issue.reports?.[0]?.reporterName ?? '—';
-  const reportCount = getReportCount(issue);
-
-  return (
-    <div
-      className={`rounded-xl border border-gray-700/60 border-l-2 ${STATUS_ACCENT[issue.status] || 'border-l-gray-500/50'} bg-gray-800/40 px-4 py-4`}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2 mb-1">
-            {canManage ? (
-              <Link
-                href={`/dashboard/issues/${issue._id}`}
-                className="text-sm font-semibold text-blue-300 hover:text-blue-200"
-              >
-                {issue.ticketId}
-              </Link>
-            ) : (
-              <span className="text-sm font-semibold text-gray-200">{issue.ticketId}</span>
-            )}
-            <span
-              className={`px-1.5 py-0.5 text-[10px] font-medium rounded border capitalize ${
-                STATUS_BADGE[issue.status] || STATUS_BADGE.cancelled
-              }`}
-            >
-              {issue.status.replace('_', ' ')}
-            </span>
-            <span className="px-1.5 py-0.5 text-[10px] font-medium rounded border text-gray-400 bg-gray-500/10 border-gray-500/30 tabular-nums">
-              {reportCount} {reportCount === 1 ? 'report' : 'reports'}
-            </span>
-          </div>
-          <p className="text-xs text-gray-300 line-clamp-2">{issue.title}</p>
-        </div>
-        <div className="text-right shrink-0">
-          <p className="text-[10px] text-gray-500 uppercase tracking-wide">Reported</p>
-          <p className="text-xs text-gray-400 tabular-nums">
-            {formatOrgDate(issue.createdAt)}
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
-        <DetailTile
-          label="Asset"
-          value={issue.assetId?.name ?? '—'}
-        />
-        <DetailTile
-          label="Category"
-          value={issue.category?.replace(/_/g, ' ') ?? '—'}
-        />
-        <DetailTile
-          label="Reported by"
-          value={reporter}
-        />
-        <DetailTile
-          label="Assigned to"
-          value={issue.assetId?.assignedTo?.name ?? '—'}
-        />
-        {issue.assetId?.assetId && (
-          <DetailTile label="Asset ID" value={issue.assetId.assetId} />
-        )}
-      </div>
-
-      {canManage && (
-        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-700/40">
-          <StatusButtons issueId={issue._id} currentStatus={issue.status} onUpdate={onUpdate} />
-          <Link
-            href={`/dashboard/issues/${issue._id}`}
-            className={`${buttonClass} border-gray-700/60 bg-gray-800/40 text-gray-400 hover:text-gray-200 ml-auto`}
-          >
-            View details
-          </Link>
-        </div>
-      )}
-    </div>
-  );
-}
-
-type IssueStats = {
-  total: number;
-  open: number;
-  in_progress: number;
-  completed: number;
-  cancelled: number;
-};
-
-export default function IssuesPage() {
-  const [issues, setIssues] = useState<Issue[]>([]);
-  const [total, setTotal] = useState(0);
-  const [stats, setStats] = useState<IssueStats>({
-    total: 0,
-    open: 0,
-    in_progress: 0,
-    completed: 0,
-    cancelled: 0,
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [user, setUser] = useState<{ role: string } | null>(null);
-  const [page, setPage] = useState(1);
-  const [limit] = useState(10);
-
-  const canManage = canWrite('issues');
-
   useEffect(() => {
-    const u = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-    if (u) try { setUser(JSON.parse(u)); } catch (_) {}
-  }, []);
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    scope,
+    status,
+    priorityId,
+    severityId,
+    issueTypeId,
+    departmentId,
+    teamId,
+    handlerId,
+    unassigned,
+    escalationStatus,
+    escalationLevel,
+    escalatedTo,
+    hasNewReports,
+    qDebounced,
+    sort,
+    order,
+    page,
+  ]);
 
-  const fetchStats = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (!token) return;
-
-    const headers = { Authorization: `Bearer ${token}` };
-    const statuses = ['', 'open', 'in_progress', 'completed', 'cancelled'] as const;
-
-    Promise.all(
-      statuses.map((s) => {
-        const q = s ? `?status=${s}&limit=1` : '?limit=1';
-        return fetch(api(`/api/issues${q}`), { headers }).then((r) => r.json());
-      })
-    ).then((results) => {
-      setStats({
-        total: results[0].total || 0,
-        open: results[1].total || 0,
-        in_progress: results[2].total || 0,
-        completed: results[3].total || 0,
-        cancelled: results[4].total || 0,
-      });
-    }).catch(() => {});
-  };
-
-  const fetchIssues = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (!token) {
-      setLoading(false);
-      setError('Not signed in');
-      return;
-    }
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (statusFilter) params.set('status', statusFilter);
-    params.set('page', String(page));
-    params.set('limit', String(limit));
-    const q = `?${params.toString()}`;
-
-    fetch(api(`/api/issues${q}`), {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.issues) {
-          setIssues(data.issues);
-          setTotal(data.total || 0);
-        } else {
-          setError(data.message || 'Failed to load');
-        }
-      })
-      .catch(() => setError('Failed to load issues'))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  useEffect(() => {
-    fetchIssues();
-  }, [statusFilter, page, limit]);
-
+  // Reset to first page when filters/sort change
   useEffect(() => {
     setPage(1);
-  }, [statusFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    scope,
+    status,
+    priorityId,
+    severityId,
+    issueTypeId,
+    departmentId,
+    teamId,
+    handlerId,
+    unassigned,
+    escalationStatus,
+    escalationLevel,
+    escalatedTo,
+    hasNewReports,
+    qDebounced,
+    sort,
+    order,
+  ]);
 
-  const handleUpdate = () => {
-    fetchIssues();
-    fetchStats();
+  const activeFilterCount = useMemo(() => {
+    let n = 0;
+    if (status) n += 1;
+    if (priorityId) n += 1;
+    if (severityId) n += 1;
+    if (issueTypeId) n += 1;
+    if (departmentId) n += 1;
+    if (teamId) n += 1;
+    if (handlerId || unassigned) n += 1;
+    if (escalationStatus) n += 1;
+    if (escalationLevel) n += 1;
+    if (escalatedTo) n += 1;
+    if (hasNewReports) n += 1;
+    if (qDebounced) n += 1;
+    return n;
+  }, [
+    status,
+    priorityId,
+    severityId,
+    issueTypeId,
+    departmentId,
+    teamId,
+    handlerId,
+    unassigned,
+    escalationStatus,
+    escalationLevel,
+    escalatedTo,
+    hasNewReports,
+    qDebounced,
+  ]);
+
+  const clearFilters = () => {
+    setStatus('');
+    setPriorityId('');
+    setSeverityId('');
+    setIssueTypeId('');
+    setDepartmentId('');
+    setTeamId('');
+    setHandlerId('');
+    setUnassigned(false);
+    setEscalationStatus('');
+    setEscalationLevel('');
+    setEscalatedTo('');
+    setHasNewReports(false);
+    setQ('');
+    setQDebounced('');
   };
 
-  const totalPages = Math.ceil(total / limit);
-  const filterLabels: Record<string, string> = {
-    '': 'All',
-    open: 'Open',
-    in_progress: 'In progress',
-    completed: 'Completed',
-    cancelled: 'Cancelled',
+  const toggleSort = (key: SortKey) => {
+    if (sort === key) {
+      setOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSort(key);
+      setOrder(key === 'dueAt' || key === 'title' || key === 'ticketId' ? 'asc' : 'desc');
+    }
   };
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-100">Issues</h1>
-        <p className="text-gray-400 mt-1 text-sm">
-          Maintenance tickets reported via QR or the report form — track status and assignees.
-        </p>
-      </div>
-
-      <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-blue-500/50 bg-gradient-to-r from-blue-950/20 to-gray-800/40 px-4 py-4 mb-4">
-        <p className="text-xs font-semibold text-blue-400/80 uppercase tracking-widest mb-2">Overview</p>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-          <SummaryCard label="Total" value={stats.total} accent="text-blue-300" />
-          <SummaryCard label="Open" value={stats.open} accent="text-amber-300" />
-          <SummaryCard label="In progress" value={stats.in_progress} accent="text-violet-300" />
-          <SummaryCard label="Completed" value={stats.completed} accent="text-emerald-300" />
-          <SummaryCard label="Cancelled" value={stats.cancelled} accent="text-gray-400" />
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-100">Tickets</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Workflow-driven issue tickets for your organization.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/dashboard/issues/employees"
+            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700/60 text-gray-300 hover:bg-gray-800/60 no-underline"
+          >
+            Employees
+          </Link>
+          <Link
+            href="/dashboard/issues/contacts"
+            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700/60 text-gray-300 hover:bg-gray-800/60 no-underline"
+          >
+            Contacts
+          </Link>
+          <Link
+            href="/dashboard/issues/automation"
+            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700/60 text-gray-300 hover:bg-gray-800/60 no-underline"
+          >
+            Automation & Escalations
+          </Link>
+          <Link
+            href="/dashboard/issues/settings"
+            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700/60 text-gray-300 hover:bg-gray-800/60 no-underline"
+          >
+            Configuration
+          </Link>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        {(['', 'open', 'in_progress', 'completed', 'cancelled'] as const).map((s) => (
+      <div className="flex flex-wrap gap-2">
+        {(
+          [
+            { id: 'all', label: 'All Tickets' },
+            { id: 'my', label: 'My Tickets' },
+          ] as const
+        ).map((tab) => (
           <button
-            key={s || 'all'}
+            key={tab.id}
             type="button"
-            onClick={() => setStatusFilter(s)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-              statusFilter === s
-                ? STATUS_FILTER_ACTIVE[s]
-                : 'bg-gray-800/40 text-gray-400 border-gray-700/60 hover:bg-gray-700/60 hover:text-gray-200'
+            onClick={() => setScope(tab.id)}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+              scope === tab.id
+                ? 'bg-blue-500/20 text-blue-200 border-blue-500/40'
+                : 'border-gray-700/60 text-gray-400 hover:text-gray-200'
             }`}
           >
-            {filterLabels[s]}
-            {s === '' ? ` (${stats.total})` : ` (${stats[s as keyof IssueStats]})`}
+            {tab.label}
           </button>
         ))}
       </div>
 
-      {loading && <LoadingSpinner message="Loading issues..." />}
-
-      {error && (
-        <div className="mb-4 p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-400 text-sm">
-          {error}
-        </div>
-      )}
-
-      {!loading && !error && issues.length === 0 && (
-        <div className="rounded-xl border border-gray-700/60 border-l-2 border-l-emerald-500/50 bg-gray-800/40 px-4 py-10 text-center">
-          <p className="text-sm text-gray-300">No issues found</p>
-          <p className="text-xs text-gray-500 mt-1">
-            {statusFilter
-              ? 'Try a different filter or check back later.'
-              : 'When someone reports via QR or the report form, tickets will appear here.'}
-          </p>
-        </div>
-      )}
-
-      {!loading && !error && issues.length > 0 && (
-        <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            {issues.map((issue) => (
-              <IssueCard
-                key={issue._id}
-                issue={issue}
-                canManage={canManage}
-                onUpdate={handleUpdate}
-              />
+      <div className="rounded-xl border border-gray-800/60 bg-gray-900/40 px-3 py-3 space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            className={inputClass}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search ticket, title, reporter…"
+          />
+          <select
+            className={selectClass}
+            value={issueTypeId}
+            onChange={(e) => setIssueTypeId(e.target.value)}
+          >
+            <option value="">All types</option>
+            {(config?.issueTypes || []).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
             ))}
-          </div>
-
-          {total > limit && (
-            <div className="flex flex-wrap items-center justify-between gap-3 mt-4 px-1">
-              <p className="text-xs text-gray-500">
-                Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total}
-              </p>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className={`${buttonClass} border-gray-700/60 bg-gray-800/40 text-gray-400 hover:text-gray-200 disabled:opacity-40`}
-                >
-                  Previous
-                </button>
-                <span className="px-2 text-xs text-gray-500">
-                  Page {page} of {totalPages}
-                </span>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
-                  className={`${buttonClass} border-gray-700/60 bg-gray-800/40 text-gray-400 hover:text-gray-200 disabled:opacity-40`}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+          </select>
+          <select
+            className={selectClass}
+            value={priorityId}
+            onChange={(e) => setPriorityId(e.target.value)}
+          >
+            <option value="">All priorities</option>
+            {(config?.priorities || []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className={selectClass}
+            value={severityId}
+            onChange={(e) => setSeverityId(e.target.value)}
+          >
+            <option value="">All severities</option>
+            {(config?.severities || []).map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className={selectClass}
+            value={departmentId}
+            onChange={(e) => setDepartmentId(e.target.value)}
+          >
+            <option value="">All departments</option>
+            {departments.map((d) => (
+              <option key={d._id} value={d._id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+          <select className={selectClass} value={teamId} onChange={(e) => setTeamId(e.target.value)}>
+            <option value="">All teams</option>
+            {teams.map((t) => (
+              <option key={t._id} value={t._id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className={selectClass}
+            value={unassigned ? '__unassigned__' : handlerId}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === '__unassigned__') {
+                setUnassigned(true);
+                setHandlerId('');
+              } else {
+                setUnassigned(false);
+                setHandlerId(v);
+              }
+            }}
+          >
+            <option value="">All handlers</option>
+            <option value="__unassigned__">Unassigned</option>
+            {handlers.map((h) => (
+              <option key={h._id} value={h._id}>
+                {h.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className={selectClass}
+            value={escalationStatus}
+            onChange={(e) => setEscalationStatus(e.target.value)}
+          >
+            <option value="">All escalation</option>
+            <option value="none">Not escalated</option>
+            <option value="warned">Warned</option>
+            <option value="escalated">Escalated</option>
+            <option value="was_escalated">Was escalated</option>
+          </select>
+          <select
+            className={selectClass}
+            value={escalationLevel}
+            onChange={(e) => setEscalationLevel(e.target.value)}
+          >
+            <option value="">All levels</option>
+            {[1, 2, 3, 4, 5].map((lvl) => (
+              <option key={lvl} value={String(lvl)}>
+                Level {lvl}
+              </option>
+            ))}
+          </select>
+          <select
+            className={selectClass}
+            value={escalatedTo}
+            onChange={(e) => setEscalatedTo(e.target.value)}
+          >
+            <option value="">Escalated to anyone</option>
+            {handlers.map((h) => (
+              <option key={`esc-${h._id}`} value={h._id}>
+                Escalated to {h.name}
+              </option>
+            ))}
+          </select>
+          <label className="flex items-center gap-1.5 text-xs text-gray-400 px-1">
+            <input
+              type="checkbox"
+              checked={hasNewReports}
+              onChange={(e) => setHasNewReports(e.target.checked)}
+            />
+            New reports
+          </label>
+          <select
+            className={selectClass}
+            value={`${sort}:${order}`}
+            onChange={(e) => {
+              const [s, o] = e.target.value.split(':') as [SortKey, 'asc' | 'desc'];
+              setSort(s);
+              setOrder(o);
+            }}
+          >
+            {SORT_OPTIONS.flatMap((opt) => [
+              <option key={`${opt.id}:desc`} value={`${opt.id}:desc`}>
+                Sort: {opt.label} ↓
+              </option>,
+              <option key={`${opt.id}:asc`} value={`${opt.id}:asc`}>
+                Sort: {opt.label} ↑
+              </option>,
+            ])}
+          </select>
+          {activeFilterCount > 0 && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="px-2.5 py-1.5 text-xs rounded-lg border border-gray-700/60 text-gray-400 hover:text-gray-200"
+            >
+              Clear filters ({activeFilterCount})
+            </button>
           )}
-        </>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setStatus('')}
+            className={`px-2.5 py-1 text-xs rounded-lg border ${
+              !status
+                ? 'bg-blue-500/20 text-blue-200 border-blue-500/40'
+                : 'border-gray-700/60 text-gray-400'
+            }`}
+          >
+            All statuses ({total})
+          </button>
+          {(config?.statuses || []).map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              title={s.id}
+              onClick={() => setStatus(s.id === status ? '' : s.id)}
+              className={`px-2.5 py-1 text-xs rounded-lg border ${
+                status === s.id ? 'ring-1 ring-blue-400/40' : ''
+              }`}
+              style={badgeStyle(s.color)}
+            >
+              {s.name || s.id}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <LoadingSpinner message="Loading tickets..." />
+      ) : error ? (
+        <p className="text-sm text-red-400">{error}</p>
+      ) : issues.length === 0 ? (
+        <div className="rounded-xl border border-gray-800/60 bg-gray-900/40 px-4 py-10 text-center text-sm text-gray-500">
+          No tickets match this view.
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-gray-800/60">
+          <table className="min-w-full text-left text-xs">
+            <thead className="bg-gray-900/80 text-[10px]">
+              <tr>
+                <th className="px-3 py-2">
+                  <SortHeader label="Ticket" column="ticketId" sort={sort} order={order} onSort={toggleSort} />
+                </th>
+                <th className="px-3 py-2 font-medium text-gray-500 uppercase tracking-wide">Asset</th>
+                <th className="px-3 py-2">
+                  <SortHeader label="Issue" column="title" sort={sort} order={order} onSort={toggleSort} />
+                </th>
+                <th className="px-3 py-2">
+                  <SortHeader label="Status" column="status" sort={sort} order={order} onSort={toggleSort} />
+                </th>
+                <th className="px-3 py-2">
+                  <SortHeader label="Priority" column="priority" sort={sort} order={order} onSort={toggleSort} />
+                </th>
+                <th className="px-3 py-2 font-medium text-gray-500 uppercase tracking-wide">Dept</th>
+                <th className="px-3 py-2 font-medium text-gray-500 uppercase tracking-wide">Team</th>
+                <th className="px-3 py-2 font-medium text-gray-500 uppercase tracking-wide">Handler</th>
+                <th className="px-3 py-2">
+                  <SortHeader label="Reports" column="reports" sort={sort} order={order} onSort={toggleSort} />
+                </th>
+                <th className="px-3 py-2">
+                  <SortHeader label="SLA" column="dueAt" sort={sort} order={order} onSort={toggleSort} />
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {issues.map((issue) => {
+                const sid = issue.statusId || issue.status;
+                const statusOpt = config?.statuses?.find((s) => s.id === sid);
+                const prio = issue.priorityId || issue.priority || '';
+                const prioOpt = config?.priorities?.find((p) => p.id === prio);
+                const reportCount = issue.reportCount ?? issue.reports?.length ?? 0;
+                const newCount =
+                  issue.newReportCount ??
+                  (issue.reports || []).filter((r) => !r.status || r.status === 'new').length;
+                const reportsLabel =
+                  reportCount === 0
+                    ? '—'
+                    : newCount > 0
+                      ? `${reportCount} (${newCount} new)`
+                      : String(reportCount);
+                return (
+                  <tr key={issue._id} className="border-t border-gray-800/60 hover:bg-gray-900/40">
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <Link
+                        href={`/dashboard/issues/${issue._id}`}
+                        className="font-mono text-gray-300 hover:text-blue-300 no-underline"
+                      >
+                        {issue.ticketId}
+                      </Link>
+                      <p className="text-[10px] text-gray-600 mt-0.5">{formatOrgDate(issue.createdAt)}</p>
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-400 max-w-[9rem] truncate">
+                      {issue.assetId?.assetId || '—'}
+                      {issue.assetId?.name ? (
+                        <span className="block text-[10px] text-gray-600 truncate">{issue.assetId.name}</span>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-200 max-w-[14rem]">
+                      <Link
+                        href={`/dashboard/issues/${issue._id}`}
+                        className="text-gray-100 hover:text-blue-300 no-underline line-clamp-2"
+                      >
+                        {issue.title}
+                      </Link>
+                      {issue.issueTypeId && (
+                        <p className="text-[10px] text-gray-600 mt-0.5 capitalize">
+                          {(config?.issueTypes || []).find((t) => t.id === issue.issueTypeId)?.name ||
+                            issue.issueTypeId}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span
+                          className="px-1.5 py-0.5 text-[10px] rounded border capitalize"
+                          style={badgeStyle(statusOpt?.color)}
+                        >
+                          {statusLabel(config, sid)}
+                        </span>
+                        {issue.escalation?.status === 'escalated' ? (
+                          <span className="px-1.5 py-0.5 text-[10px] rounded border border-rose-700/50 bg-rose-950/40 text-rose-200">
+                            🔴 L{issue.escalation?.level || 1}
+                          </span>
+                        ) : issue.escalation?.status === 'warned' ? (
+                          <span className="px-1.5 py-0.5 text-[10px] rounded border border-amber-700/40 text-amber-200">
+                            SLA warn
+                          </span>
+                        ) : issue.escalation?.status === 'was_escalated' ? (
+                          <span className="px-1.5 py-0.5 text-[10px] rounded border border-gray-600/50 bg-gray-800/50 text-gray-400">
+                            Was escalated
+                          </span>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      {prio ? (
+                        <span
+                          className="px-1.5 py-0.5 text-[10px] rounded border capitalize"
+                          style={badgeStyle(prioOpt?.color)}
+                        >
+                          {prioOpt?.name || prio}
+                        </span>
+                      ) : (
+                        <span className="text-gray-600">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-400 whitespace-nowrap max-w-[8rem] truncate">
+                      {issue.assigneeDepartmentId?.name || '—'}
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-400 whitespace-nowrap max-w-[8rem] truncate">
+                      {issue.assigneeGroupId?.name || '—'}
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-400 whitespace-nowrap max-w-[8rem] truncate">
+                      {(issue.assignedTo || issue.assigneeUserId)?.name || 'Unassigned'}
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-300 whitespace-nowrap">
+                      {reportsLabel}
+                      {newCount > 0 ? <span className="text-amber-300/80"> </span> : null}
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-400 whitespace-nowrap">{issue.slaLabel || '—'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <div className="px-3 py-2 border-t border-gray-800/60 flex flex-wrap items-center justify-between gap-2 text-[11px] text-gray-500">
+            <span>
+              Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="px-2.5 py-1 rounded-lg border border-gray-700/60 text-gray-400 hover:text-gray-200 disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <span className="text-gray-400">
+                Page {page} of {Math.max(1, Math.ceil(total / PAGE_SIZE))}
+              </span>
+              <button
+                type="button"
+                disabled={page >= Math.ceil(total / PAGE_SIZE) || loading || total === 0}
+                onClick={() => setPage((p) => p + 1)}
+                className="px-2.5 py-1 rounded-lg border border-gray-700/60 text-gray-400 hover:text-gray-200 disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

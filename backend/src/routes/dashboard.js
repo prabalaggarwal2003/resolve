@@ -3,6 +3,7 @@ import { Asset, Issue } from '../models/index.js';
 import { protect } from '../middleware/auth.js';
 import { canReportOnly, isLabTechnician, assetFilterForUser, issueFilterForUser, getDepartmentScopeId, resolveScopedAssetIds } from '../services/permissions.js';
 import { getDashboardOverview } from '../services/dashboardOverviewService.js';
+import { OPEN_STATUS_IDS } from '../constants/issueDefaults.js';
 
 const router = express.Router();
 
@@ -31,12 +32,16 @@ router.get('/summary', async (req, res) => {
 
     const [totalAssets, openIssues, inProgressIssues, completedToday, myAssets, myReports, pendingReports, underMaintenance] = await Promise.all([
       Asset.countDocuments(assetFilter),
-      Issue.countDocuments({ ...baseIssueFilter, status: 'open' }),
+      Issue.countDocuments({ ...baseIssueFilter, status: { $in: ['new', 'open', 'triaged', 'assigned'] } }),
       Issue.countDocuments({ ...baseIssueFilter, status: 'in_progress' }),
-      Issue.countDocuments({ ...baseIssueFilter, status: 'completed', resolvedAt: { $gte: todayStart } }),
+      Issue.countDocuments({
+        ...baseIssueFilter,
+        status: { $in: ['resolved', 'completed', 'closed'] },
+        resolvedAt: { $gte: todayStart },
+      }),
       canReportOnly(req.user) ? Asset.countDocuments({ ...assetFilter, assignedTo: userId }) : Asset.countDocuments(assetFilter),
       Issue.countDocuments({ ...baseIssueFilter, $or: [{ reportedBy: userId }, { reporterEmail: userEmail }] }),
-      Issue.countDocuments({ ...baseIssueFilter, status: { $in: ['open', 'in_progress'] } }),
+      Issue.countDocuments({ ...baseIssueFilter, status: { $in: OPEN_STATUS_IDS } }),
       Asset.countDocuments({ ...assetFilter, status: 'under_maintenance' }),
     ]);
 

@@ -21,7 +21,7 @@ const importJobSchema = new mongoose.Schema(
     },
     module: {
       type: String,
-      enum: ['assets', 'businessPartners', 'users', 'locations', 'inventory'],
+      enum: ['assets', 'businessPartners', 'users', 'locations', 'inventory', 'employees'],
       default: 'assets',
       index: true,
     },
@@ -44,6 +44,8 @@ const importJobSchema = new mongoose.Schema(
       enum: ['skip', 'update', 'create_new', 'stop'],
       default: 'skip',
     },
+    /** When true, missing employee IDs are auto-generated on import (org-dept-seq). */
+    autoGenerateEmployeeIds: { type: Boolean, default: false },
     savedMappingId: { type: mongoose.Schema.Types.ObjectId, ref: 'ImportMapping', default: null },
     status: {
       type: String,

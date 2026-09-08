@@ -33,37 +33,65 @@ function buildOtpEmailHtml(code, { title, description }) {
   `;
 }
 
+/**
+ * Send OTP email via Brevo.
+ * In non-production, falls back to console logging if Brevo is missing or fails,
+ * so local/report testing is not blocked.
+ * @returns {{ delivered: boolean, devFallback?: boolean }}
+ */
 async function sendOtpEmailWithContent(email, code, { subject, title, description, textPrefix }) {
-  if (!env.brevoApiKey) {
-    throw new Error('Brevo API key is not configured (BREVO_API_KEY)');
-  }
+  const allowDevFallback = env.nodeEnv !== 'production';
 
-  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-    method: 'POST',
-    headers: {
-      'api-key': env.brevoApiKey,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify({
-      sender: {
-        name: env.brevoFromName,
-        email: env.brevoFromEmail,
+  const sendViaBrevo = async () => {
+    if (!env.brevoApiKey) {
+      const err = new Error('Email service is not configured (BREVO_API_KEY)');
+      err.code = 'BREVO_NOT_CONFIGURED';
+      throw err;
+    }
+
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': env.brevoApiKey,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
       },
-      to: [{ email }],
-      subject,
-      htmlContent: buildOtpEmailHtml(code, { title, description }),
-      textContent: `${textPrefix} ${code}. It expires in 10 minutes.`,
-    }),
-  });
+      body: JSON.stringify({
+        sender: {
+          name: env.brevoFromName,
+          email: env.brevoFromEmail,
+        },
+        to: [{ email }],
+        subject,
+        htmlContent: buildOtpEmailHtml(code, { title, description }),
+        textContent: `${textPrefix} ${code}. It expires in 10 minutes.`,
+      }),
+    });
 
-  if (!response.ok) {
-    const body = await response.text();
-    console.error('[OTP] Brevo API error:', response.status, body);
-    throw new Error('Failed to send verification email');
+    if (!response.ok) {
+      const body = await response.text();
+      console.error('[OTP] Brevo API error:', response.status, body);
+      const err = new Error('Failed to send verification email');
+      err.code = 'BREVO_SEND_FAILED';
+      err.details = body;
+      throw err;
+    }
+
+    console.log(`[OTP] Email sent to ${email}: ${subject}`);
+    return { delivered: true };
+  };
+
+  try {
+    return await sendViaBrevo();
+  } catch (err) {
+    if (allowDevFallback) {
+      console.warn(
+        `[OTP] Email not delivered (${err.message}). Dev fallback — code for ${email}: ${code}`
+      );
+      return { delivered: false, devFallback: true };
+    }
+    throw err;
   }
-
-  console.log(`[OTP] Email sent to ${email}: ${subject}`);
 }
 
 export async function sendOtpEmail(email, code) {
@@ -81,5 +109,14 @@ export async function sendPasswordResetOtpEmail(email, code) {
     title: 'Reset your password',
     description: 'Use this code to reset your Resolve password. It expires in 10 minutes.',
     textPrefix: 'Your Resolve password reset code is',
+  });
+}
+
+export async function sendPublicReportOtpEmail(email, code) {
+  return sendOtpEmailWithContent(email, code, {
+    subject: 'Your Resolve report verification code',
+    title: 'Verify your email to report an issue',
+    description: 'Use this code to verify your email before submitting a report. It expires in 10 minutes.',
+    textPrefix: 'Your Resolve report verification code is',
   });
 }

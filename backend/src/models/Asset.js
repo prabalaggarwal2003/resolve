@@ -23,6 +23,39 @@ const assetSchema = new mongoose.Schema(
     tags: [{ type: String, trim: true }],
     customFields: { type: mongoose.Schema.Types.Mixed, default: {} },
     templateId: { type: mongoose.Schema.Types.ObjectId, ref: 'AssetTemplate' },
+    /**
+     * Per-asset public field overrides (inherit template, then apply).
+     * overrides[key]: { hidden, qrVisible, reportVisible, required, readonly, order, label }
+     * extraFields: additional field defs only on this asset
+     * order: optional key order for all public fields
+     */
+    fieldConfig: {
+      overrides: { type: mongoose.Schema.Types.Mixed, default: {} },
+      extraFields: [
+        {
+          key: { type: String, required: true },
+          label: { type: String, required: true },
+          type: {
+            type: String,
+            enum: ['text', 'number', 'date', 'select', 'textarea', 'checkbox', 'radio', 'status', 'tags', 'location'],
+            default: 'text',
+          },
+          required: { type: Boolean, default: false },
+          order: { type: Number, default: 0 },
+          section: {
+            type: String,
+            enum: ['basic', 'assignment', 'purchase', 'custom'],
+            default: 'custom',
+          },
+          builtIn: { type: Boolean, default: false },
+          qrVisible: { type: Boolean, default: true },
+          reportVisible: { type: Boolean, default: true },
+          readonly: { type: Boolean, default: true },
+          options: [{ type: String }],
+        },
+      ],
+      order: [{ type: String }],
+    },
     groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'AssetGroup' },
     depreciationPolicyId: { type: mongoose.Schema.Types.ObjectId, ref: 'DepreciationPolicy' },
     depreciationRateOverride: { type: Number, min: 0, max: 100 },

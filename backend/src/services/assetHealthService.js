@@ -135,7 +135,7 @@ async function analyzeAssetHealth(assetId) {
 
     const openIssuesCount = await Issue.countDocuments({
       assetId,
-      status: { $in: ['open', 'in_progress'] },
+      status: { $in: ['open', 'new', 'triaged', 'assigned', 'in_progress', 'waiting'] },
     });
 
     const issueMap = { [String(assetId)]: { total: openIssuesCount, open: openIssuesCount } };

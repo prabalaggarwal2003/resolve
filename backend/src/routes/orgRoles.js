@@ -7,6 +7,7 @@ import {
   validatePermissionsPayload,
   compactPermissions,
   hasGrantedPermissions,
+  TICKET_ACTIONS,
 } from '../constants/permissionTabs.js';
 import { logAudit, getRequestMetadata, AUDIT_ACTIONS, AUDIT_RESOURCES } from '../services/auditService.js';
 
@@ -26,7 +27,7 @@ router.get('/', async (req, res) => {
       .sort({ name: 1 })
       .lean();
 
-    res.json({ tabs: PERMISSION_TABS, roles });
+    res.json({ tabs: PERMISSION_TABS, ticketActions: TICKET_ACTIONS, roles });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -68,6 +68,10 @@ const SKIP_FIELDS = new Set([
   'maintenanceStartDate',
   'maintenanceCompletedDate',
   'maintenanceReason',
+  // Public field visibility config — not an asset data change
+  'fieldConfig',
+  'templateId',
+  'groupId',
 ]);
 
 const PRIMARY_PARTNER_SYNC_FIELDS = new Set(['vendorId', 'partnerId', 'relationshipTypeKey']);
