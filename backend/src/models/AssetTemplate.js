@@ -19,6 +19,10 @@ const templateFieldSchema = new mongoose.Schema(
     builtIn: { type: Boolean, default: false },
     /** When parent section is QR-enabled, show this field on the public QR page */
     qrVisible: { type: Boolean, default: true },
+    /** Show this field on the public report page (asset context block) */
+    reportVisible: { type: Boolean, default: true },
+    /** On report page: display-only when true; reporter-editable when false */
+    readonly: { type: Boolean, default: true },
     options: [{ type: String }],
   },
   { _id: false }

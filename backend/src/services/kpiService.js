@@ -78,7 +78,7 @@ async function computeConditionDistribution(orgId, now) {
             $filter: {
               input: '$issues',
               as: 'issue',
-              cond: { $in: ['$$issue.status', ['open', 'in_progress']] },
+              cond: { $in: ['$$issue.status', ['open', 'new', 'triaged', 'assigned', 'in_progress', 'waiting']] },
             },
           },
         },
@@ -87,7 +87,7 @@ async function computeConditionDistribution(orgId, now) {
             $filter: {
               input: '$issues',
               as: 'issue',
-              cond: { $in: ['$$issue.status', ['completed', 'cancelled']] },
+              cond: { $in: ['$$issue.status', ['completed', 'resolved', 'verified', 'closed', 'cancelled']] },
             },
           },
         },

@@ -8,8 +8,10 @@
 import {
   canReadTab,
   canWriteTab,
+  canTicketAction,
   isSuperAdmin,
 } from './permissionResolver.js';
+import { resolveTicketActions } from '../constants/ticketPermissions.js';
 
 const SUPER_ADMIN_ONLY = ['super_admin'];
 const EDIT_ROLES       = ['super_admin', 'admin'];
@@ -75,6 +77,25 @@ export function canRead(user, tab, req = null) {
 
 export function canWrite(user, tab, req = null) {
   return canWriteTabAccess(user, tab, req);
+}
+
+/** Ticket-action permission (assign, resolve, verify, …). */
+export function canPerformTicketAction(user, action, req = null) {
+  if (isSuperAdmin(user)) return true;
+  const permissions = perms(user, req);
+  if (permissions) {
+    return canTicketAction(permissions, action, { isSuperAdmin: false });
+  }
+  // Legacy admin/super_admin without custom role map
+  if (EDIT_ROLES.includes(user?.role)) return true;
+  if (user?.role === 'manager' && action === 'view') return true;
+  return false;
+}
+
+export function getUserTicketActions(user, req = null) {
+  if (isSuperAdmin(user)) return resolveTicketActions({ issues: 'write', ticketActions: null });
+  const permissions = perms(user, req) || {};
+  return resolveTicketActions(permissions);
 }
 
 export function canManageUsers(user, req = null) {
@@ -191,15 +212,37 @@ export function issueFilterForUser(user, assetIds) {
   }
 
   if (isLabTechnician(user) && assetIds?.length) {
-    return { ...base, assetId: { $in: assetIds } };
+    return {
+      ...base,
+      $or: [
+        { assetId: { $in: assetIds } },
+        { assignedTo: user._id },
+        { assigneeUserId: user._id },
+      ],
+    };
   }
 
   const deptScope = getDepartmentScopeId(user);
   if (deptScope) {
     if (assetIds?.length) {
-      return { ...base, assetId: { $in: assetIds } };
+      return {
+        ...base,
+        $or: [
+          { assetId: { $in: assetIds } },
+          { assignedTo: user._id },
+          { assigneeUserId: user._id },
+          { assigneeDepartmentId: deptScope },
+        ],
+      };
     }
-    return { ...base, assetId: { $in: [] } };
+    return {
+      ...base,
+      $or: [
+        { assignedTo: user._id },
+        { assigneeUserId: user._id },
+        { assigneeDepartmentId: deptScope },
+      ],
+    };
   }
 
   return base;

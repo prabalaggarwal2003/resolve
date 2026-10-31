@@ -11,6 +11,11 @@ import AssetTemplateFieldsForm, {
 } from '@/components/AssetTemplateFieldsForm';
 import ChangeReasonModal from '@/components/ChangeReasonModal';
 import { detectImportantChanges, detectProcurementChanges, detectPartnerRelationshipChanges, type ImportantChange } from '@/lib/assetChangeReason';
+import AssetPublicFieldConfigEditor, {
+  emptyFieldConfig,
+  parseFieldConfig,
+  type AssetFieldConfig,
+} from '@/components/AssetPublicFieldConfigEditor';
 import type { AssetTemplate } from '@/lib/assetTemplates';
 import { buildFallbackTemplateFromAsset } from '@/lib/assetFieldDisplay';
 import { breadcrumbForNode, flattenTree, type LocationTreeNode } from '@/lib/locations';
@@ -42,6 +47,7 @@ type AssetRecord = Record<string, unknown> & {
   assetId?: string;
   category?: string;
   templateId?: string | { _id: string };
+  fieldConfig?: unknown;
   photos?: { url: string; caption?: string }[];
   documents?: { url: string; name: string; type?: string }[];
 };
@@ -77,6 +83,8 @@ export default function EditAssetPage() {
   const [documents, setDocuments] = useState<{ url: string; name: string; type?: string }[]>([]);
   const [procurementValues, setProcurementValues] = useState<AssetProcurementValues>(EMPTY_ASSET_PROCUREMENT);
   const [originalProcurementValues, setOriginalProcurementValues] = useState<AssetProcurementValues>(EMPTY_ASSET_PROCUREMENT);
+  const [fieldConfig, setFieldConfig] = useState<AssetFieldConfig>(emptyFieldConfig());
+  const [originalFieldConfig, setOriginalFieldConfig] = useState<AssetFieldConfig>(emptyFieldConfig());
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -114,6 +122,20 @@ export default function EditAssetPage() {
         });
         setFieldValues(assetToFieldValues(record, matched));
         setOriginalFieldValues(assetToFieldValues(record, matched));
+        // Prefill asset-only field values from customFields
+        const cfg = parseFieldConfig(record.fieldConfig);
+        const custom = (record.customFields as Record<string, unknown>) || {};
+        if (cfg.extraFields.length) {
+          setFieldValues((prev) => {
+            const next = { ...prev };
+            for (const f of cfg.extraFields) {
+              if (custom[f.key] != null) next[f.key] = String(custom[f.key]);
+            }
+            return next;
+          });
+        }
+        setFieldConfig(cfg);
+        setOriginalFieldConfig(cfg);
         const initialRels = partnerRelationshipsFromAsset(record);
         setPartnerRelationships(initialRels);
         setOriginalPartnerRelationships(initialRels.map((r) => ({ ...r })));
@@ -168,8 +190,19 @@ export default function EditAssetPage() {
         partnerRelationships: serializePartnerRelationships(partnerRelationships),
         photos,
         documents,
+        fieldConfig,
         ...(reason ? { changeReason: reason } : {}),
       };
+      // Persist asset-only public field values into customFields
+      const customFields = {
+        ...((payload.customFields as Record<string, unknown>) || {}),
+      };
+      for (const f of fieldConfig.extraFields || []) {
+        const raw = fieldValues[f.key];
+        if (raw === undefined || raw === '') continue;
+        customFields[f.key] = f.type === 'number' ? Number(raw) : raw;
+      }
+      payload.customFields = customFields;
       // Multi editor owns partner fields — avoid legacy single-field overwrite
       delete payload.vendorId;
       delete payload.partnerId;
@@ -180,7 +213,24 @@ export default function EditAssetPage() {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Update failed');
+      if (!res.ok) {
+        const important = Array.isArray(data.importantChanges) ? data.importantChanges : [];
+        if (res.status === 400 && important.length > 0) {
+          setPendingChanges(
+            important.map((c: { field?: string; label?: string; oldValue?: string; newValue?: string }) => ({
+              field: String(c.field || ''),
+              label: String(c.label || c.field || 'Field'),
+              oldValue: String(c.oldValue ?? '—'),
+              newValue: String(c.newValue ?? '—'),
+            }))
+          );
+          setChangeReason('');
+          setShowReasonModal(true);
+          setError('');
+          return;
+        }
+        throw new Error(data.message || 'Update failed');
+      }
       router.push(`/dashboard/assets/${params.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Update failed');
@@ -220,6 +270,22 @@ export default function EditAssetPage() {
         oldValue: resolveFieldDisplay(c.field, originalFieldValues[c.field]),
         newValue: resolveFieldDisplay(c.field, fieldValues[c.field]),
       }));
+
+    // Asset-only public fields (extraFields) live in fieldValues but not template.fields
+    const extraKeys = new Set((fieldConfig.extraFields || []).map((f) => f.key));
+    for (const key of extraKeys) {
+      const oldVal = originalFieldValues[key];
+      const newVal = fieldValues[key];
+      if (String(oldVal ?? '').trim() === String(newVal ?? '').trim()) continue;
+      const label = fieldConfig.extraFields.find((f) => f.key === key)?.label || key;
+      fieldChanges.push({
+        field: key,
+        label,
+        oldValue: resolveFieldDisplay(key, oldVal),
+        newValue: resolveFieldDisplay(key, newVal),
+      });
+    }
+
     const procurementChanges = detectProcurementChanges(
       originalProcurementValues as unknown as Record<string, string>,
       procurementValues as unknown as Record<string, string>
@@ -230,7 +296,16 @@ export default function EditAssetPage() {
       vendors,
       relationshipTypes
     );
+
+    const fieldConfigChanged =
+      JSON.stringify(originalFieldConfig) !== JSON.stringify(fieldConfig);
+
     const allChanges = [...fieldChanges, ...procurementChanges, ...partnerChanges];
+    if (fieldConfigChanged && allChanges.length === 0) {
+      // QR/report visibility-only — no change reason needed
+      await saveAsset();
+      return;
+    }
     if (allChanges.length > 0) {
       setPendingChanges(allChanges);
       setChangeReason('');
@@ -321,6 +396,38 @@ export default function EditAssetPage() {
             relationshipTypes={relationshipTypes}
             hideFieldKeys={['vendorId', 'relationshipTypeKey']}
           />
+        )}
+
+        {template && (
+          <div className="mb-4">
+            <AssetPublicFieldConfigEditor
+              templateFields={template.fields || []}
+              value={fieldConfig}
+              onChange={setFieldConfig}
+            />
+            {(fieldConfig.extraFields || []).length > 0 && (
+              <div className="mt-3 rounded-xl border border-gray-700/60 bg-gray-800/40 px-4 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2">
+                  Asset-only field values
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {fieldConfig.extraFields.map((f) => (
+                    <div key={f.key}>
+                      <label className={labelClass}>{f.label}</label>
+                      <input
+                        className={inputClass}
+                        value={String(fieldValues[f.key] ?? '')}
+                        onChange={(e) =>
+                          setFieldValues((prev) => ({ ...prev, [f.key]: e.target.value }))
+                        }
+                        placeholder={f.label}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         <AssetPartnerRelationshipsEditor

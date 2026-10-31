@@ -373,6 +373,11 @@ router.patch('/:id', requireCanEdit, async (req, res) => {
       update.relationshipTypeKey = String(update.relationshipTypeKey || '').trim();
     }
 
+    if (update.fieldConfig !== undefined) {
+      const { normalizeFieldConfig } = await import('../services/assetPublicFieldService.js');
+      update.fieldConfig = normalizeFieldConfig(update.fieldConfig);
+    }
+
     // Assignment (name + employee code) — optional; may be cleared
     if (update.assignedToName !== undefined) {
       update.assignedToName = String(update.assignedToName).trim() || null;

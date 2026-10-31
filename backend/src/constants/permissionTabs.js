@@ -1,3 +1,9 @@
+import {
+  sanitizeTicketActions,
+  validateTicketActionsPayload,
+  fullTicketActions,
+} from './ticketPermissions.js';
+
 /** Nav tabs that super admins can grant per custom role. */
 export const PERMISSION_TABS = [
   { key: 'dashboard', label: 'Dashboard', path: '/dashboard', section: 'Core', mode: 'empty' },
@@ -26,12 +32,20 @@ export const TAB_MODES = Object.fromEntries(PERMISSION_TABS.map((t) => [t.key, t
 
 export const PERMISSION_LEVELS = ['read', 'write'];
 
+export {
+  TICKET_ACTIONS,
+  TICKET_ACTION_KEYS,
+  resolveTicketActions,
+} from './ticketPermissions.js';
+
 export function emptyPermissions() {
   return Object.fromEntries(PERMISSION_TAB_KEYS.map((k) => [k, null]));
 }
 
 export function fullWritePermissions() {
-  return Object.fromEntries(PERMISSION_TAB_KEYS.map((k) => [k, 'write']));
+  const out = Object.fromEntries(PERMISSION_TAB_KEYS.map((k) => [k, 'write']));
+  out.ticketActions = fullTicketActions();
+  return out;
 }
 
 /** Legacy predefined roles until users are migrated to custom roles. */
@@ -75,35 +89,46 @@ export function sanitizePermissions(input) {
   const out = emptyPermissions();
   if (!input || typeof input !== 'object') return out;
   const bridged = { ...input };
-  // Legacy vendors → businessPartners
   if (bridged.vendors && !bridged.businessPartners) {
     bridged.businessPartners = bridged.vendors;
   }
   for (const key of PERMISSION_TAB_KEYS) {
-    let level = bridged[key];
+    const level = bridged[key];
     if (level !== 'read' && level !== 'write') continue;
     const mode = TAB_MODES[key];
-    if (mode === 'visibleOnly' || mode === 'empty') {
-      out[key] = 'read';
-    } else if (mode === 'readOnly') {
+    if (mode === 'visibleOnly' || mode === 'empty' || mode === 'readOnly') {
       out[key] = 'read';
     } else {
       out[key] = level;
     }
+  }
+  if (bridged.ticketActions != null) {
+    out.ticketActions = sanitizeTicketActions(bridged.ticketActions);
   }
   return out;
 }
 
 export function compactPermissions(input) {
   const full = sanitizePermissions(input);
-  return Object.fromEntries(
-    Object.entries(full).filter(([, level]) => level === 'read' || level === 'write')
+  const out = Object.fromEntries(
+    Object.entries(full).filter(([key, level]) => {
+      if (key === 'ticketActions') return false;
+      return level === 'read' || level === 'write';
+    })
   );
+  if (full.ticketActions) {
+    out.ticketActions = full.ticketActions;
+  } else if (input?.ticketActions) {
+    out.ticketActions = sanitizeTicketActions(input.ticketActions);
+  }
+  return out;
 }
 
 export function hasGrantedPermissions(permissions) {
   if (!permissions || typeof permissions !== 'object') return false;
-  return Object.values(permissions).some((level) => level === 'read' || level === 'write');
+  return Object.entries(permissions).some(
+    ([key, level]) => key !== 'ticketActions' && (level === 'read' || level === 'write')
+  );
 }
 
 export function validatePermissionsPayload(input) {
@@ -111,7 +136,9 @@ export function validatePermissionsPayload(input) {
     return { ok: false, message: 'Permissions object is required' };
   }
   for (const [key, level] of Object.entries(input)) {
-    if (key === 'vendors') continue; // legacy alias, bridged in sanitizePermissions
+    // Legacy aliases / always-on tabs — ignore, do not store
+    if (key === 'vendors' || key === 'profile') continue;
+    if (key === 'ticketActions') continue;
     if (!PERMISSION_TAB_KEYS.includes(key)) {
       return { ok: false, message: `Unknown permission tab: ${key}` };
     }
@@ -122,6 +149,10 @@ export function validatePermissionsPayload(input) {
     if (level === 'write' && (mode === 'visibleOnly' || mode === 'empty' || mode === 'readOnly')) {
       return { ok: false, message: `${key} does not support write permission` };
     }
+  }
+  if (Object.prototype.hasOwnProperty.call(input, 'ticketActions')) {
+    const ta = validateTicketActionsPayload(input.ticketActions);
+    if (!ta.ok) return ta;
   }
   return { ok: true, permissions: sanitizePermissions(input) };
 }

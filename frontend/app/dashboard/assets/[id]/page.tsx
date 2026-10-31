@@ -99,9 +99,16 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 const ISSUE_STATUS_BADGE: Record<string, string> = {
+  new: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
   open: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
+  triaged: 'text-violet-300 bg-violet-500/15 border-violet-500/30',
+  assigned: 'text-sky-300 bg-sky-500/15 border-sky-500/30',
   in_progress: 'text-blue-300 bg-blue-500/15 border-blue-500/30',
+  waiting: 'text-orange-300 bg-orange-500/15 border-orange-500/30',
+  resolved: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
+  verified: 'text-teal-300 bg-teal-500/15 border-teal-500/30',
   completed: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
+  closed: 'text-gray-400 bg-gray-500/15 border-gray-500/30',
   cancelled: 'text-gray-400 bg-gray-500/15 border-gray-500/30',
 };
 
@@ -345,7 +352,14 @@ export default function AssetDetailPage() {
   const maintTotalPages = Math.ceil(filteredMaint.length / PER_PAGE);
   const paginatedMaint = filteredMaint.slice((maintPage - 1) * PER_PAGE, maintPage * PER_PAGE);
 
-  const filteredIssues = issuesFilter === 'all' ? issues : issues.filter((i) => i.status === issuesFilter);
+  const filteredIssues =
+    issuesFilter === 'all'
+      ? issues
+      : issuesFilter === 'new'
+        ? issues.filter((i) => i.status === 'new' || i.status === 'open')
+        : issuesFilter === 'resolved'
+          ? issues.filter((i) => i.status === 'resolved' || i.status === 'completed')
+          : issues.filter((i) => i.status === issuesFilter);
   const issuesTotalPages = Math.ceil(filteredIssues.length / PER_PAGE);
   const paginatedIssues = filteredIssues.slice((issuesPage - 1) * PER_PAGE, issuesPage * PER_PAGE);
   const noteEntries = timeline.filter((e) => e.type === 'note');
@@ -730,9 +744,11 @@ export default function AssetDetailPage() {
               className={selectClass}
             >
               <option value="all">All</option>
-              <option value="open">Open</option>
+              <option value="new">New</option>
               <option value="in_progress">In progress</option>
-              <option value="completed">Done</option>
+              <option value="waiting">Waiting</option>
+              <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
               <option value="cancelled">Cancelled</option>
             </select>
           ) : undefined

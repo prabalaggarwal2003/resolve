@@ -91,6 +91,14 @@ export function normalizeTemplateFields(fields) {
         builtIn,
         // Default true so existing templates keep showing fields on QR until configured
         qrVisible: field.qrVisible !== false,
+        // Default: follow qrVisible when unset so report mirrors QR until configured
+        reportVisible:
+          field.reportVisible === false
+            ? false
+            : field.reportVisible === true
+              ? true
+              : field.qrVisible !== false,
+        readonly: field.readonly !== false,
         options: Array.isArray(field.options) ? field.options.map(String) : [],
       };
     })
@@ -181,13 +189,18 @@ export function validateTemplatePayload(body) {
  */
 export function getQrVisibilityFromTemplate(template) {
   const qrSections = normalizeQrSections(template?.qrSections);
-  const fields = (template?.fields || []).map((f) => ({
+  const fields = normalizeTemplateFields(template?.fields || []).map((f) => ({
     key: f.key,
     label: f.label,
     type: f.type,
     section: f.section || 'basic',
     builtIn: Boolean(f.builtIn),
+    required: Boolean(f.required),
+    order: f.order,
     qrVisible: f.qrVisible !== false,
+    reportVisible: f.reportVisible !== false,
+    readonly: f.readonly !== false,
+    options: f.options || [],
   }));
 
   const visibleFields = fields.filter(

@@ -88,7 +88,7 @@ async function buildAssetContext(organizationId) {
       .select('assignedTo assignedToName status cost maintenanceHistory warrantyExpiry amcExpiry nextMaintenanceDate updatedAt departmentId locationId category')
       .lean(),
     Issue.aggregate([
-      { $match: { organizationId: orgId, status: { $in: ['open', 'in_progress'] }, severity: 'critical' } },
+      { $match: { organizationId: orgId, status: { $in: ['open', 'new', 'triaged', 'assigned', 'in_progress', 'waiting'] }, severity: 'critical' } },
       { $group: { _id: '$assetId', count: { $sum: 1 } } },
     ]),
     AssetLog.aggregate([

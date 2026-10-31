@@ -6,6 +6,7 @@ import {
   fullWritePermissions,
   emptyPermissions,
 } from '../constants/permissionTabs.js';
+import { resolveTicketActions, sanitizeTicketActions } from '../constants/ticketPermissions.js';
 
 export function isSuperAdmin(user) {
   return user?.role === 'super_admin';
@@ -36,7 +37,6 @@ function normalizePermissions(raw) {
   } else if (typeof raw === 'object' && raw !== null && typeof raw.toObject === 'function') {
     source = raw.toObject();
   }
-  // Roles saved before the rename still carry the legacy `vendors` grant.
   if (source.vendors && !source.businessPartners) {
     source = { ...source, businessPartners: source.vendors };
   }
@@ -44,11 +44,17 @@ function normalizePermissions(raw) {
     const level = source[key];
     if (level === 'read' || level === 'write') out[key] = level;
   }
+  if (source.ticketActions != null) {
+    out.ticketActions = sanitizeTicketActions(source.ticketActions);
+  }
+  out.ticketActions = resolveTicketActions({ ...out, ticketActions: out.ticketActions || source.ticketActions });
   return out;
 }
 
 function hasGrantedPermissions(permissions) {
-  return Object.values(permissions).some((level) => level === 'read' || level === 'write');
+  return Object.entries(permissions || {}).some(
+    ([key, level]) => key !== 'ticketActions' && (level === 'read' || level === 'write')
+  );
 }
 
 async function loadOrgRolePermissions(user) {
@@ -88,4 +94,10 @@ export async function resolveUserPermissions(user) {
 export async function attachPermissions(userDoc) {
   const permissions = await resolveUserPermissions(userDoc);
   return { permissions, isSuperAdmin: isSuperAdmin(userDoc) };
+}
+
+export function canTicketAction(permissions, action, { isSuperAdmin: sa = false } = {}) {
+  if (sa) return true;
+  const actions = resolveTicketActions(permissions || {});
+  return Boolean(actions[action]);
 }

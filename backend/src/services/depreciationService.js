@@ -377,7 +377,7 @@ async function fetchIssueCountsByAsset(assetIds) {
         _id: '$assetId',
         issueCount: { $sum: 1 },
         openIssueCount: {
-          $sum: { $cond: [{ $in: ['$status', ['open', 'in_progress']] }, 1, 0] },
+          $sum: { $cond: [{ $in: ['$status', ['open', 'new', 'triaged', 'assigned', 'in_progress', 'waiting']] }, 1, 0] },
         },
       },
     },

@@ -168,9 +168,13 @@ export async function getDashboardOverview(user) {
     assetLogs,
   ] = await Promise.all([
     Asset.countDocuments(assetFilter),
-    Issue.countDocuments({ ...issueFilter, status: 'open' }),
+    Issue.countDocuments({ ...issueFilter, status: { $in: ['new', 'open', 'triaged', 'assigned'] } }),
     Issue.countDocuments({ ...issueFilter, status: 'in_progress' }),
-    Issue.countDocuments({ ...issueFilter, status: 'completed', resolvedAt: { $gte: todayStart } }),
+    Issue.countDocuments({
+      ...issueFilter,
+      status: { $in: ['resolved', 'completed', 'closed'] },
+      resolvedAt: { $gte: todayStart },
+    }),
     Asset.countDocuments({ ...assetFilter, status: 'under_maintenance' }),
     Asset.countDocuments({
       ...assetFilter,
@@ -196,7 +200,7 @@ export async function getDashboardOverview(user) {
       {
         $match: {
           ...issueFilter,
-          status: 'completed',
+          status: { $in: ['resolved', 'completed', 'closed'] },
           resolvedAt: { $gte: thirtyDaysAgo, $ne: null },
         },
       },

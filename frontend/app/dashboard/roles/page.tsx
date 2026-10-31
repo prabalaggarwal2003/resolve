@@ -6,11 +6,17 @@ import {
 	PERMISSION_TABS,
 	TAB_MODES,
 	emptyPermissions,
+	normalizeRolePermissions,
 	canManageUsers,
 	canRead,
 	type PermissionLevel,
 	type PermissionsMap,
 	type PermissionTabMode,
+	TICKET_ACTIONS,
+	emptyTicketActions,
+	fullTicketActions,
+	resolveTicketActions,
+	type TicketActionsMap,
 } from '@/lib/permissions';
 import { formatOrgAddressLabel } from '@/lib/orgProfile';
 
@@ -89,10 +95,15 @@ function PermissionMatrix({
 		const mode = TAB_MODES[key as keyof typeof TAB_MODES] as PermissionTabMode;
 		if (!enabled) {
 			next[key] = null;
+			if (key === 'issues') next.ticketActions = emptyTicketActions();
 		} else if (mode === 'readOnly' || mode === 'visibleOnly' || mode === 'empty') {
 			next[key] = 'read';
 		} else {
 			next[key] = next[key] === 'write' ? 'write' : 'read';
+			if (key === 'issues') {
+				next.ticketActions =
+					next[key] === 'write' ? fullTicketActions() : { ...emptyTicketActions(), view: true };
+			}
 		}
 		onChange(next);
 	};
@@ -102,7 +113,18 @@ function PermissionMatrix({
 		if (mode === 'readOnly' || mode === 'visibleOnly' || mode === 'empty') return;
 		const next = { ...value };
 		next[key] = level;
+		if (key === 'issues') {
+			next.ticketActions =
+				level === 'write' ? fullTicketActions() : { ...emptyTicketActions(), view: true };
+		}
 		onChange(next);
+	};
+
+	const setTicketAction = (actionKey: string, enabled: boolean) => {
+		const current = resolveTicketActions(value);
+		const nextActions: TicketActionsMap = { ...current, [actionKey]: enabled };
+		if (actionKey !== 'view') nextActions.view = true;
+		onChange({ ...value, issues: 'write', ticketActions: nextActions });
 	};
 
 	const modeHint = (mode: PermissionTabMode) => {
@@ -111,6 +133,8 @@ function PermissionMatrix({
 		if (mode === 'readOnly') return 'View subscription details only';
 		return null;
 	};
+
+	const ticketActions = resolveTicketActions(value);
 
 	return (
 		<div className="space-y-4">
@@ -125,49 +149,81 @@ function PermissionMatrix({
 							const hint = modeHint(mode);
 							const showReadWrite = enabled && mode === 'readWrite';
 							return (
-								<div
-									key={tab.key}
-									className="rounded-lg border border-gray-700/50 bg-gray-900/30 px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
-								>
-									<label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
-										<input
-											type="checkbox"
-											checked={enabled}
-											disabled={disabled}
-											onChange={(e) => setAccess(tab.key, e.target.checked)}
-											className="rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500/40"
-										/>
-										<span>
-											{tab.label}
-											{hint && (
-												<span className="block text-[10px] text-gray-500 font-normal">{hint}</span>
-											)}
-										</span>
-									</label>
-									{showReadWrite && (
-										<div className="flex items-center gap-3 pl-6 sm:pl-0">
-											<label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
-												<input
-													type="radio"
-													name={`${tab.key}-level`}
-													checked={level === 'read'}
-													disabled={disabled}
-													onChange={() => setLevel(tab.key, 'read')}
-													className="border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500/40"
-												/>
-												Read only
-											</label>
-											<label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
-												<input
-													type="radio"
-													name={`${tab.key}-level`}
-													checked={level === 'write'}
-													disabled={disabled}
-													onChange={() => setLevel(tab.key, 'write')}
-													className="border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500/40"
-												/>
-												Read & write
-											</label>
+								<div key={tab.key} className="space-y-2">
+									<div className="rounded-lg border border-gray-700/50 bg-gray-900/30 px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+										<label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+											<input
+												type="checkbox"
+												checked={enabled}
+												disabled={disabled}
+												onChange={(e) => setAccess(tab.key, e.target.checked)}
+												className="rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500/40"
+											/>
+											<span>
+												{tab.label}
+												{hint && (
+													<span className="block text-[10px] text-gray-500 font-normal">{hint}</span>
+												)}
+											</span>
+										</label>
+										{showReadWrite && (
+											<div className="flex items-center gap-3 pl-6 sm:pl-0">
+												<label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
+													<input
+														type="radio"
+														name={`${tab.key}-level`}
+														checked={level === 'read'}
+														disabled={disabled}
+														onChange={() => setLevel(tab.key, 'read')}
+														className="border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500/40"
+													/>
+													Read only
+												</label>
+												<label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
+													<input
+														type="radio"
+														name={`${tab.key}-level`}
+														checked={level === 'write'}
+														disabled={disabled}
+														onChange={() => setLevel(tab.key, 'write')}
+														className="border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500/40"
+													/>
+													Read & write
+												</label>
+											</div>
+										)}
+									</div>
+									{tab.key === 'issues' && enabled && level === 'write' && (
+										<div className="ml-4 sm:ml-6 rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 space-y-2">
+											<p className="text-[10px] font-semibold uppercase tracking-widest text-blue-300/80">
+												Ticket permissions
+											</p>
+											<p className="text-[11px] text-gray-500">
+												Users can perform ticket actions. Contacts are related people only — they do not get these permissions.
+											</p>
+											<div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+												{TICKET_ACTIONS.map((action) => (
+													<label
+														key={action.key}
+														className="flex items-start gap-2 text-xs text-gray-300 cursor-pointer"
+														title={action.description}
+													>
+														<input
+															type="checkbox"
+															checked={Boolean(ticketActions[action.key])}
+															disabled={disabled || action.key === 'view'}
+															onChange={(e) => setTicketAction(action.key, e.target.checked)}
+															className="mt-0.5 rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500/40"
+														/>
+														<span>
+															{action.label}
+															<span className="block text-[10px] text-gray-600 font-normal">
+																{action.description}
+															</span>
+														</span>
+													</label>
+												))}
+											</div>
 										</div>
 									)}
 								</div>
@@ -253,7 +309,7 @@ export default function RolesPage() {
 			const body = {
 				name: roleForm.name.trim(),
 				description: roleForm.description.trim(),
-				permissions: roleForm.permissions,
+				permissions: normalizeRolePermissions(roleForm.permissions),
 			};
 			const url = editingRole ? api(`/api/org-roles/${editingRole._id}`) : api('/api/org-roles');
 			const res = await fetch(url, {
@@ -381,7 +437,7 @@ export default function RolesPage() {
 		setRoleForm({
 			name: role.name,
 			description: role.description || '',
-			permissions: { ...emptyPermissions(), ...role.permissions },
+			permissions: normalizeRolePermissions(role.permissions),
 		});
 		setShowRoleForm(true);
 		setError('');
